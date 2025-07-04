@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
  */
 public class BlockDataStreamOutputEntryPool implements KeyMetadataAware {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(BlockDataStreamOutputEntryPool.class);
 
   private final List<BlockDataStreamOutputEntry> streamEntries;
@@ -220,7 +220,6 @@ public class BlockDataStreamOutputEntryPool implements KeyMetadataAware {
     return streamEntries.stream().mapToLong(
         BlockDataStreamOutputEntry::getCurrentPosition).sum();
   }
-
   /**
    * Contact OM to get a new block. Set the new block with the index (e.g.
    * first block has index = 0, second has index = 1 etc.)
@@ -237,6 +236,7 @@ public class BlockDataStreamOutputEntryPool implements KeyMetadataAware {
         omClient.allocateBlock(keyArgs, openID, excludeList);
     addKeyLocationInfo(subKeyInfo);
   }
+
 
   void commitKey(long offset) throws IOException {
     if (keyArgs != null) {

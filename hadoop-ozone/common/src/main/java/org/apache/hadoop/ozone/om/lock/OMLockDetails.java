@@ -40,6 +40,7 @@ public class OMLockDetails {
     this.lockAcquired = lockAcquired;
   }
 
+
   enum LockOpType {
     WAIT,
     READ,

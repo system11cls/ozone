@@ -52,6 +52,7 @@ public class TestDirstreamClientHandler {
 
   }
 
+
   @Test
   public void splitAtHeader() throws IOException {
 
@@ -84,6 +85,7 @@ public class TestDirstreamClientHandler {
 
   }
 
+
   @Test
   public void splitSecondHeader() throws IOException {
 
@@ -98,6 +100,7 @@ public class TestDirstreamClientHandler {
     assertEquals("yyy", getContent("bsd.txt"));
     assertTrue(handler.isAtTheEnd());
   }
+
 
   @Test
   public void splitContent() throws IOException {

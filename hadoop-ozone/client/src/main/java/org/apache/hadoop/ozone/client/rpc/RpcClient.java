@@ -23,7 +23,6 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_KEY_PROVIDER_
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_REQUIRED_OM_VERSION_MIN_KEY;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_SERVER_DEFAULTS_VALIDITY_PERIOD_MS;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_SERVER_DEFAULTS_VALIDITY_PERIOD_MS_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConsts.ETAG;
 import static org.apache.hadoop.ozone.OzoneConsts.MAXIMUM_NUMBER_OF_PARTS_PER_UPLOAD;
 import static org.apache.hadoop.ozone.OzoneConsts.OLD_QUOTA_DEFAULT;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_MAXIMUM_ACCESS_ID_LENGTH;
@@ -82,6 +81,7 @@ import org.apache.hadoop.hdds.scm.XceiverClientManager;
 import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.storage.ByteBufferStreamOutput;
 import org.apache.hadoop.hdds.scm.storage.MultipartInputStream;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CACertificateProvider;
@@ -105,6 +105,7 @@ import org.apache.hadoop.ozone.client.OzoneMultipartUpload;
 import org.apache.hadoop.ozone.client.OzoneMultipartUploadList;
 import org.apache.hadoop.ozone.client.OzoneMultipartUploadPartListParts;
 import org.apache.hadoop.ozone.client.OzoneSnapshot;
+import org.apache.hadoop.ozone.client.OzoneSnapshotDiff;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.TenantArgs;
 import org.apache.hadoop.ozone.client.VolumeArgs;
@@ -122,7 +123,7 @@ import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
-import org.apache.hadoop.ozone.om.OmConfig;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BasicOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
@@ -170,7 +171,6 @@ import org.apache.hadoop.ozone.security.GDPRSymmetricKey;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.ozone.snapshot.CancelSnapshotDiffResponse;
-import org.apache.hadoop.ozone.snapshot.ListSnapshotDiffJobResponse;
 import org.apache.hadoop.ozone.snapshot.ListSnapshotResponse;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -294,8 +294,9 @@ public class RpcClient implements ClientProtocol {
     topologyAwareReadEnabled = conf.getBoolean(
         OzoneConfigKeys.OZONE_NETWORK_TOPOLOGY_AWARE_READ_KEY,
         OzoneConfigKeys.OZONE_NETWORK_TOPOLOGY_AWARE_READ_DEFAULT);
-    checkKeyNameEnabled = conf.getObject(OmConfig.class)
-        .isKeyNameCharacterCheckEnabled();
+    checkKeyNameEnabled = conf.getBoolean(
+        OMConfigKeys.OZONE_OM_KEYNAME_CHARACTER_CHECK_ENABLED_KEY,
+        OMConfigKeys.OZONE_OM_KEYNAME_CHARACTER_CHECK_ENABLED_DEFAULT);
     getLatestVersionLocation = conf.getBoolean(
         OzoneConfigKeys.OZONE_CLIENT_KEY_LATEST_VERSION_LOCATION,
         OzoneConfigKeys.OZONE_CLIENT_KEY_LATEST_VERSION_LOCATION_DEFAULT);
@@ -1026,7 +1027,6 @@ public class RpcClient implements ClientProtocol {
    * @return message which tells the image name, parent dir and OM leader
    * node information.
    */
-  @Deprecated
   @Override
   public String printCompactionLogDag(String fileNamePrefix,
                                       String graphType) throws IOException {
@@ -1071,19 +1071,20 @@ public class RpcClient implements ClientProtocol {
   }
 
   @Override
-  public ListSnapshotDiffJobResponse listSnapshotDiffJobs(
-      String volumeName,
-      String bucketName,
-      String jobStatus,
-      boolean listAllStatus,
-      String prevSnapshotDiffJob,
-      int maxListResult) throws IOException {
+  public List<OzoneSnapshotDiff> listSnapshotDiffJobs(String volumeName,
+                                                    String bucketName,
+                                                    String jobStatus,
+                                                    boolean listAll)
+      throws IOException {
     Preconditions.checkArgument(StringUtils.isNotBlank(volumeName),
         "volume can't be null or empty.");
     Preconditions.checkArgument(StringUtils.isNotBlank(bucketName),
         "bucket can't be null or empty.");
-    return ozoneManagerClient.listSnapshotDiffJobs(volumeName, bucketName, jobStatus, listAllStatus,
-        prevSnapshotDiffJob, maxListResult);
+
+    return ozoneManagerClient.listSnapshotDiffJobs(
+        volumeName, bucketName, jobStatus, listAll).stream()
+        .map(OzoneSnapshotDiff::fromSnapshotDiffJob)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -1577,7 +1578,11 @@ public class RpcClient implements ClientProtocol {
       List<DatanodeDetails> datanodes = pipelineBefore.getNodes();
 
       for (DatanodeDetails dn : datanodes) {
-        Pipeline pipeline = pipelineBefore.copyForReadFromNode(dn);
+        List<DatanodeDetails> nodes = new ArrayList<>();
+        nodes.add(dn);
+        Pipeline pipeline
+            = new Pipeline.Builder(pipelineBefore).setNodes(nodes)
+            .setId(PipelineID.randomId()).build();
         long length = replicationConfig instanceof ECReplicationConfig
                 ? ECBlockInputStream.internalBlockLength(pipelineBefore.getReplicaIndex(dn),
                 (ECReplicationConfig) replicationConfig, locationInfo.getLength())
@@ -1700,6 +1705,7 @@ public class RpcClient implements ClientProtocol {
     ozoneManagerClient.renameKeys(omRenameKeys);
   }
 
+
   @Override
   public List<OzoneKey> listKeys(String volumeName, String bucketName,
                                  String keyPrefix, String prevKey,
@@ -1718,10 +1724,8 @@ public class RpcClient implements ClientProtocol {
               key.getCreationTime(),
               key.getModificationTime(),
               key.getReplicationConfig(),
-              Collections.singletonMap(ETAG, key.getETag()),
               key.isFile(),
-              key.getOwnerName(),
-              Collections.emptyMap()))
+              key.getOwnerName()))
           .collect(Collectors.toList());
     } else {
       List<OmKeyInfo> keys = ozoneManagerClient.listKeys(
@@ -1733,10 +1737,8 @@ public class RpcClient implements ClientProtocol {
               key.getCreationTime(),
               key.getModificationTime(),
               key.getReplicationConfig(),
-              key.getMetadata(),
               key.isFile(),
-              key.getOwnerName(),
-              key.getTags()))
+              key.getOwnerName()))
           .collect(Collectors.toList());
     }
   }
@@ -1848,8 +1850,7 @@ public class RpcClient implements ClientProtocol {
     return keyInfoWithS3Context.getKeyInfo();
   }
 
-  @Override
-  public OmKeyInfo getKeyInfo(
+  private OmKeyInfo getKeyInfo(
       String volumeName, String bucketName, String keyName,
       boolean forceUpdateContainerCache) throws IOException {
     Preconditions.checkNotNull(volumeName);
@@ -2155,6 +2156,8 @@ public class RpcClient implements ClientProtocol {
   @Override
   public OzoneFileStatus getOzoneFileStatus(String volumeName,
       String bucketName, String keyName) throws IOException {
+    verifyVolumeName(volumeName);
+    verifyBucketName(bucketName);
     OmKeyArgs keyArgs = new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -2454,7 +2457,6 @@ public class RpcClient implements ClientProtocol {
           new MultipartInputStream(keyInfo.getKeyName(), cryptoInputStreams));
     }
   }
-
   private OzoneDataStreamOutput createDataStreamOutput(OpenKeySession openKey)
       throws IOException {
     final ReplicationConfig replicationConfig

@@ -89,6 +89,7 @@ public class BackgroundPipelineCreator implements SCMService {
   private final long intervalInMillis;
   private final Clock clock;
 
+
   BackgroundPipelineCreator(PipelineManager pipelineManager,
       ConfigurationSource conf, SCMContext scmContext, Clock clock) {
     this.pipelineManager = pipelineManager;

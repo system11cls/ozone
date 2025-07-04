@@ -25,7 +25,6 @@ import org.apache.hadoop.hdds.security.exception.SCMSecurityException;
 public class CertificateException extends SCMSecurityException {
 
   private ErrorCode errorCode;
-
   /**
    * Ctor.
    * @param message - Error Message.

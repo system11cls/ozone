@@ -192,6 +192,7 @@ public class TestHddsUtils {
         "An invalid value should cause an IllegalArgumentException");
   }
 
+
   @Test
   void testGetSCMAddressesWithHAConfig() {
     OzoneConfiguration conf = new OzoneConfiguration();

@@ -198,8 +198,7 @@ public class TestECKeyOutputStream {
     OzoneClient client1 = null;
     try (MockedStatic<Handler> mockedHandler = Mockito.mockStatic(Handler.class, Mockito.CALLS_REAL_METHODS)) {
       Map<String, Handler> handlers = new HashMap<>();
-      mockedHandler.when(() -> Handler
-              .getHandlerForContainerType(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+      mockedHandler.when(() -> Handler.getHandlerForContainerType(any(), any(), any(), any(), any(), any(), any()))
           .thenAnswer(i -> {
             Handler handler = Mockito.spy((Handler) i.callRealMethod());
             handlers.put(handler.getDatanodeId(), handler);
@@ -441,7 +440,7 @@ public class TestECKeyOutputStream {
     PipelineManager pm =
         cluster.getStorageContainerManager().getPipelineManager();
     for (Pipeline p : pm.getPipelines(repConfig)) {
-      pm.closePipeline(p.getId());
+      pm.closePipeline(p, true);
     }
 
     String keyName = UUID.randomUUID().toString();

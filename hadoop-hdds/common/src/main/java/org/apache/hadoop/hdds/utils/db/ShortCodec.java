@@ -56,6 +56,7 @@ public final class ShortCodec implements Codec<Short> {
     return buffer.asReadOnlyByteBuffer().getShort();
   }
 
+
   @Override
   public byte[] toPersistedFormat(Short object) {
     return ByteBuffer.wrap(new byte[Short.BYTES]).putShort(object).array();

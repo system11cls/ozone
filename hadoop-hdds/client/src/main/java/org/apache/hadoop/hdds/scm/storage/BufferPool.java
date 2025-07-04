@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * wait until a allocated buffer is released.
  */
 public class BufferPool {
-  private static final Logger LOG = LoggerFactory.getLogger(BufferPool.class);
+  public static final Logger LOG = LoggerFactory.getLogger(BufferPool.class);
 
   private static final BufferPool EMPTY = new BufferPool(0, 0);
   private final int bufferSize;
@@ -54,6 +54,7 @@ public class BufferPool {
   private ChunkBuffer currentBuffer = null;
   private final Lock lock = new ReentrantLock();
   private final Condition notFull = lock.newCondition();
+
 
   public static BufferPool empty() {
     return EMPTY;

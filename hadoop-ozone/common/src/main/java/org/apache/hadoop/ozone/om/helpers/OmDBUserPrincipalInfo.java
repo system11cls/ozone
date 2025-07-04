@@ -38,6 +38,10 @@ public final class OmDBUserPrincipalInfo {
       OmDBUserPrincipalInfo::getProtobuf,
       OmDBUserPrincipalInfo.class);
 
+  public static Codec<OmDBUserPrincipalInfo> getCodec() {
+    return CODEC;
+  }
+
   /**
    * A set of accessIds.
    */
@@ -45,10 +49,6 @@ public final class OmDBUserPrincipalInfo {
 
   public OmDBUserPrincipalInfo(Set<String> accessIds) {
     this.accessIds = new HashSet<>(accessIds);
-  }
-
-  public static Codec<OmDBUserPrincipalInfo> getCodec() {
-    return CODEC;
   }
 
   public Set<String> getAccessIds() {

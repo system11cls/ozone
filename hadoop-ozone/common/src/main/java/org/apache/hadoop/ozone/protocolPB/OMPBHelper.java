@@ -21,6 +21,8 @@ import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getByteString;
 import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getFixedByteString;
 
 import com.google.protobuf.ByteString;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
@@ -53,7 +55,6 @@ import org.apache.hadoop.ozone.security.proto.SecurityProtos.TokenProto;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.DataChecksum;
-import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,6 +114,7 @@ public final class OMPBHelper {
         beInfo.getKeyName());
   }
 
+
   public static BucketEncryptionInfoProto convert(
       BucketEncryptionKeyInfo beInfo) {
     if (beInfo == null || beInfo.getKeyName() == null) {
@@ -161,7 +163,8 @@ public final class OMPBHelper {
         ezKeyVersionName);
   }
 
-  public static FileChecksum convert(FileChecksumProto proto) {
+  public static FileChecksum convert(FileChecksumProto proto)
+      throws IOException {
     if (proto == null) {
       return null;
     }
@@ -171,29 +174,27 @@ public final class OMPBHelper {
       if (proto.hasMd5Crc()) {
         return convertMD5MD5FileChecksum(proto.getMd5Crc());
       }
-      throw new IllegalArgumentException("The field md5Crc is not set.");
+      throw new IOException("The field md5Crc is not set.");
     case COMPOSITE_CRC:
       if (proto.hasCompositeCrc()) {
         return convertCompositeCrcChecksum(proto.getCompositeCrc());
       }
-      throw new IllegalArgumentException("The field compositeCrc is not set.");
+      throw new IOException("The field CompositeCrc is not set.");
     default:
-      throw new IllegalArgumentException("Unexpected checksum type" + proto.getChecksumType());
+      throw new IOException("Unexpected checksum type" +
+          proto.getChecksumType());
     }
   }
 
-  static MD5MD5CRC32FileChecksum convertMD5MD5FileChecksum(MD5MD5Crc32FileChecksumProto proto) {
+  public static MD5MD5CRC32FileChecksum convertMD5MD5FileChecksum(
+      MD5MD5Crc32FileChecksumProto proto) throws IOException {
     ChecksumTypeProto checksumTypeProto = proto.getChecksumType();
     int bytesPerCRC = proto.getBytesPerCRC();
     long crcPerBlock = proto.getCrcPerBlock();
-    ByteString protoMd5 = proto.getMd5();
-    if (protoMd5.size() > MD5Hash.MD5_LEN) {
-      // There was a bug fixed by HDDS-12954.
-      // Previously, the proto md5 was created using a 20-byte buffer with the last 4 bytes unused.
-      protoMd5 = protoMd5.substring(0, MD5Hash.MD5_LEN);
-    }
-
-    final MD5Hash md5Hash = new MD5Hash(protoMd5.toByteArray());
+    ByteString md5 = proto.getMd5();
+    DataInputStream inputStream = new DataInputStream(
+        new ByteArrayInputStream(md5.toByteArray()));
+    MD5Hash md5Hash = MD5Hash.read(inputStream);
     switch (checksumTypeProto) {
     case CHECKSUM_CRC32:
       return new MD5MD5CRC32GzipFileChecksum(bytesPerCRC, crcPerBlock, md5Hash);
@@ -201,11 +202,12 @@ public final class OMPBHelper {
       return new MD5MD5CRC32CastagnoliFileChecksum(bytesPerCRC, crcPerBlock,
           md5Hash);
     default:
-      throw new IllegalArgumentException("Unexpected checksum type " + checksumTypeProto);
+      throw new IOException("Unexpected checksum type " + checksumTypeProto);
     }
   }
 
-  private static CompositeCrcFileChecksum convertCompositeCrcChecksum(CompositeCrcFileChecksumProto proto) {
+  public static CompositeCrcFileChecksum convertCompositeCrcChecksum(
+      CompositeCrcFileChecksumProto proto) throws IOException {
     ChecksumTypeProto checksumTypeProto = proto.getChecksumType();
     int bytesPerCRC = proto.getBytesPerCrc();
     int crc = proto.getCrc();
@@ -217,7 +219,7 @@ public final class OMPBHelper {
       return new CompositeCrcFileChecksum(
           crc, DataChecksum.Type.CRC32C, bytesPerCRC);
     default:
-      throw new IllegalArgumentException("Unexpected checksum type " + checksumTypeProto);
+      throw new IOException("Unexpected checksum type " + checksumTypeProto);
     }
   }
 
@@ -236,7 +238,7 @@ public final class OMPBHelper {
       type = ChecksumTypeProto.CHECKSUM_NULL;
     }
 
-    final DataOutputBuffer buf = new DataOutputBuffer(checksum.getLength());
+    DataOutputBuffer buf = new DataOutputBuffer();
     checksum.write(buf);
     byte[] bytes = buf.getData();
     int bytesPerCRC;
@@ -248,14 +250,14 @@ public final class OMPBHelper {
     }
 
     int offset = Integer.BYTES + Long.BYTES;
-    final ByteString md5 = ByteString.copyFrom(bytes, offset, bytes.length - offset);
-    Preconditions.assertSame(MD5Hash.MD5_LEN, md5.size(), "md5.size");
+    ByteString byteString = ByteString.copyFrom(
+        bytes, offset, bytes.length - offset);
 
     return MD5MD5Crc32FileChecksumProto.newBuilder()
         .setChecksumType(type)
         .setBytesPerCRC(bytesPerCRC)
         .setCrcPerBlock(crcPerBlock)
-        .setMd5(md5)
+        .setMd5(byteString)
         .build();
   }
 
@@ -365,6 +367,7 @@ public final class OMPBHelper {
       return version;
     }
   }
+
 
   public static OMRequest processForDebug(OMRequest msg) {
     return msg;

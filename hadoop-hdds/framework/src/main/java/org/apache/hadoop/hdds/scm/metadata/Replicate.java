@@ -46,6 +46,5 @@ public @interface Replicate {
    * For CLIENT, the call will be submitted to Ratis Server via Ratis Client.
    */
   enum InvocationType { DIRECT, CLIENT }
-
   InvocationType invocationType() default InvocationType.DIRECT;
 }

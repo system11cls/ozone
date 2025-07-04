@@ -23,8 +23,6 @@ import org.apache.hadoop.ozone.failure.Failures;
 import org.apache.hadoop.ozone.loadgenerators.AgedDirLoadGenerator;
 import org.apache.hadoop.ozone.loadgenerators.NestedDirLoadGenerator;
 import org.apache.hadoop.ozone.loadgenerators.RandomDirLoadGenerator;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
 import picocli.CommandLine;
 
 /**
@@ -35,12 +33,11 @@ import picocli.CommandLine;
     description = "run chaos cluster across Storage Container Managers",
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestStorageContainerManagerMiniChaosOzoneCluster extends
     TestMiniChaosOzoneCluster implements Callable<Void> {
 
-  @BeforeAll
-  void setup() {
+  @Override
+  public Void call() throws Exception {
     setNumManagers(3, 3, true);
     setNumDatanodes(3);
 
@@ -50,11 +47,7 @@ public class TestStorageContainerManagerMiniChaosOzoneCluster extends
 
     addFailureClasses(Failures.StorageContainerManagerRestartFailure.class);
     addFailureClasses(Failures.StorageContainerManagerStartStopFailure.class);
-  }
 
-  @Override
-  public Void call() throws Exception {
-    setup();
     startChaosCluster();
     return null;
   }

@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DownloadAndImportReplicator implements ContainerReplicator {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(DownloadAndImportReplicator.class);
 
   private final ConfigurationSource conf;
@@ -70,10 +70,9 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
 
     LOG.info("Starting replication of container {} from {} using {}",
         containerID, sourceDatanodes, compression);
-    HddsVolume targetVolume = null;
 
     try {
-      targetVolume = containerImporter.chooseNextVolume();
+      HddsVolume targetVolume = containerImporter.chooseNextVolume();
       // Wait for the download. This thread pool is limiting the parallel
       // downloads, so it's ok to block here and wait for the full download.
       Path tarFilePath =
@@ -96,10 +95,6 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
     } catch (IOException e) {
       LOG.error("Container {} replication was unsuccessful.", containerID, e);
       task.setStatus(Status.FAILED);
-    } finally {
-      if (targetVolume != null) {
-        targetVolume.incCommittedBytes(-containerImporter.getDefaultReplicationSpace());
-      }
     }
   }
 

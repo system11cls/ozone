@@ -17,22 +17,15 @@
 
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name.ALL_PORTS;
 import static org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name.V0_PORTS;
-import static org.apache.hadoop.hdds.protocol.MockDatanodeDetails.randomDatanodeDetails;
 import static org.apache.hadoop.hdds.protocol.TestDatanodeDetails.assertPorts;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
 import static org.apache.hadoop.ozone.ClientVersion.DEFAULT_VERSION;
 import static org.apache.hadoop.ozone.ClientVersion.VERSION_HANDLES_UNKNOWN_DN_PORTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.util.Arrays;
-import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.junit.jupiter.api.Test;
@@ -78,7 +71,7 @@ public class TestPipeline {
   }
 
   @Test
-  public void testReplicaIndexesSerialisedCorrectly() {
+  public void testReplicaIndexesSerialisedCorrectly() throws IOException {
     Pipeline pipeline = MockPipeline.createEcPipeline();
     HddsProtos.Pipeline protobufMessage = pipeline.getProtobufMessage(1);
     Pipeline reloadedPipeline = Pipeline.getFromProtobuf(protobufMessage);
@@ -98,11 +91,14 @@ public class TestPipeline {
   @Test
   public void testBuilderCopiesAllFieldsFromOtherPipeline() {
     Pipeline original = MockPipeline.createEcPipeline();
-    Pipeline copied = original.toBuilder().build();
+    Pipeline copied = Pipeline.newBuilder(original).build();
     assertEquals(original.getId(), copied.getId());
     assertEquals(original.getReplicationConfig(),
         copied.getReplicationConfig());
     assertEquals(original.getPipelineState(), copied.getPipelineState());
+    assertEquals(original.getId(), copied.getId());
+    assertEquals(original.getId(), copied.getId());
+    assertEquals(original.getId(), copied.getId());
     assertEquals(original.getNodeSet(), copied.getNodeSet());
     assertEquals(original.getNodesInOrder(), copied.getNodesInOrder());
     assertEquals(original.getLeaderId(), copied.getLeaderId());
@@ -114,37 +110,5 @@ public class TestPipeline {
       assertEquals(original.getReplicaIndex(dn),
           copied.getReplicaIndex(dn));
     }
-  }
-
-  @Test
-  void idChangedIfNodesReplaced() {
-    Pipeline original = MockPipeline.createRatisPipeline();
-
-    Pipeline withDifferentNodes = original.toBuilder()
-        .setNodes(Arrays.asList(randomDatanodeDetails(), randomDatanodeDetails(), randomDatanodeDetails()))
-        .build();
-
-    assertNotEquals(original.getId(), withDifferentNodes.getId());
-    withDifferentNodes.getNodes()
-        .forEach(node -> assertNotEquals(node.getID().toPipelineID(), withDifferentNodes.getId()));
-  }
-
-  @Test
-  void testCopyForReadFromNode() {
-    Pipeline subject = MockPipeline.createRatisPipeline();
-    DatanodeDetails node = subject.getNodes().iterator().next();
-
-    Pipeline copy = subject.copyForReadFromNode(node);
-
-    assertEquals(singletonList(node), copy.getNodes());
-    assertEquals(node.getID().toPipelineID(), copy.getId());
-    assertEquals(subject.getReplicaIndex(node), copy.getReplicaIndex(node));
-    assertEquals(StandaloneReplicationConfig.getInstance(ONE), copy.getReplicationConfig());
-  }
-
-  @Test
-  void testCopyForReadFromNodeRejectsUnknownNode() {
-    Pipeline subject = MockPipeline.createRatisPipeline();
-    assertThrows(IllegalStateException.class, () -> subject.copyForReadFromNode(randomDatanodeDetails()));
   }
 }

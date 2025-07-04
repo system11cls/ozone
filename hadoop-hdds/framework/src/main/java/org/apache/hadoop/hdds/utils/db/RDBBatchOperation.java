@@ -20,6 +20,8 @@ package org.apache.hadoop.hdds.utils.db;
 import static org.apache.hadoop.hdds.StringUtils.bytes2String;
 
 import com.google.common.base.Preconditions;
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +32,6 @@ import org.apache.hadoop.hdds.utils.db.RocksDatabase.ColumnFamily;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteBatch;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteOptions;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
-import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +42,6 @@ import org.slf4j.LoggerFactory;
  */
 public class RDBBatchOperation implements BatchOperation {
   static final Logger LOG = LoggerFactory.getLogger(RDBBatchOperation.class);
-
-  private static final AtomicInteger BATCH_COUNT = new AtomicInteger();
-
-  private final String name = "Batch-" + BATCH_COUNT.getAndIncrement();
-
-  private final ManagedWriteBatch writeBatch;
-
-  private final OpCache opCache = new OpCache();
 
   private enum Op { DELETE }
 
@@ -129,9 +122,6 @@ public class RDBBatchOperation implements BatchOperation {
 
   /** Cache and deduplicate db ops (put/delete). */
   private class OpCache {
-    /** A (family name -> {@link FamilyCache}) map. */
-    private final Map<String, FamilyCache> name2cache = new HashMap<>();
-
     /** A cache for a {@link ColumnFamily}. */
     private class FamilyCache {
       private final ColumnFamily family;
@@ -155,7 +145,7 @@ public class RDBBatchOperation implements BatchOperation {
       }
 
       /** Prepare batch write for the entire family. */
-      void prepareBatchWrite() throws RocksDatabaseException {
+      void prepareBatchWrite() throws IOException {
         Preconditions.checkState(!isCommit, "%s is already committed.", this);
         isCommit = true;
         for (Map.Entry<Bytes, Object> op : ops.entrySet()) {
@@ -272,6 +262,9 @@ public class RDBBatchOperation implements BatchOperation {
       }
     }
 
+    /** A (family name -> {@link FamilyCache}) map. */
+    private final Map<String, FamilyCache> name2cache = new HashMap<>();
+
     void put(ColumnFamily f, CodecBuffer key, CodecBuffer value) {
       name2cache.computeIfAbsent(f.getName(), k -> new FamilyCache(f))
           .put(key, value);
@@ -288,7 +281,7 @@ public class RDBBatchOperation implements BatchOperation {
     }
 
     /** Prepare batch write for the entire cache. */
-    UncheckedAutoCloseable prepareBatchWrite() throws RocksDatabaseException {
+    Closeable prepareBatchWrite() throws IOException {
       for (Map.Entry<String, FamilyCache> e : name2cache.entrySet()) {
         e.getValue().prepareBatchWrite();
       }
@@ -327,6 +320,12 @@ public class RDBBatchOperation implements BatchOperation {
     }
   }
 
+  private static final AtomicInteger BATCH_COUNT = new AtomicInteger();
+
+  private final String name = "Batch-" + BATCH_COUNT.getAndIncrement();
+  private final ManagedWriteBatch writeBatch;
+  private final OpCache opCache = new OpCache();
+
   public RDBBatchOperation() {
     writeBatch = new ManagedWriteBatch();
   }
@@ -340,18 +339,19 @@ public class RDBBatchOperation implements BatchOperation {
     return name;
   }
 
-  public void commit(RocksDatabase db) throws RocksDatabaseException {
+  public void commit(RocksDatabase db) throws IOException {
     debug(() -> String.format("%s: commit %s",
         name, opCache.getCommitString()));
-    try (UncheckedAutoCloseable ignored = opCache.prepareBatchWrite()) {
+    try (Closeable ignored = opCache.prepareBatchWrite()) {
       db.batchWrite(writeBatch);
     }
   }
 
-  public void commit(RocksDatabase db, ManagedWriteOptions writeOptions) throws RocksDatabaseException {
+  public void commit(RocksDatabase db, ManagedWriteOptions writeOptions)
+      throws IOException {
     debug(() -> String.format("%s: commit-with-writeOptions %s",
         name, opCache.getCommitString()));
-    try (UncheckedAutoCloseable ignored = opCache.prepareBatchWrite()) {
+    try (Closeable ignored = opCache.prepareBatchWrite()) {
       db.batchWrite(writeBatch, writeOptions);
     }
   }
@@ -363,15 +363,17 @@ public class RDBBatchOperation implements BatchOperation {
     opCache.clear();
   }
 
-  public void delete(ColumnFamily family, byte[] key) {
+  public void delete(ColumnFamily family, byte[] key) throws IOException {
     opCache.delete(family, key);
   }
 
-  public void put(ColumnFamily family, CodecBuffer key, CodecBuffer value) {
+  public void put(ColumnFamily family, CodecBuffer key, CodecBuffer value)
+      throws IOException {
     opCache.put(family, key, value);
   }
 
-  public void put(ColumnFamily family, byte[] key, byte[] value) {
+  public void put(ColumnFamily family, byte[] key, byte[] value)
+      throws IOException {
     opCache.put(family, key, value);
   }
 }

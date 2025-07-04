@@ -25,20 +25,6 @@ import org.apache.hadoop.security.token.Token;
  * Generates container tokens.
  */
 public interface ContainerTokenGenerator {
-  /**
-   * No-op implementation for when container tokens are disabled.
-   */
-  ContainerTokenGenerator DISABLED = new ContainerTokenGenerator() {
-    @Override
-    public String generateEncodedToken(ContainerID containerID) {
-      return "";
-    }
-
-    @Override
-    public Token<ContainerTokenIdentifier> generateToken(String user, ContainerID containerID) {
-      return new Token<>();
-    }
-  };
 
   /**
    * Shortcut for generating encoded token for current user.
@@ -49,5 +35,23 @@ public interface ContainerTokenGenerator {
   /**
    * Generate token for the container.
    */
-  Token<ContainerTokenIdentifier> generateToken(String user, ContainerID containerID);
+  Token<ContainerTokenIdentifier> generateToken(String user,
+      ContainerID containerID);
+
+  /**
+   * No-op implementation for when container tokens are disabled.
+   */
+  ContainerTokenGenerator DISABLED = new ContainerTokenGenerator() {
+    @Override
+    public String generateEncodedToken(ContainerID containerID) {
+      return "";
+    }
+
+    @Override
+    public Token<ContainerTokenIdentifier> generateToken(String user,
+        ContainerID containerID) {
+      return new Token<>();
+    }
+  };
+
 }

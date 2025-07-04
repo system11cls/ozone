@@ -51,7 +51,6 @@ public class TestOzoneManagerHttpServer {
   private static OzoneConfiguration conf;
   private static URLConnectionFactory connectionFactory;
   private static File ozoneMetadataDirectory;
-
   public static Collection<Object[]> policy() {
     Object[][] params = new Object[][] {
         {HttpConfig.Policy.HTTP_ONLY},

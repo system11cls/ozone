@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
@@ -55,7 +56,9 @@ public class FindSourceGreedy implements FindSourceStrategy {
       if (ret != 0) {
         return ret;
       }
-      return a.getDatanodeID().compareTo(b.getDatanodeID());
+      UUID uuidA = a.getDatanodeDetails().getUuid();
+      UUID uuidB = b.getDatanodeDetails().getUuid();
+      return uuidA.compareTo(uuidB);
     });
     this.nodeManager = nodeManager;
   }
@@ -107,7 +110,8 @@ public class FindSourceGreedy implements FindSourceStrategy {
       addBackSourceDataNode(dui);
       return;
     }
-    LOG.warn("Cannot find datanode {} in candidate source datanodes", dui);
+    LOG.warn("Cannot find datanode {} in candidate source datanodes",
+        dui.getUuid());
   }
 
   /**
@@ -161,20 +165,21 @@ public class FindSourceGreedy implements FindSourceStrategy {
       //3 after subtracting sizeLeavingAfterMove, the usage is bigger
       // than or equal to lowerLimit
       if (size <= 0) {
-        LOG.debug("{} bytes container cannot leave datanode {}", size, source);
+        LOG.debug("{} bytes container cannot leave datanode {}", size, source.getUuidString());
         return false;
       }
       if (sizeLeavingAfterMove > config.getMaxSizeLeavingSource()) {
         LOG.debug("{} bytes cannot leave datanode {} because 'size.leaving" +
                 ".source.max' limit is {} and {} bytes have already left.",
-            size, source, config.getMaxSizeLeavingSource(),
+            size, source.getUuidString(), config.getMaxSizeLeavingSource(),
             sizeLeavingNode.get(source));
         return false;
       }
       if (Double.compare(nodeManager.getUsageInfo(source)
           .calculateUtilization(-sizeLeavingAfterMove), lowerLimit) < 0) {
         LOG.debug("{} bytes cannot leave datanode {} because its utilization " +
-                "will drop below the lower limit of {}.", size, source, lowerLimit);
+                "will drop below the lower limit of {}.", size,
+            source.getUuidString(), lowerLimit);
         return false;
       }
       return true;

@@ -163,6 +163,7 @@ public class ContainerReplicaPendingOps {
     return completed;
   }
 
+
   /**
    * Remove a stored ContainerReplicaOp from the given ContainerID as it has
    * been deleted successfully.

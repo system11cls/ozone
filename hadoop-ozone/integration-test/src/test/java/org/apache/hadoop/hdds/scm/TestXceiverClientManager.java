@@ -45,6 +45,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -53,6 +54,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Test for XceiverClientManager caching and eviction.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(300)
 public abstract class TestXceiverClientManager implements NonHATests.TestCase {
 
   private StorageContainerLocationProtocolClientSideTranslatorPB

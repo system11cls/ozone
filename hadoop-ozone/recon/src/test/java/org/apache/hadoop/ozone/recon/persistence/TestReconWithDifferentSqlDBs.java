@@ -43,7 +43,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class TestReconWithDifferentSqlDBs {
   @TempDir
   private static Path temporaryFolder;
-
   public static Stream<Object> parametersSource() throws IOException {
     return Stream.of(
         new AbstractReconSqlDBTest.DerbyDataSourceConfigurationProvider(

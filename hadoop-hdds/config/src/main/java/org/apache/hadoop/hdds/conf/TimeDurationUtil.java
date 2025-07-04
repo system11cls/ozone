@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class TimeDurationUtil {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(TimeDurationUtil.class);
 
   private TimeDurationUtil() {

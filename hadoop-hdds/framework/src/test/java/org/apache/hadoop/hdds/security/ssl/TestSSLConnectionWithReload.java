@@ -132,7 +132,6 @@ public class TestSSLConnectionWithReload {
           public void onNext(ContainerCommandResponseProto value) {
             replyFuture.complete(value);
           }
-
           @Override
           public void onError(Throwable t) {
           }

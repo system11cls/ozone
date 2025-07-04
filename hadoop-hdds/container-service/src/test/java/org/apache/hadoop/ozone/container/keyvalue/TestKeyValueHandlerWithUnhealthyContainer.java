@@ -27,8 +27,6 @@ import static org.apache.hadoop.ozone.container.ContainerTestHelper.getPutBlockR
 import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestBlockID;
 import static org.apache.hadoop.ozone.container.ContainerTestHelper.getWriteChunkRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.mock;
@@ -36,54 +34,51 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.pipeline.MockPipeline;
 import org.apache.hadoop.ozone.ClientVersion;
-import org.apache.hadoop.ozone.container.checksum.ContainerChecksumTreeManager;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
-import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.report.IncrementalReportSender;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
-import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Test that KeyValueHandler fails certain operations when the
  * container is unhealthy.
  */
 public class TestKeyValueHandlerWithUnhealthyContainer {
+  public static final Logger LOG = LoggerFactory.getLogger(
+      TestKeyValueHandlerWithUnhealthyContainer.class);
+
+  @TempDir
+  private File tempDir;
 
   private IncrementalReportSender<Container> mockIcrSender;
-  private OzoneConfiguration conf;
-  @TempDir
-  private Path tempDir;
-  @TempDir
-  private Path dbFile;
 
   @BeforeEach
   public void init() {
     mockIcrSender = mock(IncrementalReportSender.class);
-    conf = new OzoneConfiguration();
   }
 
   @Test
@@ -114,6 +109,7 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
     return Arrays.stream(ClientVersion.values()).flatMap(client -> IntStream.range(0, 6)
         .mapToObj(rid -> Arguments.of(client, rid)));
   }
+
 
   @ParameterizedTest
   @MethodSource("getAllClientVersions")
@@ -204,7 +200,7 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
   void testNPEFromPutBlock() throws IOException {
     KeyValueContainer container = new KeyValueContainer(
         mock(KeyValueContainerData.class),
-        conf);
+        new OzoneConfiguration());
     KeyValueHandler subject = getDummyHandler();
 
     BlockID blockID = getTestBlockID(1);
@@ -221,31 +217,25 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
   @Test
   public void testMarkContainerUnhealthyInFailedVolume() throws IOException {
     KeyValueHandler handler = getDummyHandler();
-    KeyValueContainerData kvData = new KeyValueContainerData(1L,
-        ContainerLayoutVersion.FILE_PER_BLOCK,
-        (long) StorageUnit.GB.toBytes(1), UUID.randomUUID().toString(),
-        UUID.randomUUID().toString());
-    kvData.setMetadataPath(tempDir.toString());
-    kvData.setDbFile(dbFile.toFile());
-    HddsVolume hddsVolume = new HddsVolume.Builder(tempDir.toString()).conf(conf)
-        .clusterID(UUID.randomUUID().toString()).datanodeUuid(UUID.randomUUID().toString())
-        .volumeSet(mock(MutableVolumeSet.class))
-        .build();
-    kvData.setVolume(hddsVolume);
-    KeyValueContainer container = new KeyValueContainer(kvData, conf);
+    KeyValueContainerData mockContainerData = mock(KeyValueContainerData.class);
+    HddsVolume mockVolume = mock(HddsVolume.class);
+    when(mockContainerData.getVolume()).thenReturn(mockVolume);
+    when(mockContainerData.getMetadataPath()).thenReturn(tempDir.getAbsolutePath());
+    KeyValueContainer container = new KeyValueContainer(
+        mockContainerData, new OzoneConfiguration());
 
     // When volume is failed, the call to mark the container unhealthy should
     // be ignored.
-    hddsVolume.setState(StorageVolume.VolumeState.FAILED);
-    handler.markContainerUnhealthy(container, ContainerTestUtils.getUnhealthyDataScanResult());
-    assertFalse(ContainerChecksumTreeManager.checksumFileExist(container));
+    when(mockVolume.isFailed()).thenReturn(true);
+    handler.markContainerUnhealthy(container,
+        ContainerTestUtils.getUnhealthyScanResult());
     verify(mockIcrSender, never()).send(any());
 
     // When volume is healthy, ICR should be sent when container is marked
     // unhealthy.
-    hddsVolume.setState(StorageVolume.VolumeState.NORMAL);
-    handler.markContainerUnhealthy(container, ContainerTestUtils.getUnhealthyDataScanResult());
-    assertTrue(ContainerChecksumTreeManager.checksumFileExist(container));
+    when(mockVolume.isFailed()).thenReturn(false);
+    handler.markContainerUnhealthy(container,
+        ContainerTestUtils.getUnhealthyScanResult());
     verify(mockIcrSender, atMostOnce()).send(any());
   }
 
@@ -261,11 +251,11 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
     when(stateMachine.getDatanodeDetails()).thenReturn(dnDetails);
 
     return new KeyValueHandler(
-        conf,
+        new OzoneConfiguration(),
         stateMachine.getDatanodeDetails().getUuidString(),
         mock(ContainerSet.class),
         mock(MutableVolumeSet.class),
-        mock(ContainerMetrics.class), mockIcrSender, new ContainerChecksumTreeManager(conf));
+        mock(ContainerMetrics.class), mockIcrSender);
   }
 
   private KeyValueContainer getMockUnhealthyContainer() {
@@ -275,7 +265,7 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
     when(containerData.getBlockCommitSequenceId()).thenReturn(100L);
     when(containerData.getProtoBufMessage()).thenReturn(ContainerProtos
         .ContainerDataProto.newBuilder().setContainerID(1).build());
-    return new KeyValueContainer(containerData, conf);
+    return new KeyValueContainer(containerData, new OzoneConfiguration());
   }
 
   private KeyValueContainer getMockContainerWithReplicaIndex(int replicaIndex) {
@@ -286,6 +276,6 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
     when(containerData.getReplicaIndex()).thenReturn(replicaIndex);
     when(containerData.getProtoBufMessage()).thenReturn(ContainerProtos
         .ContainerDataProto.newBuilder().setContainerID(1).build());
-    return new KeyValueContainer(containerData, conf);
+    return new KeyValueContainer(containerData, new OzoneConfiguration());
   }
 }

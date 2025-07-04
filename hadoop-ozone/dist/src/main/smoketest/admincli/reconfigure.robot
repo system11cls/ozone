@@ -18,7 +18,6 @@ Documentation       Test ozone admin command
 Library             BuiltIn
 Resource            ../commonlib.robot
 Test Timeout        5 minutes
-Suite Setup         Get Security Enabled From Config
 
 *** Keywords ***
 Setup Test

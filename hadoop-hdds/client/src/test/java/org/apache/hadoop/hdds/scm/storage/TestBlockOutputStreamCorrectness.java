@@ -50,6 +50,7 @@ import org.apache.hadoop.hdds.scm.XceiverClientReply;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.pipeline.MockPipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
@@ -68,7 +69,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class TestBlockOutputStreamCorrectness {
 
   private static final int DATA_SIZE = 256 * (int) OzoneConsts.MB;
-  private static final byte[] DATA = RandomUtils.secure().randomBytes(DATA_SIZE);
+  private static final byte[] DATA = RandomUtils.nextBytes(DATA_SIZE);
 
   @ParameterizedTest
   @ValueSource(ints = { 1, 1024, 1024 * 1024 })
@@ -105,7 +106,7 @@ class TestBlockOutputStreamCorrectness {
     BlockID blockID = new BlockID(1, 1);
     DatanodeDetails datanodeDetails = MockDatanodeDetails.randomDatanodeDetails();
     Pipeline pipeline = Pipeline.newBuilder()
-        .setId(datanodeDetails.getID())
+        .setId(PipelineID.valueOf(datanodeDetails.getUuid()))
         .setReplicationConfig(replicationConfig)
         .setNodes(ImmutableList.of(datanodeDetails))
         .setState(Pipeline.PipelineState.CLOSED)

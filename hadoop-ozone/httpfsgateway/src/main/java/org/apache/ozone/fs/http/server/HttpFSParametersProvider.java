@@ -137,7 +137,6 @@ public class HttpFSParametersProvider extends ParametersProvider {
      * Parameter name.
      */
     public static final String NAME = HttpFSConstants.ACCESS_TIME_PARAM;
-
     /**
      * Constructor.
      */
@@ -193,7 +192,6 @@ public class HttpFSParametersProvider extends ParametersProvider {
      * Parameter name.
      */
     public static final String NAME = "noredirect";
-
     /**
      * Constructor.
      */
@@ -213,7 +211,6 @@ public class HttpFSParametersProvider extends ParametersProvider {
      * Parameter name.
      */
     public static final String NAME = HttpFSConstants.OP_PARAM;
-
     /**
      * Constructor.
      */
@@ -409,6 +406,7 @@ public class HttpFSParametersProvider extends ParametersProvider {
      */
     public static final String NAME = HttpFSConstants.PERMISSION_PARAM;
 
+
     /**
      * Constructor.
      */
@@ -429,6 +427,7 @@ public class HttpFSParametersProvider extends ParametersProvider {
      */
     public static final String NAME =
         HttpFSConstants.UNMASKED_PERMISSION_PARAM;
+
 
     /**
      * Constructor.

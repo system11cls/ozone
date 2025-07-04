@@ -17,13 +17,16 @@
 
 package org.apache.hadoop.hdds.utils.db;
 
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.toIOException;
+
 import com.google.common.base.Preconditions;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedDBOptions;
+import org.eclipse.jetty.util.StringUtil;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.Env;
 import org.rocksdb.OptionsUtil;
@@ -50,16 +53,16 @@ public final class DBConfigFromFile {
   private DBConfigFromFile() {
   }
 
-  public static File getConfigLocation() {
+  public static File getConfigLocation() throws IOException {
     String path = System.getenv(CONFIG_DIR);
 
     // Make testing easy.
     // If there is No Env. defined, let us try to read the JVM property
-    if (StringUtils.isBlank(path)) {
+    if (StringUtil.isBlank(path)) {
       path = System.getProperty(CONFIG_DIR);
     }
 
-    if (StringUtils.isBlank(path)) {
+    if (StringUtil.isBlank(path)) {
       LOG.debug("Unable to find the configuration directory. "
           + "Please make sure that " + CONFIG_DIR + " is setup correctly.");
       return null;
@@ -106,9 +109,10 @@ public final class DBConfigFromFile {
    * @param dbFileName - The DB File Name, for example, OzoneManager.db.
    * @param cfDescs - ColumnFamily Handles.
    * @return DBOptions, Options to be used for opening/creating the DB.
+   * @throws IOException
    */
   public static ManagedDBOptions readFromFile(String dbFileName,
-      List<ColumnFamilyDescriptor> cfDescs) throws RocksDatabaseException {
+      List<ColumnFamilyDescriptor> cfDescs) throws IOException {
     Preconditions.checkNotNull(dbFileName);
     Preconditions.checkNotNull(cfDescs);
     Preconditions.checkArgument(!cfDescs.isEmpty());
@@ -118,7 +122,7 @@ public final class DBConfigFromFile {
     ManagedDBOptions options = null;
     File configLocation = getConfigLocation();
     if (configLocation != null &&
-        StringUtils.isNotBlank(configLocation.toString())) {
+        StringUtil.isNotBlank(configLocation.toString())) {
       Path optionsFile = Paths.get(configLocation.toString(),
           getOptionsFileNameFromDB(dbFileName));
 
@@ -129,7 +133,7 @@ public final class DBConfigFromFile {
               env, options, cfDescs, true);
 
         } catch (RocksDBException rdEx) {
-          throw new RocksDatabaseException("Failed to loadOptionsFromFile " + optionsFile, rdEx);
+          throw toIOException("Unable to find/open Options file.", rdEx);
         }
       }
     }

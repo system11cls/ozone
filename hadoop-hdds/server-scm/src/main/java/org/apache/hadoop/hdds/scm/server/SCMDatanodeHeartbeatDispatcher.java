@@ -31,8 +31,8 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandStatusReportsProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerActionsProto;
@@ -59,11 +59,12 @@ import org.slf4j.LoggerFactory;
  */
 public final class SCMDatanodeHeartbeatDispatcher {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMDatanodeHeartbeatDispatcher.class);
 
   private final NodeManager nodeManager;
   private final EventPublisher eventPublisher;
+
 
   public SCMDatanodeHeartbeatDispatcher(NodeManager nodeManager,
                                         EventPublisher eventPublisher) {
@@ -72,6 +73,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
     this.nodeManager = nodeManager;
     this.eventPublisher = eventPublisher;
   }
+
 
   /**
    * Dispatches heartbeat to registered event handlers.
@@ -90,8 +92,8 @@ public final class SCMDatanodeHeartbeatDispatcher {
     if (!nodeManager.isNodeRegistered(datanodeDetails)) {
       LOG.info("SCM received heartbeat from an unregistered datanode {}. " +
           "Asking datanode to re-register.", datanodeDetails);
-      DatanodeID dnID = datanodeDetails.getID();
-      nodeManager.addDatanodeCommand(datanodeDetails.getID(), new ReregisterCommand());
+      UUID dnID = datanodeDetails.getUuid();
+      nodeManager.addDatanodeCommand(dnID, new ReregisterCommand());
 
       commands = nodeManager.getCommandQueue(dnID);
 
@@ -187,7 +189,9 @@ public final class SCMDatanodeHeartbeatDispatcher {
         }
       }
     }
-    LOG.debug("Heartbeat dispatched for datanode {} with commands {}", datanodeDetails, commands);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Heartbeat dispatched: datanode=" + datanodeDetails.getUuid() + ", Commands= " + commands);
+    }
 
     return commands;
   }
@@ -238,7 +242,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
       extends ReportFromDatanode<CommandQueueReportProto> {
 
     private final Map<SCMCommandProto.Type, Integer> commandsToBeSent;
-
     public CommandQueueReportFromDatanode(DatanodeDetails datanodeDetails,
         CommandQueueReportProto report,
         Map<SCMCommandProto.Type, Integer> commandsToBeSent) {
@@ -268,9 +271,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
    */
   public interface ContainerReport {
     DatanodeDetails getDatanodeDetails();
-
     ContainerReportType getType();
-
     void mergeReport(ContainerReport val);
   }
 
@@ -318,7 +319,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
 
     @Override
     public int hashCode() {
-      return this.getDatanodeDetails().getID().hashCode();
+      return this.getDatanodeDetails().getUuid().hashCode();
     }
     
     @Override
@@ -366,7 +367,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
 
     @Override
     public int hashCode() {
-      return this.getDatanodeDetails().getID().hashCode();
+      return this.getDatanodeDetails().getUuid().hashCode();
     }
 
     @Override

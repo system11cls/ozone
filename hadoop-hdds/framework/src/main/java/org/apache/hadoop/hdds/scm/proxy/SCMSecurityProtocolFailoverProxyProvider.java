@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  */
 public class SCMSecurityProtocolFailoverProxyProvider extends SCMFailoverProxyProviderBase<SCMSecurityProtocolPB> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMSecurityProtocolFailoverProxyProvider.class);
 
   /**

@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.function.Supplier;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 
@@ -40,7 +39,6 @@ public class SpaceUsageCheckParams {
   private final SpaceUsagePersistence persistence;
   private final String path;
   private final File dir;
-  private Supplier<Long> containerUsedSpace = () -> 0L;
 
   /**
    * @param refresh The period of refreshing space usage information from
@@ -90,11 +88,4 @@ public class SpaceUsageCheckParams {
     return persistence;
   }
 
-  public void setContainerUsedSpace(Supplier<Long> containerUsedSpace) {
-    this.containerUsedSpace = containerUsedSpace;
-  }
-
-  public Supplier<Long> getContainerUsedSpace() {
-    return containerUsedSpace;
-  }
 }

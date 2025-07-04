@@ -32,7 +32,6 @@ public class DummyEntity implements Auditable {
     this.key1 = "value1";
     this.key2 = "value2";
   }
-
   public String getKey1() {
     return key1;
   }

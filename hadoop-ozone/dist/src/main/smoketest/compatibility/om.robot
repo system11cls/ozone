@@ -15,15 +15,16 @@
 
 *** Settings ***
 Documentation       Test om compatibility
-Resource            lib.resource
+Library             BuiltIn
+Resource            ../lib/os.robot
 Test Timeout        5 minutes
 
 *** Test Cases ***
 Picks up command line options
     Pass Execution If    '%{HDFS_OM_OPTS}' == ''    Command-line option required for process check
-    ${processes} =    Wait for server command-line options
+    ${processes} =    List All Processes
     Should Contain    ${processes}   %{HDFS_OM_OPTS}
-    Check client command-line options
+    Should Contain    ${processes}   %{HADOOP_OPTS}
 
 Rejects Atomic Key Rewrite
     Execute           ozone freon ockg -n1 -t1 -p rewrite

@@ -28,6 +28,7 @@ public class XORRawErasureCoderFactory implements RawErasureCoderFactory {
 
   public static final String CODER_NAME = "xor_java";
 
+
   @Override
   public RawErasureEncoder createEncoder(
       ECReplicationConfig replicationConfig) {

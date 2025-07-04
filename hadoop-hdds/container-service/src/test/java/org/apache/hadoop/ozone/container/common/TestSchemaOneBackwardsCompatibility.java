@@ -48,6 +48,7 @@ import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfoList;
+import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.BlockIterator;
@@ -191,7 +192,7 @@ public class TestSchemaOneBackwardsCompatibility {
               refCountedDB.getStore().getDeletedBlocksTable();
 
       // Test rangeKVs.
-      List<Table.KeyValue<String, ChunkInfoList>> deletedBlocks =
+      List<? extends Table.KeyValue<String, ChunkInfoList>> deletedBlocks =
               deletedBlocksTable.getRangeKVs(cData.startKeyEmpty(), 100,
                   cData.containerPrefix());
 
@@ -275,8 +276,11 @@ public class TestSchemaOneBackwardsCompatibility {
     ContainerSet containerSet = makeContainerSet();
     VolumeSet volumeSet = new MutableVolumeSet(datanodeUuid, conf, null,
         StorageVolume.VolumeType.DATA_VOLUME, null);
+    ContainerMetrics metrics = ContainerMetrics.create(conf);
     KeyValueHandler keyValueHandler =
-        ContainerTestUtils.getKeyValueHandler(conf, datanodeUuid, containerSet, volumeSet);
+        new KeyValueHandler(conf, datanodeUuid, containerSet, volumeSet,
+            metrics, c -> {
+        });
     long initialTotalSpace = newKvData().getBytesUsed();
     long blockSpace = initialTotalSpace / TestDB.KEY_COUNT;
 
@@ -345,12 +349,15 @@ public class TestSchemaOneBackwardsCompatibility {
     ContainerSet containerSet = makeContainerSet();
     VolumeSet volumeSet = new MutableVolumeSet(datanodeUuid, conf, null,
         StorageVolume.VolumeType.DATA_VOLUME, null);
+    ContainerMetrics metrics = ContainerMetrics.create(conf);
     KeyValueHandler keyValueHandler =
-        ContainerTestUtils.getKeyValueHandler(conf, datanodeUuid, containerSet, volumeSet);
+        new KeyValueHandler(conf, datanodeUuid, containerSet, volumeSet,
+            metrics, c -> {
+        });
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       // Read blocks that were already deleted before the upgrade.
-      List<Table.KeyValue<String, ChunkInfoList>> deletedBlocks =
+      List<? extends Table.KeyValue<String, ChunkInfoList>> deletedBlocks =
               refCountedDB.getStore().getDeletedBlocksTable()
                   .getRangeKVs(cData.startKeyEmpty(), 100,
                       cData.containerPrefix());
@@ -359,7 +366,8 @@ public class TestSchemaOneBackwardsCompatibility {
 
       for (Table.KeyValue<String, ChunkInfoList> chunkListKV: deletedBlocks) {
         preUpgradeBlocks.add(chunkListKV.getKey());
-        assertNull(chunkListKV.getValue());
+        assertThrows(IOException.class, () -> chunkListKV.getValue(),
+            "No exception thrown when trying to retrieve old deleted blocks values as chunk lists.");
       }
 
       assertEquals(TestDB.NUM_DELETED_BLOCKS, preUpgradeBlocks.size());
@@ -408,7 +416,7 @@ public class TestSchemaOneBackwardsCompatibility {
       }
 
       // Test decoding keys from the database.
-      List<Table.KeyValue<String, BlockData>> blockKeyValues =
+      List<? extends Table.KeyValue<String, BlockData>> blockKeyValues =
           blockDataTable.getRangeKVs(cData.startKeyEmpty(), 100,
               cData.containerPrefix(), cData.getUnprefixedKeyFilter());
 
@@ -454,7 +462,7 @@ public class TestSchemaOneBackwardsCompatibility {
       }
 
       // Test decoding keys from the database.
-      List<Table.KeyValue<String, BlockData>> blockKeyValues =
+      List<? extends Table.KeyValue<String, BlockData>> blockKeyValues =
           blockDataTable.getRangeKVs(cData.startKeyEmpty(), 100,
               cData.containerPrefix(), cData.getDeletingBlockKeyFilter());
 
@@ -527,7 +535,7 @@ public class TestSchemaOneBackwardsCompatibility {
       }
 
       // Test decoding keys from the database.
-      List<Table.KeyValue<String, ChunkInfoList>> chunkInfoKeyValues =
+      List<? extends Table.KeyValue<String, ChunkInfoList>> chunkInfoKeyValues =
           deletedBlocksTable.getRangeKVs(cData.startKeyEmpty(), 100,
               cData.containerPrefix());
 
@@ -600,7 +608,7 @@ public class TestSchemaOneBackwardsCompatibility {
     Yaml yaml = ContainerDataYaml.getYamlForContainerType(
             kvData.getContainerType(),
         kvData.getReplicaIndex() > 0);
-    kvData.computeAndSetContainerFileChecksum(yaml);
+    kvData.computeAndSetChecksum(yaml);
 
     KeyValueContainerUtil.parseKVContainerData(kvData, conf);
 

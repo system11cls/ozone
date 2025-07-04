@@ -17,47 +17,35 @@
 
 package org.apache.hadoop.ozone.common;
 
+import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.Supplier;
-import net.jcip.annotations.Immutable;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumType;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.MemoizedSupplier;
 
 /**
  * Java class that represents Checksum ProtoBuf class. This helper class allows
  * us to convert to and from protobuf to normal java.
- * <p>
- * This class is immutable.
  */
-@Immutable
-public final class ChecksumData {
+public class ChecksumData {
 
   private final ChecksumType type;
   // Checksum will be computed for every bytesPerChecksum number of bytes and
   // stored sequentially in checksumList
   private final int bytesPerChecksum;
   private final List<ByteString> checksums;
-  private final Supplier<ContainerProtos.ChecksumData> protoSupplier;
 
   public ChecksumData(ChecksumType checksumType, int bytesPerChecksum) {
     this(checksumType, bytesPerChecksum, Collections.emptyList());
   }
 
-  public ChecksumData(ChecksumType type, int bytesPerChecksum, List<ByteString> checksums) {
-    this.type = Objects.requireNonNull(type, "type == null");
+  public ChecksumData(ChecksumType checksumType, int bytesPerChecksum,
+                      List<ByteString> checksums) {
+    this.type = checksumType;
     this.bytesPerChecksum = bytesPerChecksum;
     this.checksums = Collections.unmodifiableList(checksums);
-
-    this.protoSupplier = MemoizedSupplier.valueOf(() -> ContainerProtos.ChecksumData.newBuilder()
-        .setType(getChecksumType())
-        .setBytesPerChecksum(getBytesPerChecksum())
-        .addAllChecksums(getChecksums()).build());
   }
 
   /**
@@ -86,7 +74,14 @@ public final class ChecksumData {
    * @return Checksum ProtoBuf message
    */
   public ContainerProtos.ChecksumData getProtoBufMessage() {
-    return protoSupplier.get();
+    ContainerProtos.ChecksumData.Builder checksumProtoBuilder =
+        ContainerProtos.ChecksumData.newBuilder()
+            .setType(this.type)
+            .setBytesPerChecksum(this.bytesPerChecksum);
+
+    checksumProtoBuilder.addAllChecksums(checksums);
+
+    return checksumProtoBuilder.build();
   }
 
   /**
@@ -96,7 +91,7 @@ public final class ChecksumData {
    */
   public static ChecksumData getFromProtoBuf(
       ContainerProtos.ChecksumData checksumDataProto) {
-    Objects.requireNonNull(checksumDataProto, "checksumDataProto == null");
+    Preconditions.checkNotNull(checksumDataProto);
 
     return new ChecksumData(
         checksumDataProto.getType(),
@@ -105,46 +100,83 @@ public final class ChecksumData {
   }
 
   /**
-   * Verify that this ChecksumData from thisStartIndex matches with the provided ChecksumData.
-   *
-   * @param thisStartIndex the index of the first checksum in this object to be verified
+   * Verify that this ChecksumData from startIndex to endIndex matches with the
+   * provided ChecksumData.
+   * The checksum at startIndex of this ChecksumData will be matched with the
+   * checksum at index 0 of the provided ChecksumData, and checksum at
+   * (startIndex + 1) of this ChecksumData with checksum at index 1 of
+   * provided ChecksumData and so on.
    * @param that the ChecksumData to match with
-   * @throws OzoneChecksumException if checksums mismatched.
+   * @param startIndex index of the first checksum from this ChecksumData
+   *                   which will be used to compare checksums
+   * @return true if checksums match
+   * @throws OzoneChecksumException
    */
-  public void verifyChecksumDataMatches(int thisStartIndex, ChecksumData that) throws OzoneChecksumException {
-    final int thisChecksumsCount = this.checksums.size();
-    final int thatChecksumsCount = that.checksums.size();
-    if (thatChecksumsCount > thisChecksumsCount - thisStartIndex) {
-      throw new OzoneChecksumException("Checksum count mismatched: thatChecksumsCount=" + thatChecksumsCount
-          + " > thisChecksumsCount (=" + thisChecksumsCount + " ) - thisStartIndex (=" + thisStartIndex + ")");
+  public boolean verifyChecksumDataMatches(ChecksumData that, int startIndex)
+      throws OzoneChecksumException {
+
+    // pre checks
+    if (this.checksums.isEmpty()) {
+      throw new OzoneChecksumException("Original checksumData has no " +
+          "checksums");
     }
 
-    // Verify that checksum matches at each index
-    for (int i = 0; i < thatChecksumsCount; i++) {
-      final int j = i + thisStartIndex;
-      if (!this.checksums.get(j).equals(that.checksums.get(i))) {
-        // checksum mismatch. throw exception.
-        throw new OzoneChecksumException("Checksum mismatched: this.checksums(" + j + ") != that.checksums(" + i
-            + "), thisStartIndex=" + thisStartIndex
-            + ", this=" + this
-            + ", that=" + that);
-      }
+    if (that.checksums.isEmpty()) {
+      throw new OzoneChecksumException("Computed checksumData has no " +
+          "checksums");
     }
+
+    int numChecksums = that.checksums.size();
+
+    try {
+      // Verify that checksum matches at each index
+      for (int index = 0; index < numChecksums; index++) {
+        if (!matchChecksumAtIndex(this.checksums.get(startIndex + index),
+            that.checksums.get(index))) {
+          // checksum mismatch. throw exception.
+          throw new OzoneChecksumException(index);
+        }
+      }
+    } catch (ArrayIndexOutOfBoundsException e) {
+      throw new OzoneChecksumException("Computed checksum has "
+          + numChecksums + " number of checksums. Original checksum has " +
+          (this.checksums.size() - startIndex) + " number of checksums " +
+          "starting from index " + startIndex);
+    }
+    return true;
+  }
+
+  private static boolean matchChecksumAtIndex(
+      ByteString expectedChecksumAtIndex, ByteString computedChecksumAtIndex) {
+    return expectedChecksumAtIndex.equals(computedChecksumAtIndex);
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
     if (!(obj instanceof ChecksumData)) {
       return false;
     }
 
-    final ChecksumData that = (ChecksumData) obj;
-    return Objects.equals(this.getChecksumType(), that.getChecksumType())
-        && Objects.equals(this.getBytesPerChecksum(), that.getBytesPerChecksum())
-        && Objects.equals(this.getChecksums(), that.getChecksums());
+    ChecksumData that = (ChecksumData) obj;
+
+    if (!this.type.equals(that.getChecksumType())) {
+      return false;
+    }
+    if (this.bytesPerChecksum != that.getBytesPerChecksum()) {
+      return false;
+    }
+    if (this.checksums.size() != that.checksums.size()) {
+      return false;
+    }
+
+    // Match checksum at each index
+    for (int index = 0; index < this.checksums.size(); index++) {
+      if (!matchChecksumAtIndex(this.checksums.get(index),
+          that.checksums.get(index))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -154,20 +186,5 @@ public final class ChecksumData {
     hc.append(bytesPerChecksum);
     hc.append(checksums.toArray());
     return hc.toHashCode();
-  }
-
-  @Override
-  public String toString() {
-    final StringBuilder b = new StringBuilder("ChecksumData{")
-        .append(type)
-        .append(", bytesPerChecksum=").append(bytesPerChecksum)
-        .append(", checksums=[");
-    if (!checksums.isEmpty()) {
-      for (ByteString checksum : checksums) {
-        b.append(StringUtils.bytes2Hex(checksum.asReadOnlyByteBuffer())).append(", ");
-      }
-      b.setLength(b.length() - 2);
-    }
-    return b.append("]}").toString();
   }
 }

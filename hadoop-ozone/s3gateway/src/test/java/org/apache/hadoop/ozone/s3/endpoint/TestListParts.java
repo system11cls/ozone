@@ -19,7 +19,6 @@ package org.apache.hadoop.ozone.s3.endpoint;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,6 +42,7 @@ import org.junit.jupiter.api.Test;
  */
 public class TestListParts {
 
+
   private ObjectEndpoint rest;
   private String uploadID;
 
@@ -53,8 +53,6 @@ public class TestListParts {
     client.getObjectStore().createS3Bucket(OzoneConsts.S3_BUCKET);
 
     HttpHeaders headers = mock(HttpHeaders.class);
-    when(headers.getHeaderString(X_AMZ_CONTENT_SHA256))
-        .thenReturn("mockSignature");
     when(headers.getHeaderString(STORAGE_CLASS_HEADER)).thenReturn(
         "STANDARD");
 
@@ -134,4 +132,6 @@ public class TestListParts {
           ex.getErrorMessage());
     }
   }
+
+
 }

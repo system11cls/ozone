@@ -53,8 +53,7 @@ public abstract class RepairTool extends AbstractSubcommand implements Callable<
 
   @Override
   public final Void call() throws Exception {
-    final Component service = serviceToBeOffline();
-    if (!dryRun && service != null) { // offline tool
+    if (!dryRun) {
       confirmUser();
     }
     if (isServiceStateOK()) {
@@ -101,27 +100,12 @@ public abstract class RepairTool extends AbstractSubcommand implements Callable<
     return dryRun;
   }
 
-  /** Print to stdout the formatted from {@code msg} and {@code args}. */
   protected void info(String msg, Object... args) {
     out().println(formatMessage(msg, args));
   }
 
-  /** Print to stderr the formatted from {@code msg} and {@code args}. */
   protected void error(String msg, Object... args) {
     err().println(formatMessage(msg, args));
-  }
-
-  /** Print to stderr the message formatted from {@code msg} and {@code args},
-   * and also print the exception {@code t}. */
-  protected void error(Throwable t, String msg, Object... args) {
-    error(msg, args);
-    rootCommand().printError(t);
-  }
-
-  /** Fail with {@link IllegalStateException} using the message formatted from {@code msg} and {@code args}. */
-  protected void fatal(String msg, Object... args) {
-    String formatted = formatMessage(msg, args);
-    throw new IllegalStateException(formatted);
   }
 
   private String formatMessage(String msg, Object[] args) {

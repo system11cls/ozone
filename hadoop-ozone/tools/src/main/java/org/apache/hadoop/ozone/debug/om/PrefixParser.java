@@ -27,7 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.utils.MetadataKeyFilters.KeyPrefixFilter;
+import org.apache.hadoop.hdds.utils.MetadataKeyFilters;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
@@ -48,10 +48,24 @@ import picocli.CommandLine;
     description = "Parse prefix contents")
 public class PrefixParser implements Callable<Void> {
 
-  @CommandLine.ParentCommand
-  private OMDebug parent;
+  /**
+   * Types to represent the level or path component type.
+   */
+  public enum Types {
+    VOLUME,
+    BUCKET,
+    FILE,
+    DIRECTORY,
+    INTERMEDIATE_DIRECTORY,
+    NON_EXISTENT_DIRECTORY,
+  }
 
   private final int[] parserStats = new int[Types.values().length];
+
+  @CommandLine.Option(names = {"--db"},
+      required = true,
+      description = "Database File Path")
+  private String dbPath;
 
   @CommandLine.Option(names = {"--path"},
       required = true,
@@ -69,12 +83,16 @@ public class PrefixParser implements Callable<Void> {
   private String volume;
 
   public String getDbPath() {
-    return parent.getDbPath();
+    return dbPath;
+  }
+
+  public void setDbPath(String dbPath) {
+    this.dbPath = dbPath;
   }
 
   @Override
   public Void call() throws Exception {
-    parse(volume, bucket, getDbPath(), filePath);
+    parse(volume, bucket, dbPath, filePath);
     return null;
   }
 
@@ -182,15 +200,19 @@ public class PrefixParser implements Callable<Void> {
     return BucketLayout.FILE_SYSTEM_OPTIMIZED;
   }
 
-  private <T extends WithParentObjectId> void dumpTableInfo(Types type,
+  private void dumpTableInfo(Types type,
       org.apache.hadoop.fs.Path effectivePath,
-      Table<String, T> table,
+      Table<String, ? extends WithParentObjectId> table,
       long volumeId, long bucketId, long lastObjectId)
       throws IOException {
-    final KeyPrefixFilter filter = getPrefixFilter(volumeId, bucketId, lastObjectId);
-    final List<KeyValue<String, T>> infoList = table.getRangeKVs(null, 1000, null, filter, false);
+    MetadataKeyFilters.KeyPrefixFilter filter = getPrefixFilter(
+            volumeId, bucketId, lastObjectId);
 
-    for (KeyValue<String, T> info : infoList) {
+    List<? extends KeyValue
+        <String, ? extends WithParentObjectId>> infoList =
+        table.getRangeKVs(null, 1000, null, filter);
+
+    for (KeyValue<String, ? extends WithParentObjectId> info :infoList) {
       Path key = Paths.get(info.getKey());
       dumpInfo(type, getEffectivePath(effectivePath,
           key.getName(1).toString()), info.getValue(), info.getKey());
@@ -214,26 +236,16 @@ public class PrefixParser implements Callable<Void> {
 
   }
 
-  private static KeyPrefixFilter getPrefixFilter(long volumeId, long bucketId, long parentId) {
+  private static MetadataKeyFilters.KeyPrefixFilter getPrefixFilter(
+          long volumeId, long bucketId, long parentId) {
     String key = OM_KEY_PREFIX + volumeId +
             OM_KEY_PREFIX + bucketId +
             OM_KEY_PREFIX + parentId;
-    return KeyPrefixFilter.newFilter(key);
+    return (new MetadataKeyFilters.KeyPrefixFilter())
+        .addFilter(key);
   }
 
   public int getParserStats(Types type) {
     return parserStats[type.ordinal()];
-  }
-
-  /**
-   * Types to represent the level or path component type.
-   */
-  public enum Types {
-    VOLUME,
-    BUCKET,
-    FILE,
-    DIRECTORY,
-    INTERMEDIATE_DIRECTORY,
-    NON_EXISTENT_DIRECTORY,
   }
 }

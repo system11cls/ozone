@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
 public class HadoopRpcOMFailoverProxyProvider<T> extends
       OMFailoverProxyProviderBase<T> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(HadoopRpcOMFailoverProxyProvider.class);
 
   private final Text delegationTokenService;

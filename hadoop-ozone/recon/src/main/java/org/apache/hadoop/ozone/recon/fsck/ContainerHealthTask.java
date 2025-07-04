@@ -120,7 +120,7 @@ public class ContainerHealthTask extends ReconScmTask {
         Thread.sleep(interval);
       }
     } catch (Throwable t) {
-      LOG.error("Exception in Container Health task thread.", t);
+      LOG.error("Exception in Missing Container task Thread.", t);
       if (t instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
@@ -265,8 +265,6 @@ public class ContainerHealthTask extends ReconScmTask {
         UnHealthyContainerStates.MIS_REPLICATED, new HashMap<>());
     unhealthyContainerStateStatsMap.put(
         UnHealthyContainerStates.NEGATIVE_SIZE, new HashMap<>());
-    unhealthyContainerStateStatsMap.put(
-            UnHealthyContainerStates.REPLICA_MISMATCH, new HashMap<>());
   }
 
   private ContainerHealthStatus setCurrentContainer(long recordId)
@@ -385,7 +383,7 @@ public class ContainerHealthTask extends ReconScmTask {
           containerReplicas, placementPolicy,
           reconContainerMetadataManager, conf);
 
-      if ((h.isHealthilyReplicated() && !h.isDataChecksumMismatched()) || h.isDeleted()) {
+      if (h.isHealthilyReplicated() || h.isDeleted()) {
         return;
       }
       // For containers deleted in SCM, we sync the container state here.
@@ -518,7 +516,7 @@ public class ContainerHealthTask extends ReconScmTask {
      */
     public static boolean retainOrUpdateRecord(
         ContainerHealthStatus container, UnhealthyContainersRecord rec) {
-      boolean returnValue;
+      boolean returnValue = false;
       switch (UnHealthyContainerStates.valueOf(rec.getContainerState())) {
       case MISSING:
         returnValue = container.isMissing() && !container.isEmpty();
@@ -531,9 +529,6 @@ public class ContainerHealthTask extends ReconScmTask {
         break;
       case OVER_REPLICATED:
         returnValue = keepOverReplicatedRecord(container, rec);
-        break;
-      case REPLICA_MISMATCH:
-        returnValue = keepReplicaMismatchRecord(container, rec);
         break;
       default:
         returnValue = false;
@@ -563,7 +558,7 @@ public class ContainerHealthTask extends ReconScmTask {
         Map<UnHealthyContainerStates, Map<String, Long>>
             unhealthyContainerStateStatsMap) {
       List<UnhealthyContainers> records = new ArrayList<>();
-      if ((container.isHealthilyReplicated() && !container.isDataChecksumMismatched()) || container.isDeleted()) {
+      if (container.isHealthilyReplicated() || container.isDeleted()) {
         return records;
       }
 
@@ -608,16 +603,6 @@ public class ContainerHealthTask extends ReconScmTask {
           records.add(recordForState(container, UnHealthyContainerStates.OVER_REPLICATED, time));
         }
         populateContainerStats(container, UnHealthyContainerStates.OVER_REPLICATED, unhealthyContainerStateStatsMap);
-      }
-
-      if (container.isDataChecksumMismatched()
-              && !recordForStateExists.contains(
-              UnHealthyContainerStates.REPLICA_MISMATCH.toString())) {
-        records.add(recordForState(
-                container, UnHealthyContainerStates.REPLICA_MISMATCH, time));
-        populateContainerStats(container,
-                UnHealthyContainerStates.REPLICA_MISMATCH,
-                unhealthyContainerStateStatsMap);
       }
 
       if (container.isMisReplicated()) {
@@ -684,17 +669,6 @@ public class ContainerHealthTask extends ReconScmTask {
       return false;
     }
 
-    private static boolean keepReplicaMismatchRecord(
-            ContainerHealthStatus container, UnhealthyContainersRecord rec) {
-      if (container.isDataChecksumMismatched()) {
-        updateExpectedReplicaCount(rec, container.getReplicationFactor());
-        updateActualReplicaCount(rec, container.getReplicaCount());
-        updateReplicaDelta(rec, container.replicaDelta());
-        return true;
-      }
-      return false;
-    }
-
     /**
      * With a Jooq record, if you update any field in the record, the record
      * is marked as changed, even if you updated it to the same value as it is
@@ -755,6 +729,16 @@ public class ContainerHealthTask extends ReconScmTask {
   public synchronized void stop() {
     super.stop();
     this.containerHealthMetrics.unRegister();
+  }
+
+  /**
+   * Expose the logger for testing purposes.
+   *
+   * @return the logger instance
+   */
+  @VisibleForTesting
+  public Logger getLogger() {
+    return LOG;
   }
 
   /**

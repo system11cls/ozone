@@ -156,7 +156,6 @@ public class GrpcContainerUploader implements ContainerUploader {
       this.observer = observer;
       this.responseObserver = responseObserver;
     }
-
     @Override
     public boolean isReady() {
       if (responseObserver.isError()) {

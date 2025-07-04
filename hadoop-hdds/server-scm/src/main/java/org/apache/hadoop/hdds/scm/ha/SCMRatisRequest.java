@@ -84,7 +84,6 @@ public final class SCMRatisRequest {
   public Class<?>[] getParameterTypes() {
     return parameterTypes.clone();
   }
-
   /**
    * Encodes the request into Ratis Message.
    */

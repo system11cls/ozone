@@ -175,6 +175,7 @@ public class TestS3PutObjectTaggingRequest extends TestOMKeyRequest {
     assertEquals(tags.size(), updatedKeyInfo.getTags().size());
   }
 
+
   protected OMRequest doPreExecute(String volumeName,
                                    String bucketName,
                                    String keyName,

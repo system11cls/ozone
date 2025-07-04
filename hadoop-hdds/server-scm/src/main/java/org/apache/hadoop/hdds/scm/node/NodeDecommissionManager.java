@@ -110,7 +110,7 @@ public class NodeDecommissionManager {
         }
       } catch (URISyntaxException e) {
         throw new InvalidHostStringException(
-            "Unable to parse the host string " + rawHostname, e);
+            "Unable to parse the hoststring " + rawHostname, e);
       }
     }
   }
@@ -276,12 +276,21 @@ public class NodeDecommissionManager {
         HddsConfigKeys.HDDS_DATANODE_USE_DN_HOSTNAME,
         HddsConfigKeys.HDDS_DATANODE_USE_DN_HOSTNAME_DEFAULT);
 
-    long monitorIntervalMs = config.getOrFixDuration(
-        LOG,
+    long monitorInterval = config.getTimeDuration(
         ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL,
         ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL_DEFAULT,
-        TimeUnit.MILLISECONDS);
-
+        TimeUnit.SECONDS);
+    if (monitorInterval <= 0) {
+      LOG.warn("{} must be greater than zero, defaulting to {}",
+          ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL,
+          ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL_DEFAULT);
+      config.set(ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL,
+          ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL_DEFAULT);
+      monitorInterval = config.getTimeDuration(
+          ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL,
+          ScmConfigKeys.OZONE_SCM_DATANODE_ADMIN_MONITOR_INTERVAL_DEFAULT,
+          TimeUnit.SECONDS);
+    }
     setMaintenanceConfigs(config.getInt("hdds.scm.replication.maintenance.replica.minimum", 2),
         config.getInt("hdds.scm.replication.maintenance.remaining.redundancy", 1));
 
@@ -289,8 +298,8 @@ public class NodeDecommissionManager {
         rm);
     this.metrics = NodeDecommissionMetrics.create();
     monitor.setMetrics(this.metrics);
-    executor.scheduleAtFixedRate(monitor, monitorIntervalMs, monitorIntervalMs,
-        TimeUnit.MILLISECONDS);
+    executor.scheduleAtFixedRate(monitor, monitorInterval, monitorInterval,
+        TimeUnit.SECONDS);
   }
 
   public Map<String, List<ContainerID>> getContainersPendingReplication(DatanodeDetails dn)
@@ -423,7 +432,7 @@ public class NodeDecommissionManager {
           }
           int reqNodes = cif.getReplicationConfig().getRequiredNodes();
           if ((inServiceTotal - numDecom) < reqNodes) {
-            final int unHealthyTotal = nodeManager.getAllNodeCount() - inServiceTotal;
+            int unHealthyTotal = nodeManager.getAllNodes().size() - inServiceTotal;
             String errorMsg = "Insufficient nodes. Tried to decommission " + dns.size() +
                 " nodes out of " + inServiceTotal + " IN-SERVICE HEALTHY and " + unHealthyTotal +
                 " not IN-SERVICE or not HEALTHY nodes. Cannot decommission as a minimum of " + reqNodes +
@@ -591,7 +600,7 @@ public class NodeDecommissionManager {
             minInService = maintenanceReplicaMinimum;
           }
           if ((inServiceTotal - numMaintenance) < minInService) {
-            final int unHealthyTotal = nodeManager.getAllNodeCount() - inServiceTotal;
+            int unHealthyTotal = nodeManager.getAllNodes().size() - inServiceTotal;
             String errorMsg = "Insufficient nodes. Tried to start maintenance for " + dns.size() +
                 " nodes out of " + inServiceTotal + " IN-SERVICE HEALTHY and " + unHealthyTotal +
                 " not IN-SERVICE or not HEALTHY nodes. Cannot enter maintenance mode as a minimum of " + minInService +

@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
-import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.util.Time;
 import org.apache.ratis.statemachine.StateMachine;
@@ -92,10 +91,6 @@ abstract class StreamDataChannelBase
   @Override
   public final boolean isOpen() {
     return getChannel().isOpen();
-  }
-
-  protected void assertSpaceAvailability(int requested) throws StorageContainerException {
-    ContainerUtils.assertSpaceAvailability(containerData.getContainerID(), containerData.getVolume(), requested);
   }
 
   public void setLinked() {

@@ -21,7 +21,6 @@ Library             BuiltIn
 Resource            ../commonlib.robot
 Resource            ../ozone-lib/freon.robot
 Test Timeout        5 minutes
-Suite Setup         Get Security Enabled From Config
 
 *** Variables ***
 ${ENDPOINT_URL}       http://recon:9888

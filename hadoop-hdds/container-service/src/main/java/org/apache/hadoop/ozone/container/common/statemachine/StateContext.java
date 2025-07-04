@@ -18,11 +18,9 @@
 package org.apache.hadoop.ozone.container.common.statemachine;
 
 import static java.lang.Math.min;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getInitialReconHeartbeatInterval;
 import static org.apache.hadoop.hdds.utils.HddsServerUtil.getLogWarnInterval;
 import static org.apache.hadoop.hdds.utils.HddsServerUtil.getReconHeartbeatInterval;
 import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmHeartbeatInterval;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmInitialHeartbeatInterval;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -151,9 +149,9 @@ public class StateContext {
    * real HB frequency after scm registration. With this method the
    * initial registration could be significant faster.
    */
-  private final AtomicLong heartbeatFrequency;
+  private final AtomicLong heartbeatFrequency = new AtomicLong(2000);
 
-  private final AtomicLong reconHeartbeatFrequency;
+  private final AtomicLong reconHeartbeatFrequency = new AtomicLong(2000);
 
   private final int maxCommandQueueLimit;
 
@@ -194,8 +192,6 @@ public class StateContext {
     fullReportTypeList = new ArrayList<>();
     type2Reports = new HashMap<>();
     this.threadNamePrefix = threadNamePrefix;
-    heartbeatFrequency = new AtomicLong(getScmInitialHeartbeatInterval(conf));
-    reconHeartbeatFrequency = new AtomicLong(getInitialReconHeartbeatInterval(conf));
     initReportTypeCollection();
   }
 
@@ -532,14 +528,12 @@ public class StateContext {
    *
    * @param pipelineAction PipelineAction to be added
    */
-  public boolean addPipelineActionIfAbsent(PipelineAction pipelineAction) {
+  public void addPipelineActionIfAbsent(PipelineAction pipelineAction) {
     // Put only if the pipeline id with the same action is absent.
     final PipelineKey key = new PipelineKey(pipelineAction);
-    boolean added = false;
     for (InetSocketAddress endpoint : endpoints) {
-      added = pipelineActions.get(endpoint).putIfAbsent(key, pipelineAction) || added;
+      pipelineActions.get(endpoint).putIfAbsent(key, pipelineAction);
     }
-    return added;
   }
 
   /**
@@ -960,9 +954,9 @@ public class StateContext {
       return map.size();
     }
 
-    synchronized boolean putIfAbsent(PipelineKey key,
+    synchronized void putIfAbsent(PipelineKey key,
         PipelineAction pipelineAction) {
-      return map.putIfAbsent(key, pipelineAction) == null;
+      map.putIfAbsent(key, pipelineAction);
     }
 
     synchronized List<PipelineAction> getActions(List<PipelineReport> reports,

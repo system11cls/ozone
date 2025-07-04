@@ -17,29 +17,44 @@
 
 package org.apache.hadoop.hdds.scm.node.states;
 
+import jakarta.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.node.DatanodeInfo;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 
 /**
- * Map: {@link DatanodeID} to {@link DatanodeEntry}.
+ * Maintains the state of datanodes in SCM. This class should only be used by
+ * NodeStateManager to maintain the state. If anyone wants to change the
+ * state of a node they should call NodeStateManager, do not directly use
+ * this class.
  * <p>
- * This class is thread-safe.
+ * Concurrency consideration:
+ *   - thread-safe
  */
 public class NodeStateMap {
-  /** Map: {@link DatanodeID} -> ({@link DatanodeInfo}, {@link ContainerID}s). */
-  private final Map<DatanodeID, DatanodeEntry> nodeMap = new HashMap<>();
+  /**
+   * Node id to node info map.
+   */
+  private final Map<DatanodeID, DatanodeInfo> nodeMap = new HashMap<>();
+  /**
+   * Node to set of containers on the node.
+   */
+  private final Map<DatanodeID, Set<ContainerID>> nodeToContainer = new HashMap<>();
 
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -49,18 +64,27 @@ public class NodeStateMap {
   public NodeStateMap() { }
 
   /**
-   * Adds the given datanode.
+   * Adds a node to NodeStateMap.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @param nodeStatus initial NodeStatus
+   * @param layoutInfo initial LayoutVersionProto
    *
    * @throws NodeAlreadyExistsException if the node already exist
    */
-  public void addNode(DatanodeInfo datanode) throws NodeAlreadyExistsException {
-    final DatanodeID id = datanode.getID();
+  public void addNode(DatanodeDetails datanodeDetails, NodeStatus nodeStatus,
+                      LayoutVersionProto layoutInfo)
+
+      throws NodeAlreadyExistsException {
     lock.writeLock().lock();
     try {
+      final DatanodeID id = datanodeDetails.getID();
       if (nodeMap.containsKey(id)) {
-        throw new NodeAlreadyExistsException(id);
+        throw new NodeAlreadyExistsException("Node UUID: " + id);
       }
-      nodeMap.put(id, new DatanodeEntry(datanode));
+      nodeMap.put(id, new DatanodeInfo(datanodeDetails, nodeStatus,
+          layoutInfo));
+      nodeToContainer.put(id, new HashSet<>());
     } finally {
       lock.writeLock().unlock();
     }
@@ -73,30 +97,35 @@ public class NodeStateMap {
     lock.writeLock().lock();
     try {
       nodeMap.remove(datanodeID);
+      nodeToContainer.remove(datanodeID);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
   /**
-   * Update the given datanode.
+   * Update a node in NodeStateMap.
    *
-   * @return the existing {@link DatanodeInfo}.
+   * @param datanodeDetails DatanodeDetails
+   * @param nodeStatus initial NodeStatus
+   * @param layoutInfo initial LayoutVersionProto
+   *
    */
-  public DatanodeInfo updateNode(DatanodeInfo datanode) throws NodeNotFoundException {
-    final DatanodeID id = datanode.getID();
-    final DatanodeInfo oldInfo;
+  public void updateNode(DatanodeDetails datanodeDetails, NodeStatus nodeStatus,
+                         LayoutVersionProto layoutInfo)
+
+          throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      oldInfo = getNodeInfo(id);
-      if (oldInfo == null) {
+      final DatanodeID id = datanodeDetails.getID();
+      if (!nodeMap.containsKey(id)) {
         throw new NodeNotFoundException(id);
       }
-      nodeMap.put(id, new DatanodeEntry(datanode));
+      nodeMap.put(id, new DatanodeInfo(datanodeDetails, nodeStatus,
+              layoutInfo));
     } finally {
       lock.writeLock().unlock();
     }
-    return oldInfo;
   }
 
   /**
@@ -111,8 +140,10 @@ public class NodeStateMap {
       throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      final DatanodeInfo dn = getExisting(nodeId).getInfo();
-      final NodeStatus newStatus = dn.getNodeStatus().newNodeState(newHealth);
+      DatanodeInfo dn = getNodeInfoUnsafe(nodeId);
+      NodeStatus oldStatus = dn.getNodeStatus();
+      NodeStatus newStatus = new NodeStatus(
+          oldStatus.getOperationalState(), newHealth);
       dn.setNodeStatus(newStatus);
       return newStatus;
     } finally {
@@ -133,8 +164,10 @@ public class NodeStateMap {
       throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      final DatanodeInfo dn = getExisting(nodeId).getInfo();
-      final NodeStatus newStatus = dn.getNodeStatus().newOperationalState(newOpState, opStateExpiryEpochSeconds);
+      DatanodeInfo dn = getNodeInfoUnsafe(nodeId);
+      NodeStatus oldStatus = dn.getNodeStatus();
+      NodeStatus newStatus = new NodeStatus(
+          newOpState, oldStatus.getHealth(), opStateExpiryEpochSeconds);
       dn.setNodeStatus(newStatus);
       return newStatus;
     } finally {
@@ -149,7 +182,7 @@ public class NodeStateMap {
   public DatanodeInfo getNodeInfo(DatanodeID datanodeID) throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getExisting(datanodeID).getInfo();
+      return getNodeInfoUnsafe(datanodeID);
     } finally {
       lock.readLock().unlock();
     }
@@ -170,11 +203,9 @@ public class NodeStateMap {
    * @return list of all the node ids
    */
   public List<DatanodeInfo> getAllDatanodeInfos() {
-    lock.readLock().lock();
     try {
-      return nodeMap.values().stream()
-          .map(DatanodeEntry::getInfo)
-          .collect(Collectors.toList());
+      lock.readLock().lock();
+      return new ArrayList<>(nodeMap.values());
     } finally {
       lock.readLock().unlock();
     }
@@ -202,15 +233,18 @@ public class NodeStateMap {
    */
   public List<DatanodeInfo> getDatanodeInfos(
       NodeOperationalState opState, NodeState health) {
-    return opState != null && health != null ? filterNodes(matching(opState, health))
-        : opState != null ? filterNodes(matching(opState))
-        : health != null ? filterNodes(matching(health))
-        : getAllDatanodeInfos();
+    return filterNodes(opState, health);
   }
 
-  /** @return Number of nodes in the given status */
-  public int getNodeCount(NodeStatus status) {
-    return countNodes(matching(status));
+  /**
+   * Returns the count of nodes in the specified state.
+   *
+   * @param state NodeStatus
+   *
+   * @return Number of nodes in the specified state
+   */
+  public int getNodeCount(NodeStatus state) {
+    return getDatanodeInfos(state).size();
   }
 
   /**
@@ -223,10 +257,7 @@ public class NodeStateMap {
    * @return Number of nodes in the specified state
    */
   public int getNodeCount(NodeOperationalState opState, NodeState health) {
-    return opState != null && health != null ? countNodes(matching(opState, health))
-        : opState != null ? countNodes(matching(opState))
-        : health != null ? countNodes(matching(health))
-        : getTotalNodeCount();
+    return filterNodes(opState, health).size();
   }
 
   /**
@@ -255,7 +286,7 @@ public class NodeStateMap {
   public NodeStatus getNodeStatus(DatanodeID datanodeID) throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getExisting(datanodeID).getInfo().getNodeStatus();
+      return getNodeInfoUnsafe(datanodeID).getNodeStatus();
     } finally {
       lock.readLock().unlock();
     }
@@ -277,15 +308,12 @@ public class NodeStateMap {
     }
   }
 
-  /**
-   * Set the containers for the given datanode.
-   * This method is only used for testing.
-   */
-  public void setContainersForTesting(DatanodeID id, Set<ContainerID> containers)
+  public void setContainers(DatanodeID id, Set<ContainerID> containers)
       throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      getExisting(id).setContainersForTesting(containers);
+      getExisting(id);
+      nodeToContainer.put(id, containers);
     } finally {
       lock.writeLock().unlock();
     }
@@ -295,7 +323,7 @@ public class NodeStateMap {
       throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getExisting(id).copyContainers();
+      return new HashSet<>(getExisting(id));
     } finally {
       lock.readLock().unlock();
     }
@@ -304,7 +332,7 @@ public class NodeStateMap {
   public int getContainerCount(DatanodeID datanodeID) throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getExisting(datanodeID).getContainerCount();
+      return getExisting(datanodeID).size();
     } finally {
       lock.readLock().unlock();
     }
@@ -341,52 +369,67 @@ public class NodeStateMap {
   }
 
   /**
-   * @return the entry mapping to the given id.
+   * @return the container set mapping to the given id.
    * @throws NodeNotFoundException If the node is missing.
    */
-  private DatanodeEntry getExisting(DatanodeID id) throws NodeNotFoundException {
-    final DatanodeEntry entry = nodeMap.get(id);
-    if (entry == null) {
+  private Set<ContainerID> getExisting(DatanodeID id) throws NodeNotFoundException {
+    final Set<ContainerID> containers = nodeToContainer.get(id);
+    if (containers == null) {
       throw new NodeNotFoundException(id);
     }
-    return entry;
+    return containers;
   }
 
-  private int countNodes(Predicate<DatanodeInfo> filter) {
-    final long count;
-    lock.readLock().lock();
-    try {
-      count = nodeMap.values().stream()
-          .map(DatanodeEntry::getInfo)
-          .filter(filter)
-          .count();
-    } finally {
-      lock.readLock().unlock();
+  /**
+   * Create a list of datanodeInfo for all nodes matching the passed states.
+   * Passing null for one of the states acts like a wildcard for that state.
+   *
+   * @param opState
+   * @param health
+   * @return List of DatanodeInfo objects matching the passed state
+   */
+  private List<DatanodeInfo> filterNodes(
+      NodeOperationalState opState, NodeState health) {
+    if (opState != null && health != null) {
+      return filterNodes(matching(new NodeStatus(opState, health)));
     }
-    return Math.toIntExact(count);
+    if (opState != null) {
+      return filterNodes(matching(opState));
+    }
+    if (health != null) {
+      return filterNodes(matching(health));
+    }
+    return getAllDatanodeInfos();
   }
 
   /**
    * @return a list of all nodes matching the {@code filter}
    */
   private List<DatanodeInfo> filterNodes(Predicate<DatanodeInfo> filter) {
+    List<DatanodeInfo> result = new LinkedList<>();
     lock.readLock().lock();
     try {
-      return nodeMap.values().stream()
-          .map(DatanodeEntry::getInfo)
-          .filter(filter)
-          .collect(Collectors.toList());
+      for (DatanodeInfo dn : nodeMap.values()) {
+        if (filter.test(dn)) {
+          result.add(dn);
+        }
+      }
     } finally {
       lock.readLock().unlock();
     }
+    return result;
+  }
+
+  private @Nonnull DatanodeInfo getNodeInfoUnsafe(@Nonnull DatanodeID id) throws NodeNotFoundException {
+    final DatanodeInfo info = nodeMap.get(id);
+    if (info == null) {
+      throw new NodeNotFoundException(id);
+    }
+    return info;
   }
 
   private static Predicate<DatanodeInfo> matching(NodeStatus status) {
     return dn -> status.equals(dn.getNodeStatus());
-  }
-
-  private static Predicate<DatanodeInfo> matching(NodeOperationalState op, NodeState health) {
-    return dn -> matching(op).test(dn) && matching(health).test(dn);
   }
 
   private static Predicate<DatanodeInfo> matching(NodeOperationalState state) {

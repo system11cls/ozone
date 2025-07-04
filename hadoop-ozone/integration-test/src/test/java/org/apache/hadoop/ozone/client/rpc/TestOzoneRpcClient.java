@@ -23,10 +23,12 @@ import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test Ozone Client with OM Ratis enabled.
  */
+@Timeout(300)
 class TestOzoneRpcClient extends OzoneRpcClientTests {
 
   @BeforeAll

@@ -204,6 +204,7 @@ public class TrashOzoneFileSystem extends FileSystem {
     return fileStatuses.toArray(new FileStatus[0]);
   }
 
+
   /**
    * converts OzoneFileStatus object to FileStatus.
    */
@@ -242,6 +243,7 @@ public class TrashOzoneFileSystem extends FileSystem {
     throw new UnsupportedOperationException(
         "fs.mkdirs() not implemented in TrashOzoneFileSystem");
   }
+
 
   @Override
   public FileStatus getFileStatus(Path path) throws IOException {
@@ -537,6 +539,7 @@ public class TrashOzoneFileSystem extends FileSystem {
     private final boolean recursive;
     private List<String> keysList;
 
+
     DeleteIterator(Path f, boolean recursive)
         throws IOException {
       super(f);
@@ -614,4 +617,7 @@ public class TrashOzoneFileSystem extends FileSystem {
 
     return userInfo.build();
   }
+
+
+
 }

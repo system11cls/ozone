@@ -36,10 +36,6 @@ import org.apache.ratis.util.JavaUtils;
  * for {@link ContainerCommandRequestProto}.
  */
 public final class ContainerCommandRequestMessage implements Message {
-  private final ContainerCommandRequestProto header;
-  private final ByteString data;
-  private final Supplier<ByteString> contentSupplier = JavaUtils.memoize(this::buildContent);
-
   public static ContainerCommandRequestMessage toMessage(
       ContainerCommandRequestProto request, String traceId) {
     final ContainerCommandRequestProto.Builder b
@@ -93,6 +89,11 @@ public final class ContainerCommandRequestMessage implements Message {
     }
     return b.build();
   }
+
+  private final ContainerCommandRequestProto header;
+  private final ByteString data;
+  private final Supplier<ByteString> contentSupplier
+      = JavaUtils.memoize(this::buildContent);
 
   private ContainerCommandRequestMessage(
       ContainerCommandRequestProto header, ByteString data) {

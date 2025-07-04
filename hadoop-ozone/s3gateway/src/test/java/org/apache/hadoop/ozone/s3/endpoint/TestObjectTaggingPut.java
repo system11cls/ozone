@@ -26,7 +26,6 @@ import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.MALFORMED_XML;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.NOT_IMPLEMENTED;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.NO_SUCH_BUCKET;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.NO_SUCH_KEY;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.doThrow;
@@ -50,7 +49,6 @@ import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -76,7 +74,6 @@ public class TestObjectTaggingPut {
     clientStub.getObjectStore().createS3Bucket(BUCKET_NAME);
 
     HttpHeaders headers = mock(HttpHeaders.class);
-    when(headers.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
 
     // Create PutObject and setClient to OzoneClientStub
     objectEndpoint = EndpointBuilder.newObjectEndpointBuilder()
@@ -85,7 +82,7 @@ public class TestObjectTaggingPut {
         .setHeaders(headers)
         .build();
 
-
+    
     ByteArrayInputStream body =
         new ByteArrayInputStream("".getBytes(UTF_8));
 
@@ -199,7 +196,7 @@ public class TestObjectTaggingPut {
 
   private InputStream invalidXmlStructure() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "   </Ta" +
             "Tagging>";
@@ -209,7 +206,7 @@ public class TestObjectTaggingPut {
 
   private InputStream twoTags() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "      <Tag>" +
             "         <Key>tag1</Key>" +
@@ -227,14 +224,14 @@ public class TestObjectTaggingPut {
 
   private InputStream noTagSet() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "</Tagging>";
     return new ByteArrayInputStream(xml.getBytes(UTF_8));
   }
 
   private InputStream emptyTags() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "   </TagSet>" +
             "</Tagging>";
@@ -244,7 +241,7 @@ public class TestObjectTaggingPut {
 
   public InputStream tagKeyNotSpecified() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "      <Tag>" +
             "         <Value>val1</Value>" +
@@ -257,7 +254,7 @@ public class TestObjectTaggingPut {
 
   public InputStream tagValueNotSpecified() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "      <Tag>" +
             "         <Key>tag1</Key>" +

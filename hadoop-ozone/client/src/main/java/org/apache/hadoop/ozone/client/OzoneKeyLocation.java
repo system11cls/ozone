@@ -42,7 +42,6 @@ public class OzoneKeyLocation {
    * KeyOffset of this key.
    */
   private final long keyOffset;
-
   /**
    * Constructs OzoneKeyLocation.
    */

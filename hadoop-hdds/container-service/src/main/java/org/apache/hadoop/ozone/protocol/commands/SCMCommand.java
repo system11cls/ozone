@@ -46,7 +46,6 @@ public abstract class SCMCommand<T extends Message> implements
   SCMCommand(long id) {
     this.id = id;
   }
-
   /**
    * Returns the type of this command.
    * @return Type
@@ -126,10 +125,5 @@ public abstract class SCMCommand<T extends Message> implements
 
   public boolean contributesToQueueSize() {
     return true;
-  }
-
-  @Override
-  public String toString() {
-    return getType() + "(id=" + id + ", term=" + term + ')';
   }
 }

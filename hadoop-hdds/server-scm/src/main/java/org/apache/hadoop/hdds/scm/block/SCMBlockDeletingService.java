@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -37,7 +38,6 @@ import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type;
 import org.apache.hadoop.hdds.scm.ScmConfig;
@@ -71,7 +71,7 @@ import org.slf4j.LoggerFactory;
 public class SCMBlockDeletingService extends BackgroundService
     implements SCMService {
 
-  static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMBlockDeletingService.class);
 
   private static final int BLOCK_DELETING_SERVICE_CORE_POOL_SIZE = 1;
@@ -93,7 +93,6 @@ public class SCMBlockDeletingService extends BackgroundService
   private final long safemodeExitRunDelayMillis;
   private final long deleteBlocksPendingCommandLimit;
   private final Clock clock;
-  private final int transactionToDNsCommitMapLimit;
 
   @SuppressWarnings("parameternumber")
   public SCMBlockDeletingService(DeletedBlockLog deletedBlockLog,
@@ -116,7 +115,6 @@ public class SCMBlockDeletingService extends BackgroundService
     DatanodeConfiguration dnConf =
         conf.getObject(DatanodeConfiguration.class);
     this.deleteBlocksPendingCommandLimit = dnConf.getBlockDeleteQueueLimit();
-    this.transactionToDNsCommitMapLimit = scmConfig.getTransactionToDNsCommitMapLimit();
     this.clock = clock;
     this.deletedBlockLog = deletedBlockLog;
     this.nodeManager = nodeManager;
@@ -169,12 +167,6 @@ public class SCMBlockDeletingService extends BackgroundService
           final Set<DatanodeDetails> included =
               getDatanodesWithinCommandLimit(datanodes);
           int blockDeletionLimit = getBlockDeleteTXNum();
-          int txnToDNsCommitMapSize = deletedBlockLog.getTransactionToDNsCommitMapSize();
-          if (txnToDNsCommitMapSize >= transactionToDNsCommitMapLimit) {
-            LOG.warn("Skipping block deletion as transactionToDNsCommitMap size = {}, exceeds threshold {}",
-                txnToDNsCommitMapSize, transactionToDNsCommitMapLimit);
-            return EmptyTaskResult.newResult();
-          }
           DatanodeDeletedBlockTransactions transactions =
               deletedBlockLog.getTransactions(blockDeletionLimit, included);
 
@@ -183,19 +175,14 @@ public class SCMBlockDeletingService extends BackgroundService
           }
 
           Set<Long> processedTxIDs = new HashSet<>();
-          for (Map.Entry<DatanodeID, List<DeletedBlocksTransaction>> entry :
+          for (Map.Entry<UUID, List<DeletedBlocksTransaction>> entry :
               transactions.getDatanodeTransactionMap().entrySet()) {
-            DatanodeID dnId = entry.getKey();
-            long blocksToDn = 0;
+            UUID dnId = entry.getKey();
             List<DeletedBlocksTransaction> dnTXs = entry.getValue();
             if (!dnTXs.isEmpty()) {
               Set<Long> dnTxSet = dnTXs.stream()
                   .map(DeletedBlocksTransaction::getTxID)
                   .collect(Collectors.toSet());
-              for (DeletedBlocksTransaction deletedBlocksTransaction : dnTXs) {
-                blocksToDn +=
-                    deletedBlocksTransaction.getLocalIDList().size();
-              }
               processedTxIDs.addAll(dnTxSet);
               DeleteBlocksCommand command = new DeleteBlocksCommand(dnTXs);
               command.setTerm(scmContext.getTermOfLeader());
@@ -203,9 +190,8 @@ public class SCMBlockDeletingService extends BackgroundService
                   dnTxSet);
               eventPublisher.fireEvent(SCMEvents.DATANODE_COMMAND,
                   new CommandForDatanode<>(dnId, command));
-              metrics.incrNumBlockDeletionSentDN(dnId, blocksToDn);
               metrics.incrBlockDeletionCommandSent();
-              metrics.incrBlockDeletionTransactionsOnDatanodes(dnTXs.size());
+              metrics.incrBlockDeletionTransactionSent(dnTXs.size());
               metrics.incrDNCommandsSent(dnId, 1);
               if (LOG.isDebugEnabled()) {
                 LOG.debug(
@@ -217,7 +203,6 @@ public class SCMBlockDeletingService extends BackgroundService
               }
             }
           }
-          metrics.incrTotalBlockSentToDNForDeletion(transactions.getBlocksDeleted());
           LOG.info("Totally added {} blocks to be deleted for"
               + " {} datanodes / {} totalnodes, limit per iteration : {}blocks, task elapsed time: {}ms",
               transactions.getBlocksDeleted(),
@@ -320,7 +305,7 @@ public class SCMBlockDeletingService extends BackgroundService
     final Set<DatanodeDetails> included = new HashSet<>();
     for (DatanodeDetails dn : datanodes) {
       if (nodeManager.getTotalDatanodeCommandCount(dn, Type.deleteBlocksCommand) < deleteBlocksPendingCommandLimit
-          && nodeManager.getCommandQueueCount(dn.getID(), Type.deleteBlocksCommand) < 2) {
+          && nodeManager.getCommandQueueCount(dn.getUuid(), Type.deleteBlocksCommand) < 2) {
         included.add(dn);
       }
     }

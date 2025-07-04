@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.OutputStream;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,7 +38,6 @@ import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.ha.SCMHAMetrics;
 import org.apache.hadoop.hdds.scm.ha.SCMRatisServerImpl;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
-import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
@@ -51,10 +52,12 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.HATests;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests for SCM HA.
  */
+@Timeout(300)
 public abstract class TestStorageContainerManagerHAWithAllRunning implements HATests.TestCase {
 
   private static final int OM_COUNT = 3;
@@ -126,7 +129,9 @@ public abstract class TestStorageContainerManagerHAWithAllRunning implements HAT
 
       byte[] bytes = value.getBytes(UTF_8);
       RatisReplicationConfig replication = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE);
-      TestDataUtil.createKey(bucket, keyName, replication, bytes);
+      try (OutputStream out = bucket.createKey(keyName, bytes.length, replication, new HashMap<>())) {
+        out.write(bytes);
+      }
 
       OzoneKey key = bucket.getKey(keyName);
       assertEquals(keyName, key.getName());
@@ -145,7 +150,7 @@ public abstract class TestStorageContainerManagerHAWithAllRunning implements HAT
           .setReplicationConfig(replication)
           .setKeyName(keyName)
           .build();
-      final OmKeyInfo keyInfo = cluster().getOMLeader().lookupKey(keyArgs);
+      final OmKeyInfo keyInfo = cluster().getOzoneManager().lookupKey(keyArgs);
       final List<OmKeyLocationInfo> keyLocationInfos =
           keyInfo.getKeyLocationVersions().get(0).getBlocksLatestVersionOnly();
       long index = -1;

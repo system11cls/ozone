@@ -40,7 +40,7 @@ fi
 if [[ "${FAIL_FAST}" == "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-fast -Dsurefire.skipAfterFailureCount=1"
 else
-  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-never"
+  MAVEN_OPTIONS="${MAVEN_OPTIONS} --fail-at-end"
 fi
 
 # apply module access args (for Java 9+)
@@ -50,10 +50,8 @@ if [[ -f hadoop-ozone/dist/src/shell/ozone/ozone-functions.sh ]]; then
   ozone_java_setup
 fi
 
-mvn ${MAVEN_OPTIONS} clean
-
 if [[ ${ITERATIONS} -gt 1 ]] && [[ ${OZONE_REPO_CACHED} == "false" ]]; then
-  mvn ${MAVEN_OPTIONS} -DskipTests install
+  mvn ${MAVEN_OPTIONS} -DskipTests clean install
 fi
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/${CHECK}"}
@@ -69,7 +67,7 @@ for i in $(seq 1 ${ITERATIONS}); do
   fi
 
   mvn ${MAVEN_OPTIONS} -Dmaven-surefire-plugin.argLineAccessArgs="${OZONE_MODULE_ACCESS_ARGS}" "$@" verify \
-      | tee "${REPORT_DIR}/output.log"
+    | tee "${REPORT_DIR}/output.log"
   irc=$?
 
   # shellcheck source=hadoop-ozone/dev-support/checks/_mvn_unit_report.sh
@@ -107,4 +105,5 @@ if [[ "${OZONE_WITH_COVERAGE}" == "true" ]]; then
   mvn -B -N jacoco:merge -Djacoco.destFile=$REPORT_DIR/jacoco-combined.exec -Dscan=false
 fi
 
+ERROR_PATTERN="\[ERROR\]"
 source "${DIR}/_post_process.sh"

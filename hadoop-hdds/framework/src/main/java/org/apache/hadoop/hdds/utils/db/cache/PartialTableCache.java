@@ -46,13 +46,14 @@ import org.slf4j.LoggerFactory;
 @Evolving
 public class PartialTableCache<KEY, VALUE> implements TableCache<KEY, VALUE> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(PartialTableCache.class);
 
   private final Map<CacheKey<KEY>, CacheValue<VALUE>> cache;
   private final NavigableMap<Long, Set<CacheKey<KEY>>> epochEntries;
   private final ExecutorService executorService;
   private final CacheStatsRecorder statsRecorder;
+
 
   public PartialTableCache(String threadNamePrefix) {
     // We use concurrent Hash map for O(1) lookup for get API.

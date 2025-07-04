@@ -85,6 +85,7 @@ public class TestBasicUpgradeFinalizer {
         finalizer.postCalled);
   }
 
+
   @Test
   public void testAlreadyFinalizedDoesNotTriggerNewFinalization()
       throws IOException {

@@ -50,7 +50,6 @@ import org.apache.hadoop.ozone.upgrade.LayoutFeature.UpgradeActionType;
 import org.apache.hadoop.ozone.upgrade.UpgradeException.ResultCodes;
 import org.apache.hadoop.ozone.upgrade.UpgradeFinalization.Status;
 import org.apache.hadoop.ozone.upgrade.UpgradeFinalization.StatusAndMessages;
-import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 
 /**
@@ -170,9 +169,9 @@ public abstract class BasicUpgradeFinalizer
     }
 
     boolean success = false;
-    long endTime = Time.monotonicNow() +
+    long endTime = System.currentTimeMillis() +
         TimeUnit.SECONDS.toMillis(maxTimeToWaitInSeconds);
-    while (Time.monotonicNow() < endTime) {
+    while (System.currentTimeMillis() < endTime) {
       try {
         response = reportStatus(upgradeClientID, false);
         LOG.info("Finalization Messages : {} ", response.msgs());
@@ -239,7 +238,7 @@ public abstract class BasicUpgradeFinalizer
   private void assertClientId(String id) throws UpgradeException {
     if (this.clientID == null || !this.clientID.equals(id)) {
       throw new UpgradeException("Unknown client tries to get finalization " +
-          "status.\n The requester is not the initiating client of the " +
+          "status.\n The requestor is not the initiating client of the " +
           "finalization, if you want to take over, and get unsent status " +
           "messages, check -takeover option.", INVALID_REQUEST);
     }

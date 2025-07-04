@@ -25,16 +25,6 @@ import java.util.Objects;
  */
 public final class CacheValue<VALUE> {
 
-  private final VALUE value;
-  // This value is used for evict entries from cache.
-  // This value is set with ratis transaction context log entry index.
-  private final long epoch;
-
-  private CacheValue(long epoch, VALUE value) {
-    this.value = value;
-    this.epoch = epoch;
-  }
-
   /** @return a {@link CacheValue} with a non-null value. */
   public static <V> CacheValue<V> get(long epoch, V value) {
     Objects.requireNonNull(value, "value == null");
@@ -44,6 +34,16 @@ public final class CacheValue<VALUE> {
   /** @return a {@link CacheValue} with a null value. */
   public static <V> CacheValue<V> get(long epoch) {
     return new CacheValue<>(epoch, null);
+  }
+
+  private final VALUE value;
+  // This value is used for evict entries from cache.
+  // This value is set with ratis transaction context log entry index.
+  private final long epoch;
+
+  private CacheValue(long epoch, VALUE value) {
+    this.value = value;
+    this.epoch = epoch;
   }
 
   public VALUE getCacheValue() {

@@ -122,6 +122,7 @@ public class VirtualHostStyleFilter implements ContainerRequestFilter {
     this.conf = config;
   }
 
+
   /**
    * This method finds the longest match with the domain name.
    * @param host
@@ -150,4 +151,6 @@ public class VirtualHostStyleFilter implements ContainerRequestFilter {
       return host;
     }
   }
+
+
 }

@@ -22,20 +22,23 @@ package org.apache.hadoop.hdds.scm.container;
  */
 public class ContainerNotFoundException extends ContainerException {
 
+  /**
+   * Constructs an {@code ContainerNotFoundException} with {@code null}
+   * as its error detail message.
+   */
   public ContainerNotFoundException() {
-    this("Container not found for unknown id");
+    super(ResultCodes.CONTAINER_NOT_FOUND);
   }
 
-  /** Required by {@link org.apache.hadoop.ipc.RemoteException#unwrapRemoteException()}. */
+  /**
+   * Constructs an {@code ContainerNotFoundException} with the specified
+   * detail message.
+   *
+   * @param message
+   *        The detail message (which is saved for later retrieval
+   *        by the {@link #getMessage()} method)
+   */
   public ContainerNotFoundException(String message) {
     super(message, ResultCodes.CONTAINER_NOT_FOUND);
-  }
-
-  public ContainerNotFoundException(ContainerID containerID) {
-    this("Container " +  containerID + " not found");
-  }
-
-  public static ContainerNotFoundException newInstanceForTesting() {
-    return new ContainerNotFoundException("For testing");
   }
 }

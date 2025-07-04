@@ -28,7 +28,6 @@ import org.apache.hadoop.metrics2.annotation.Metrics;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
-import org.apache.hadoop.metrics2.lib.MutableGaugeInt;
 import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.ozone.OzoneConsts;
 
@@ -58,10 +57,6 @@ public class VolumeInfoMetrics implements MetricsSource {
   private final HddsVolume volume;
   @Metric("Returns the RocksDB compact times of the Volume")
   private MutableRate dbCompactLatency;
-  @Metric("Volume reserved space crosses reserved usages limit")
-  private MutableGaugeInt reservedCrossesLimit;
-  @Metric("Volume available space is insufficient")
-  private MutableGaugeInt availableSpaceInsufficient;
 
   /**
    * @param identifier Typically, path to volume root. E.g. /data/hdds
@@ -124,30 +119,6 @@ public class VolumeInfoMetrics implements MetricsSource {
     dbCompactLatency.add(time);
   }
 
-  public int getAvailableSpaceInsufficient() {
-    return availableSpaceInsufficient.value();
-  }
-
-  public void setAvailableSpaceInsufficient(boolean isInSufficient) {
-    if (isInSufficient) {
-      availableSpaceInsufficient.set(1);
-    } else {
-      availableSpaceInsufficient.set(0);
-    }
-  }
-
-  public int getReservedCrossesLimit() {
-    return reservedCrossesLimit.value();
-  }
-
-  public void setReservedCrossesLimit(boolean isLimitCrossed) {
-    if (isLimitCrossed) {
-      reservedCrossesLimit.set(1);
-    } else {
-      reservedCrossesLimit.set(0);
-    }
-  }
-
   /**
    * Return the Container Count of the Volume.
    */
@@ -160,9 +131,9 @@ public class VolumeInfoMetrics implements MetricsSource {
   public void getMetrics(MetricsCollector collector, boolean all) {
     MetricsRecordBuilder builder = collector.addRecord(metricsSourceName);
     registry.snapshot(builder, all);
-    volume.getVolumeUsage().ifPresent(volumeUsage -> {
-      SpaceUsageSource usage = volumeUsage.getCurrentUsage();
-      long reserved = volumeUsage.getReservedInBytes();
+    volume.getVolumeInfo().ifPresent(volumeInfo -> {
+      SpaceUsageSource usage = volumeInfo.getCurrentUsage();
+      long reserved = volumeInfo.getReservedInBytes();
       builder
           .addGauge(CAPACITY, usage.getCapacity())
           .addGauge(AVAILABLE, usage.getAvailable())

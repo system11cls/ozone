@@ -25,13 +25,12 @@ import org.apache.hadoop.metrics2.lib.MutableGaugeLong;
 
 /**
  * This class is used for maintaining SafeMode metric information, which can
- * be used for monitoring during SCM startup when SCM is still in SafeMode.<p>
- * The metrics from this class are valid iff
- * {@link org.apache.hadoop.hdds.HddsConfigKeys#HDDS_SCM_SAFEMODE_ENABLED} is
- * set to true and the SCM is still in SafeMode.
+ * be used for monitoring during SCM startup when SCM is still in SafeMode.
  */
 public class SafeModeMetrics {
-  private static final String SOURCE_NAME = SafeModeMetrics.class.getSimpleName();
+  private static final String SOURCE_NAME =
+      SafeModeMetrics.class.getSimpleName();
+
 
   // These all values will be set to some values when safemode is enabled.
   private @Metric MutableGaugeLong
@@ -43,7 +42,8 @@ public class SafeModeMetrics {
   private @Metric MutableCounterLong
       currentContainersWithECDataReplicaReportedCount;
 
-  // Pipeline metrics for safemode
+  // When hdds.scm.safemode.pipeline-availability.check is set then only
+  // below metrics will have some values, otherwise they will be zero.
   private @Metric MutableGaugeLong numHealthyPipelinesThreshold;
   private @Metric MutableCounterLong currentHealthyPipelinesCount;
   private @Metric MutableGaugeLong
@@ -52,8 +52,10 @@ public class SafeModeMetrics {
       currentPipelinesWithAtleastOneReplicaReportedCount;
 
   public static SafeModeMetrics create() {
-    final MetricsSystem ms = DefaultMetricsSystem.instance();
-    return ms.register(SOURCE_NAME, "SCM Safemode Metrics", new SafeModeMetrics());
+    MetricsSystem ms = DefaultMetricsSystem.instance();
+    return ms.register(SOURCE_NAME,
+        "SCM Safemode Metrics",
+        new SafeModeMetrics());
   }
 
   public void setNumHealthyPipelinesThreshold(long val) {
@@ -116,6 +118,7 @@ public class SafeModeMetrics {
   MutableCounterLong getCurrentContainersWithOneReplicaReportedCount() {
     return currentContainersWithOneReplicaReportedCount;
   }
+
 
   public void unRegister() {
     MetricsSystem ms = DefaultMetricsSystem.instance();

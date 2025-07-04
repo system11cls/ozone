@@ -43,6 +43,10 @@ public final class OmPrefixInfo extends WithObjectID implements CopyObject<OmPre
       OmPrefixInfo::getProtobuf,
       OmPrefixInfo.class);
 
+  public static Codec<OmPrefixInfo> getCodec() {
+    return CODEC;
+  }
+
   private final String name;
   private final CopyOnWriteArrayList<OzoneAcl> acls;
 
@@ -50,10 +54,6 @@ public final class OmPrefixInfo extends WithObjectID implements CopyObject<OmPre
     super(b);
     name = b.name;
     acls = new CopyOnWriteArrayList<>(b.acls);
-  }
-
-  public static Codec<OmPrefixInfo> getCodec() {
-    return CODEC;
   }
 
   /**

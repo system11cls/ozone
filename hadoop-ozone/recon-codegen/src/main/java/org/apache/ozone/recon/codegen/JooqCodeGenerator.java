@@ -112,7 +112,6 @@ public class JooqCodeGenerator {
    */
   static class LocalDataSourceProvider implements Provider<DataSource> {
     private static EmbeddedDataSource dataSource;
-
     static {
       try {
         SqlDbUtils.createNewDerbyDatabase(JDBC_URL, RECON_SCHEMA_NAME);

@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.hdds.scm.metadata;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import org.apache.hadoop.hdds.utils.db.Codec;
 
@@ -41,12 +42,12 @@ public final class BigIntegerCodec implements Codec<BigInteger> {
   }
 
   @Override
-  public byte[] toPersistedFormat(BigInteger object) {
+  public byte[] toPersistedFormat(BigInteger object) throws IOException {
     return object.toByteArray();
   }
 
   @Override
-  public BigInteger fromPersistedFormat(byte[] rawData) {
+  public BigInteger fromPersistedFormat(byte[] rawData) throws IOException {
     return new BigInteger(rawData);
   }
 

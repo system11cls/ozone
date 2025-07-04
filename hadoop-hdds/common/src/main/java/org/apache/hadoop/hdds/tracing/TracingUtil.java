@@ -197,6 +197,7 @@ public final class TracingUtil {
     executeInSpan(span, runnable);
   }
 
+
   /**
    * Create an active span with auto-close at finish.
    * <p>

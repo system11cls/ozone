@@ -177,7 +177,6 @@ public class OzoneVolume extends WithMetadata {
   public long getQuotaInNamespace() {
     return quotaInNamespace;
   }
-
   /**
    * Returns creation time of the volume.
    *

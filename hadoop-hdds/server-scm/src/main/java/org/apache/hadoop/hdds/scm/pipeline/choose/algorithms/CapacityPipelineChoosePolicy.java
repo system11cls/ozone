@@ -108,7 +108,6 @@ public class CapacityPipelineChoosePolicy implements PipelineChoosePolicy {
     CapacityPipelineComparator(CapacityPipelineChoosePolicy policy) {
       this.policy = policy;
     }
-
     @Override
     public int compare(Pipeline p1, Pipeline p2) {
       if (p1.getId().equals(p2.getId())) {

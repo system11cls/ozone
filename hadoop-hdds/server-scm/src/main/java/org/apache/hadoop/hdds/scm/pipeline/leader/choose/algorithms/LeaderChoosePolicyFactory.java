@@ -41,6 +41,7 @@ public final class LeaderChoosePolicyFactory {
   private LeaderChoosePolicyFactory() {
   }
 
+
   public static LeaderChoosePolicy getPolicy(
       ConfigurationSource conf, final NodeManager nodeManager,
       final PipelineStateManager pipelineStateManager) throws SCMException {

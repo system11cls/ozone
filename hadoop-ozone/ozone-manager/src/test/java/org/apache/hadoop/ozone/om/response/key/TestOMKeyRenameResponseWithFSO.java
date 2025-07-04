@@ -76,7 +76,6 @@ public class TestOMKeyRenameResponseWithFSO extends TestOMKeyRenameResponse {
         getDBKeyName(toKeyInfo), fromKeyParent, toKeyParent, toKeyInfo,
         bucketInfo, false, getBucketLayout());
   }
-
   protected void createParent() {
     long bucketId = random.nextLong();
     String fromKeyParentName = UUID.randomUUID().toString();
@@ -97,7 +96,6 @@ public class TestOMKeyRenameResponseWithFSO extends TestOMKeyRenameResponse {
     String bucketName = UUID.randomUUID().toString();
     bucketInfo = TestOMResponseUtils.createBucket(volumeName, bucketName);
   }
-
   @Override
   public BucketLayout getBucketLayout() {
     return BucketLayout.FILE_SYSTEM_OPTIMIZED;

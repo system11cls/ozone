@@ -29,10 +29,12 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.NonHATests;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test cases to verify the metrics exposed by SCMPipelineManager via MXBean.
  */
+@Timeout(3000)
 public abstract class TestPipelineManagerMXBean implements NonHATests.TestCase {
 
   private MBeanServer mbs;

@@ -74,7 +74,7 @@ public class TestContainerBalancerDatanodeNodeLimit {
 
   @BeforeAll
   public static void setup() {
-    GenericTestUtils.setLogLevel(ContainerBalancerTask.class, Level.DEBUG);
+    GenericTestUtils.setLogLevel(ContainerBalancerTask.LOG, Level.DEBUG);
   }
 
   private static Stream<Arguments> createMockedSCMs() {
@@ -427,6 +427,7 @@ public class TestContainerBalancerDatanodeNodeLimit {
     }
   }
 
+
   @ParameterizedTest(name = "MockedSCM #{index}: {0}")
   @MethodSource("createMockedSCMs")
   public void selectedContainerShouldNotAlreadyHaveBeenSelected(@Nonnull MockedSCM mockedSCM)
@@ -553,7 +554,7 @@ public class TestContainerBalancerDatanodeNodeLimit {
     when(mockedSCM.getMoveManager()
         .move(any(ContainerID.class), any(DatanodeDetails.class), any(DatanodeDetails.class)))
         .thenReturn(genCompletableFutureWithException(1))
-        .thenThrow(ContainerNotFoundException.newInstanceForTesting())
+        .thenThrow(new ContainerNotFoundException("Test Container not found"))
         .thenReturn(future);
 
     ContainerBalancerTask task = mockedSCM.startBalancerTask(config);

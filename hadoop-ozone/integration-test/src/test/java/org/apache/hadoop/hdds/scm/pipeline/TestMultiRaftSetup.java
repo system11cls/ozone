@@ -144,12 +144,11 @@ public class  TestMultiRaftSetup {
         .count());
     shutdown();
   }
-
   private void assertNotSamePeers() {
     nodeManager.getAllNodes().forEach((dn) -> {
       Collection<DatanodeDetails> peers = nodeManager.getPeerList(dn);
       assertThat(peers).doesNotContain(dn);
-      List<? extends DatanodeDetails> trimList = nodeManager.getAllNodes();
+      List<DatanodeDetails> trimList = nodeManager.getAllNodes();
       trimList.remove(dn);
       assertThat(peers).containsAll(trimList);
     });

@@ -24,6 +24,7 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.scm.pipeline.UnknownPipelineStateException;
 
 /**
  * Class wraps ozone container info.
@@ -47,18 +48,24 @@ public class ContainerWithPipeline implements Comparator<ContainerWithPipeline>,
     return pipeline;
   }
 
-  public static ContainerWithPipeline fromProtobuf(HddsProtos.ContainerWithPipeline allocatedContainer) {
+  public static ContainerWithPipeline fromProtobuf(
+      HddsProtos.ContainerWithPipeline allocatedContainer)
+      throws UnknownPipelineStateException {
     return new ContainerWithPipeline(
         ContainerInfo.fromProtobuf(allocatedContainer.getContainerInfo()),
         Pipeline.getFromProtobuf(allocatedContainer.getPipeline()));
   }
 
-  public HddsProtos.ContainerWithPipeline getProtobuf(int clientVersion) {
-    return HddsProtos.ContainerWithPipeline.newBuilder()
-        .setContainerInfo(getContainerInfo().getProtobuf())
-        .setPipeline(getPipeline().getProtobufMessage(clientVersion, Name.IO_PORTS))
-        .build();
+  public HddsProtos.ContainerWithPipeline getProtobuf(int clientVersion)
+      throws UnknownPipelineStateException {
+    HddsProtos.ContainerWithPipeline.Builder builder =
+        HddsProtos.ContainerWithPipeline.newBuilder();
+    builder.setContainerInfo(getContainerInfo().getProtobuf())
+        .setPipeline(getPipeline().getProtobufMessage(clientVersion, Name.IO_PORTS));
+
+    return builder.build();
   }
+
 
   @Override
   public String toString() {

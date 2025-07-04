@@ -40,7 +40,6 @@ import org.apache.hadoop.ozone.recon.ReconConstants;
 import org.apache.hadoop.ozone.recon.api.types.ContainerKeyPrefix;
 import org.apache.hadoop.ozone.recon.api.types.KeyPrefixContainer;
 import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -162,7 +161,7 @@ public abstract class ContainerKeyMapperHelper {
     Map<Long, Long> containerKeyCountMap = new HashMap<>();
     // List of the deleted (container, key) pair's
     List<ContainerKeyPrefix> deletedKeyCountList = new ArrayList<>();
-    long startTime = Time.monotonicNow();
+    long startTime = System.currentTimeMillis();
 
     while (eventIterator.hasNext()) {
       OMDBUpdateEvent<String, OmKeyInfo> omdbUpdateEvent = eventIterator.next();
@@ -212,7 +211,7 @@ public abstract class ContainerKeyMapperHelper {
       return false;
     }
     LOG.debug("{} successfully processed {} OM DB update event(s) in {} milliseconds.",
-        taskName, eventCount, (Time.monotonicNow() - startTime));
+        taskName, eventCount, (System.currentTimeMillis() - startTime));
     return true;
   }
 

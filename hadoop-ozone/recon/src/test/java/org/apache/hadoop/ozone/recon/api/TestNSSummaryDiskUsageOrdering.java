@@ -73,7 +73,6 @@ public class TestNSSummaryDiskUsageOrdering {
   private static final String ROOT_PATH = "/";
   private static final String TEST_USER = "TestUser";
   private OMMetadataManager omMetadataManager;
-
   @BeforeEach
   public void setUp() throws Exception {
     ozoneConfiguration = new OzoneConfiguration();

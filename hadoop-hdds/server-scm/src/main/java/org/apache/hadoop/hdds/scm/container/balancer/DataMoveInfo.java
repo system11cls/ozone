@@ -18,7 +18,7 @@
 package org.apache.hadoop.hdds.scm.container.balancer;
 
 import java.util.Map;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
+import java.util.UUID;
 
 /**
  * Information about the process of moving data.
@@ -26,14 +26,15 @@ import org.apache.hadoop.hdds.protocol.DatanodeID;
 public class DataMoveInfo {
   private final long sizeScheduledForMove;
   private final long dataSizeMoved;
-  private final Map<DatanodeID, Long> sizeEnteringNodes;
-  private final Map<DatanodeID, Long> sizeLeavingNodes;
+  private final Map<UUID, Long> sizeEnteringNodes;
+  private final Map<UUID, Long> sizeLeavingNodes;
+
 
   public DataMoveInfo(
       long sizeScheduledForMove,
       long dataSizeMoved,
-      Map<DatanodeID, Long> sizeEnteringNodes,
-      Map<DatanodeID, Long> sizeLeavingNodes) {
+      Map<UUID, Long> sizeEnteringNodes,
+      Map<UUID, Long> sizeLeavingNodes) {
     this.sizeScheduledForMove = sizeScheduledForMove;
     this.dataSizeMoved = dataSizeMoved;
     this.sizeEnteringNodes = sizeEnteringNodes;
@@ -48,11 +49,11 @@ public class DataMoveInfo {
     return dataSizeMoved;
   }
 
-  public Map<DatanodeID, Long> getSizeEnteringNodes() {
+  public Map<UUID, Long> getSizeEnteringNodes() {
     return sizeEnteringNodes;
   }
 
-  public Map<DatanodeID, Long> getSizeLeavingNodes() {
+  public Map<UUID, Long> getSizeLeavingNodes() {
     return sizeLeavingNodes;
   }
 }

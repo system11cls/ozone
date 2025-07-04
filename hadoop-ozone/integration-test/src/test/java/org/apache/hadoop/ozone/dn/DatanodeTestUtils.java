@@ -17,15 +17,12 @@
 
 package org.apache.hadoop.ozone.dn;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.File;
 import java.io.IOException;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.apache.ozone.test.GenericTestUtils;
-
 /**
  * Utility offers low-level access methods to datanode.
  */
@@ -159,7 +156,7 @@ public final class DatanodeTestUtils {
   public static void injectContainerMetaDirFailure(File... dirs) {
     for (File dir : dirs) {
       if (dir.exists()) {
-        assertTrue(dir.setWritable(false, false));
+        dir.setWritable(false, false);
       }
     }
   }
@@ -172,7 +169,7 @@ public final class DatanodeTestUtils {
   public static void restoreContainerMetaDirFromFailure(File... dirs) {
     for (File dir : dirs) {
       if (dir.exists()) {
-        assertTrue(dir.setWritable(true, true));
+        dir.setWritable(true, true);
       }
     }
   }
@@ -185,7 +182,7 @@ public final class DatanodeTestUtils {
    */
   public static void simulateBadRootDir(File rootDir) {
     if (rootDir.exists()) {
-      assertTrue(rootDir.setWritable(false));
+      rootDir.setWritable(false);
     }
   }
 
@@ -206,7 +203,7 @@ public final class DatanodeTestUtils {
    */
   public static void restoreBadRootDir(File rootDir) {
     if (rootDir.exists()) {
-      assertTrue(rootDir.setWritable(true));
+      rootDir.setWritable(true);
     }
   }
 

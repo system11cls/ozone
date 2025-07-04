@@ -38,6 +38,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test {@link ChunkBuffer} implementations.
@@ -58,6 +59,7 @@ public class TestChunkBuffer {
   }
 
   @Test
+  @Timeout(1)
   void testImplWithByteBuffer() throws IOException {
     runTestImplWithByteBuffer(1);
     runTestImplWithByteBuffer(1 << 10);
@@ -75,6 +77,7 @@ public class TestChunkBuffer {
   }
 
   @Test
+  @Timeout(1)
   void testIncrementalChunkBuffer() throws IOException {
     runTestIncrementalChunkBuffer(1, 1);
     runTestIncrementalChunkBuffer(4, 8);
@@ -95,6 +98,7 @@ public class TestChunkBuffer {
   }
 
   @Test
+  @Timeout(1)
   void testImplWithList() throws IOException {
     runTestImplWithList(4, 8);
     runTestImplWithList(16, 1 << 10);

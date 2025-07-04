@@ -45,6 +45,7 @@ public class RocksDbPersistentSet<E> implements PersistentSet<E> {
     this.entryType = entryType;
   }
 
+
   @Override
   public void add(E entry) {
     try {

@@ -31,6 +31,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -110,12 +111,12 @@ public class TestPipelinePlacementFactory {
 
       StorageContainerDatanodeProtocolProtos.StorageReportProto storage1 =
           HddsTestUtils.createStorageReport(
-          datanodeInfo.getID(), "/data1-" + datanodeInfo.getID(),
+          datanodeInfo.getUuid(), "/data1-" + datanodeInfo.getUuidString(),
           STORAGE_CAPACITY, 0, 100L, null);
       StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto
           metaStorage1 =
           HddsTestUtils.createMetadataStorageReport(
-              "/metadata1-" + datanodeInfo.getID(),
+              "/metadata1-" + datanodeInfo.getUuidString(),
               STORAGE_CAPACITY, 0, 100L, null);
       datanodeInfo.updateStorageReports(
           new ArrayList<>(Arrays.asList(storage1)));
@@ -127,7 +128,7 @@ public class TestPipelinePlacementFactory {
         false, 10);
     nodeManager = spy(nodeManagerBase);
     for (DatanodeInfo dn: dnInfos) {
-      when(nodeManager.getNode(dn.getID()))
+      when(nodeManager.getNodeByUuid(dn.getUuidString()))
           .thenReturn(dn);
     }
 
@@ -143,7 +144,7 @@ public class TestPipelinePlacementFactory {
   }
 
   @Test
-  public void testDefaultPolicy() {
+  public void testDefaultPolicy() throws IOException {
     PlacementPolicy policy = PipelinePlacementPolicyFactory
         .getPolicy(null, null, conf);
     assertSame(PipelinePlacementPolicy.class, policy.getClass());
@@ -314,10 +315,14 @@ public class TestPipelinePlacementFactory {
         policy.chooseDatanodes(usedNodes, excludeNodes, null, nodeNum, 15, 15);
     assertEquals(nodeNum, datanodeDetails.size());
     // policy should not return any of excluded node
-    assertNotSame(datanodeDetails.get(0).getID(), excludeNodes.get(0).getID());
-    assertNotSame(datanodeDetails.get(0).getID(), excludeNodes.get(1).getID());
-    assertNotSame(datanodeDetails.get(1).getID(), excludeNodes.get(0).getID());
-    assertNotSame(datanodeDetails.get(1).getID(), excludeNodes.get(1).getID());
+    assertNotSame(datanodeDetails.get(0).getUuid(),
+        excludeNodes.get(0).getUuid());
+    assertNotSame(datanodeDetails.get(0).getUuid(),
+        excludeNodes.get(1).getUuid());
+    assertNotSame(datanodeDetails.get(1).getUuid(),
+        excludeNodes.get(0).getUuid());
+    assertNotSame(datanodeDetails.get(1).getUuid(),
+        excludeNodes.get(1).getUuid());
     // One of the node should be in same rack as Node0
     assertTrue(cluster.isSameParent(usedNodes.get(0),
         datanodeDetails.get(0)) || cluster.isSameParent(usedNodes.get(0),
@@ -334,8 +339,10 @@ public class TestPipelinePlacementFactory {
         policy.chooseDatanodes(usedNodes, excludeNodes, null, nodeNum, 15, 15);
     assertEquals(nodeNum, datanodeDetails.size());
     // policy should not return any of excluded node
-    assertNotSame(datanodeDetails.get(0).getID(), excludeNodes.get(0).getID());
-    assertNotSame(datanodeDetails.get(0).getID(), excludeNodes.get(1).getID());
+    assertNotSame(datanodeDetails.get(0).getUuid(),
+        excludeNodes.get(0).getUuid());
+    assertNotSame(datanodeDetails.get(0).getUuid(),
+        excludeNodes.get(1).getUuid());
     // Since rack0 has not enough node (node0 is used and node1 is excluded),
     // Anchor will change to node4(rack2) and will return another node
     // from rack2

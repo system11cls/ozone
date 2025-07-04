@@ -42,7 +42,6 @@ import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.SelfSignedCertificate;
 import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -54,7 +53,7 @@ import org.mockito.MockitoAnnotations;
 public class TestRootCaRotationPoller {
 
   private SecurityConfig secConf;
-  private LogCapturer logCapturer;
+  private GenericTestUtils.LogCapturer logCapturer;
 
   @Mock
   private SCMSecurityProtocolClientSideTranslatorPB scmSecurityClient;
@@ -65,7 +64,8 @@ public class TestRootCaRotationPoller {
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.set(HDDS_X509_ROOTCA_CERTIFICATE_POLLING_INTERVAL, "PT1s");
     secConf = new SecurityConfig(conf);
-    logCapturer = LogCapturer.captureLogs(RootCaRotationPoller.class);
+    logCapturer = GenericTestUtils.LogCapturer.captureLogs(
+        org.slf4j.LoggerFactory.getLogger(RootCaRotationPoller.class));
   }
 
   @Test

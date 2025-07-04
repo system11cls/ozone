@@ -17,10 +17,10 @@
   <parent>
     <groupId>org.apache.ozone</groupId>
     <artifactId>ozone</artifactId>
-    <version>2.1.0-SNAPSHOT</version>
+    <version>2.0.0</version>
   </parent>
   <artifactId>ozone-tools</artifactId>
-  <version>2.1.0-SNAPSHOT</version>
+  <version>2.0.0</version>
   <packaging>jar</packaging>
   <name>Apache Ozone Tools</name>
   <description>Apache Ozone Tools</description>
@@ -31,12 +31,20 @@
 
   <dependencies>
     <dependency>
-      <groupId>ch.qos.reload4j</groupId>
-      <artifactId>reload4j</artifactId>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-s3</artifactId>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -47,20 +55,12 @@
       <artifactId>jackson-datatype-jsr310</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.github.vlsi.mxgraph</groupId>
-      <artifactId>jgraphx</artifactId>
-    </dependency>
-    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>commons-collections</groupId>
-      <artifactId>commons-collections</artifactId>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -69,6 +69,26 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli-shell-jline3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentracing</groupId>
+      <artifactId>opentracing-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentracing</groupId>
+      <artifactId>opentracing-util</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.activation</groupId>
+      <artifactId>jakarta.activation-api</artifactId>
     </dependency>
     <dependency>
       <groupId>jakarta.annotation</groupId>
@@ -83,12 +103,12 @@
       <artifactId>commons-lang3</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-hdfs</artifactId>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
@@ -108,15 +128,23 @@
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
+      <artifactId>hdds-hadoop-dependency-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ozone</groupId>
+      <artifactId>hdds-interface-admin</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ozone</groupId>
       <artifactId>hdds-interface-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
-      <artifactId>hdds-managed-rocksdb</artifactId>
+      <artifactId>hdds-interface-server</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
-      <artifactId>hdds-rocks-native</artifactId>
+      <artifactId>hdds-managed-rocksdb</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
@@ -128,7 +156,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
-      <artifactId>ozone-cli-admin</artifactId>
+      <artifactId>hdds-tools</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
@@ -141,6 +169,14 @@
     <dependency>
       <groupId>org.apache.ozone</groupId>
       <artifactId>ozone-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ozone</groupId>
+      <artifactId>ozone-filesystem</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ozone</groupId>
+      <artifactId>ozone-filesystem-common</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
@@ -165,8 +201,8 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.apache.ozone</groupId>
-      <artifactId>rocksdb-checkpoint-differ</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
@@ -175,10 +211,6 @@
     <dependency>
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-proto</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-server</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
@@ -197,16 +229,20 @@
       <artifactId>ratis-tools</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jgrapht</groupId>
-      <artifactId>jgrapht-core</artifactId>
+      <groupId>org.glassfish.jaxb</groupId>
+      <artifactId>jaxb-runtime</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jgrapht</groupId>
-      <artifactId>jgrapht-ext</artifactId>
+      <groupId>org.jline</groupId>
+      <artifactId>jline</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.reflections</groupId>
-      <artifactId>reflections</artifactId>
+      <groupId>org.jooq</groupId>
+      <artifactId>jooq</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.kohsuke.metainf-services</groupId>
+      <artifactId>metainf-services</artifactId>
     </dependency>
     <dependency>
       <groupId>org.rocksdb</groupId>
@@ -216,41 +252,8 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.xerial</groupId>
-      <artifactId>sqlite-jdbc</artifactId>
-    </dependency>
-    <dependency>
-      <!-- required for @MetaInfServices at compile-time, but not at runtime -->
-      <groupId>org.kohsuke.metainf-services</groupId>
-      <artifactId>metainf-services</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>commons-codec</groupId>
-      <artifactId>commons-codec</artifactId>
-      <scope>runtime</scope>
-    </dependency>
 
     <!-- Test dependencies -->
-    <dependency>
-      <groupId>org.apache.ozone</groupId>
-      <artifactId>hdds-common</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.ozone</groupId>
-      <artifactId>hdds-container-service</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.ozone</groupId>
-      <artifactId>hdds-server-framework</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.apache.ozone</groupId>
       <artifactId>hdds-test-utils</artifactId>

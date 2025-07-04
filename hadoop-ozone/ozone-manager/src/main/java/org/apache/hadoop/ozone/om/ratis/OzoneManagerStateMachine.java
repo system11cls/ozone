@@ -83,7 +83,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OzoneManagerStateMachine extends BaseStateMachine {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(OzoneManagerStateMachine.class);
   private final SimpleStateMachineStorage storage =
       new SimpleStateMachineStorage();
@@ -157,18 +157,8 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void notifyLeaderReady() {
-    ozoneManager.getOmSnapshotManager().resetInFlightSnapshotCount();
-  }
-
-  @Override
   public void notifyLeaderChanged(RaftGroupMemberId groupMemberId,
                                   RaftPeerId newLeaderId) {
-    RaftPeerId currentPeerId = groupMemberId.getPeerId();
-    if (newLeaderId.equals(currentPeerId)) {
-      // warmup cache
-      ozoneManager.initializeEdekCache(ozoneManager.getConfiguration());
-    }
     // Initialize OMHAMetrics
     ozoneManager.omHAMetricsInit(newLeaderId.toString());
     LOG.info("{}: leader changed to {}", groupMemberId, newLeaderId);
@@ -230,7 +220,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
         .append(", index=").append(index)
         .append(", New Peer list: ");
     newPeers.forEach(peer -> logBuilder.append(peer.getId().toStringUtf8())
-        .append('(')
+        .append("(")
         .append(peer.getAddress())
         .append("), "));
     LOG.info(logBuilder.substring(0, logBuilder.length() - 2));
@@ -456,7 +446,7 @@ public class OzoneManagerStateMachine extends BaseStateMachine {
         this.setLastAppliedTermIndex(TermIndex.valueOf(
             newLastAppliedSnapShotTermIndex, newLastAppliedSnaphsotIndex));
         LOG.info("{}: OzoneManagerStateMachine un-pause completed. " +
-            "newLastAppliedSnapshotIndex: {}, newLastAppliedSnapShotTermIndex: {}",
+            "newLastAppliedSnaphsotIndex: {}, newLastAppliedSnapShotTermIndex: {}",
                 getId(), newLastAppliedSnaphsotIndex, newLastAppliedSnapShotTermIndex);
       });
     }

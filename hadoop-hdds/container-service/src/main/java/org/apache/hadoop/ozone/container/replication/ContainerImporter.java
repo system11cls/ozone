@@ -31,7 +31,6 @@ import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
@@ -40,6 +39,7 @@ import org.apache.hadoop.ozone.container.common.interfaces.VolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
+import org.apache.hadoop.ozone.container.common.volume.VolumeChoosingPolicyFactory;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
@@ -70,12 +70,15 @@ public class ContainerImporter {
   public ContainerImporter(@Nonnull ConfigurationSource conf,
                            @Nonnull ContainerSet containerSet,
                            @Nonnull ContainerController controller,
-                           @Nonnull MutableVolumeSet volumeSet,
-                           @Nonnull VolumeChoosingPolicy volumeChoosingPolicy) {
+                           @Nonnull MutableVolumeSet volumeSet) {
     this.containerSet = containerSet;
     this.controller = controller;
     this.volumeSet = volumeSet;
-    this.volumeChoosingPolicy = volumeChoosingPolicy;
+    try {
+      volumeChoosingPolicy = VolumeChoosingPolicyFactory.getPolicy(conf);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
     containerSize = (long) conf.getStorageSize(
         ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
         ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
@@ -88,7 +91,7 @@ public class ContainerImporter {
   }
 
   public void importContainer(long containerID, Path tarFilePath,
-      HddsVolume targetVolume, CopyContainerCompression compression)
+      HddsVolume hddsVolume, CopyContainerCompression compression)
       throws IOException {
     if (!importContainerProgress.add(containerID)) {
       deleteFileQuietely(tarFilePath);
@@ -106,6 +109,11 @@ public class ContainerImporter {
             ContainerProtos.Result.CONTAINER_EXISTS);
       }
 
+      HddsVolume targetVolume = hddsVolume;
+      if (targetVolume == null) {
+        targetVolume = chooseNextVolume();
+      }
+
       KeyValueContainerData containerData;
       TarContainerPacker packer = getPacker(compression);
 
@@ -114,14 +122,12 @@ public class ContainerImporter {
             packer.unpackContainerDescriptor(input);
         containerData = getKeyValueContainerData(containerDescriptorYaml);
       }
-      ContainerUtils.verifyContainerFileChecksum(containerData, conf);
+      ContainerUtils.verifyChecksum(containerData, conf);
       containerData.setVolume(targetVolume);
 
       try (InputStream input = Files.newInputStream(tarFilePath)) {
         Container container = controller.importContainer(
             containerData, input, packer);
-        // After container import is successful, increase used space for the volume
-        targetVolume.incrementUsedSpace(container.getContainerData().getBytesUsed());
         containerSet.addContainerByOverwriteMissingContainer(container);
       }
     } finally {
@@ -143,7 +149,7 @@ public class ContainerImporter {
     // Choose volume that can hold both container in tmp and dest directory
     return volumeChoosingPolicy.chooseVolume(
         StorageVolumeUtil.getHddsVolumesList(volumeSet.getVolumesList()),
-        getDefaultReplicationSpace());
+        containerSize * 2);
   }
 
   public static Path getUntarDirectory(HddsVolume hddsVolume)
@@ -166,7 +172,4 @@ public class ContainerImporter {
     return new TarContainerPacker(compression);
   }
 
-  public long getDefaultReplicationSpace() {
-    return HddsServerUtil.requiredReplicationSpace(containerSize);
-  }
 }

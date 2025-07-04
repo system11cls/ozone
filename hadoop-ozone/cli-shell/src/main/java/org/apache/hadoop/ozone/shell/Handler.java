@@ -68,6 +68,9 @@ public abstract class Handler extends AbstractSubcommand implements Callable<Voi
 
     OzoneAddress address = getAddress();
     try (OzoneClient client = createClient(address)) {
+      if (isVerbose()) {
+        address.print(out());
+      }
       execute(client, address);
     }
 

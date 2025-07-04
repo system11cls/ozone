@@ -24,7 +24,6 @@ import java.io.UncheckedIOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.util.Shell;
 import org.slf4j.Logger;
@@ -43,7 +42,7 @@ public class DU extends AbstractSpaceUsageSource {
   private final DUShell duShell;
   private final String[] command;
   private final String commandString;
-  private final Supplier<File> exclusionProvider;
+  private final String excludePattern;
 
   public DU(File path) {
     this(path, null);
@@ -52,19 +51,10 @@ public class DU extends AbstractSpaceUsageSource {
   public DU(File path, String excludePattern) {
     super(path);
 
-    command = constructCommand(getPath(), excludePattern);
+    this.excludePattern = excludePattern;
+    command = constructCommand();
     commandString = String.join(" ", command);
     duShell = new DUShell();
-    exclusionProvider = null;
-  }
-
-  public DU(Supplier<File> exclusionProvider, File path) {
-    super(path);
-
-    this.exclusionProvider = exclusionProvider;
-    duShell = new DUShell();
-    command = null;
-    commandString = null;
   }
 
   @Override
@@ -72,7 +62,7 @@ public class DU extends AbstractSpaceUsageSource {
     return time(duShell::getUsed, LOG);
   }
 
-  private static String[] constructCommand(String path, String excludePattern) {
+  private String[] constructCommand() {
     List<String> parts = new LinkedList<>();
     parts.add("du");
     parts.add("-sk");
@@ -84,7 +74,7 @@ public class DU extends AbstractSpaceUsageSource {
       }
       parts.add(excludePattern);
     }
-    parts.add(path);
+    parts.add(getPath());
     return parts.toArray(new String[0]);
   }
 
@@ -106,21 +96,11 @@ public class DU extends AbstractSpaceUsageSource {
 
     @Override
     public String toString() {
-      if (exclusionProvider != null) {
-        return String.join(" ", getExecString()) + "\n" + value.get() + "\t" + getPath();
-      }
       return commandString + "\n" + value.get() + "\t" + getPath();
     }
 
     @Override
     protected String[] getExecString() {
-      if (exclusionProvider != null) {
-        File exclusionFile = exclusionProvider.get();
-        if (null == exclusionFile) {
-          return constructCommand(getPath(), null);
-        }
-        return constructCommand(getPath(), exclusionFile.getAbsolutePath());
-      }
       return command;
     }
 

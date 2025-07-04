@@ -43,7 +43,6 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -519,7 +518,8 @@ abstract class AbstractOzoneFileSystemTestWithFSO extends AbstractOzoneFileSyste
 
   @Test
   public void testFSDeleteLogWarnNoExist() throws Exception {
-    LogCapturer logCapture = LogCapturer.captureLogs(BasicOzoneClientAdapterImpl.class);
+    GenericTestUtils.LogCapturer logCapture = GenericTestUtils.LogCapturer
+        .captureLogs(BasicOzoneClientAdapterImpl.LOG);
     getFs().delete(new Path("/d1/d3/noexist/"), true);
     assertThat(logCapture.getOutput()).contains(
         "delete key failed Unable to get file status");

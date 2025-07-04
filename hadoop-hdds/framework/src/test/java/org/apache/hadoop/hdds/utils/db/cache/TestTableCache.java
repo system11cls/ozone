@@ -43,7 +43,7 @@ public class TestTableCache {
 
   @BeforeAll
   public static void setLogLevel() {
-    GenericTestUtils.setLogLevel(FullTableCache.class, Level.DEBUG);
+    GenericTestUtils.setLogLevel(FullTableCache.LOG, Level.DEBUG);
   }
 
   private void createTableCache(TableCache.CacheType cacheType) {
@@ -59,7 +59,6 @@ public class TestTableCache {
   private static Stream<TableCache.CacheType> cacheTypeList() {
     return Stream.of(TableCache.CacheType.FULL_CACHE, TableCache.CacheType.PARTIAL_CACHE);
   }
-
   @ParameterizedTest
   @MethodSource("cacheTypeList")
   public void testPartialTableCache(TableCache.CacheType cacheType) {
@@ -494,6 +493,7 @@ public class TestTableCache {
 
     verifyStats(tableCache, 0, 0, 0);
   }
+
 
   @ParameterizedTest
   @MethodSource("cacheTypeList")

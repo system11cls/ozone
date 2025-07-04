@@ -23,9 +23,8 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientException;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.shell.Handler;
-import org.apache.hadoop.ozone.shell.ListPaginationOptions;
+import org.apache.hadoop.ozone.shell.ListOptions;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
-import org.apache.hadoop.ozone.shell.PrefixFilterOption;
 import org.apache.hadoop.ozone.shell.Shell;
 import org.apache.hadoop.security.UserGroupInformation;
 import picocli.CommandLine;
@@ -47,10 +46,7 @@ public class ListVolumeHandler extends Handler {
   private String uri;
 
   @CommandLine.Mixin
-  private ListPaginationOptions listOptions;
-
-  @CommandLine.Mixin
-  private PrefixFilterOption prefixFilter;
+  private ListOptions listOptions;
 
   @Option(names = {"--user", "-u"},
       description = "List accessible volumes of the user. This will be ignored"
@@ -75,10 +71,10 @@ public class ListVolumeHandler extends Handler {
     Iterator<? extends OzoneVolume> volumeIterator;
     if (userName != null && !listOptions.isAll()) {
       volumeIterator = client.getObjectStore().listVolumesByUser(userName,
-          prefixFilter.getPrefix(), listOptions.getStartItem());
+          listOptions.getPrefix(), listOptions.getStartItem());
     } else {
       volumeIterator = client.getObjectStore().listVolumes(
-          prefixFilter.getPrefix(), listOptions.getStartItem());
+          listOptions.getPrefix(), listOptions.getStartItem());
     }
 
     int counter = printAsJsonArray(volumeIterator, listOptions.getLimit());

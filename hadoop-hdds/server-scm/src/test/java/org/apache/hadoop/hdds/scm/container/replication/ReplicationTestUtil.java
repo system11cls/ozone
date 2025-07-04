@@ -20,7 +20,6 @@ package org.apache.hadoop.hdds.scm.container.replication;
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
 import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State.CLOSED;
 import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyInt;
@@ -32,20 +31,18 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 import org.apache.hadoop.hdds.scm.ContainerPlacementStatus;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
 import org.apache.hadoop.hdds.scm.SCMCommonPlacementPolicy;
-import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
@@ -54,7 +51,6 @@ import org.apache.hadoop.hdds.scm.container.placement.algorithms.ContainerPlacem
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.net.Node;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
-import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.ozone.protocol.commands.DeleteContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
@@ -121,7 +117,7 @@ public final class ReplicationTestUtil {
       DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
       replicas.add(createContainerReplica(containerID, i, IN_SERVICE,
           replicaState, keyCount, bytesUsed,
-          dn, dn.getID()));
+          dn, dn.getUuid()));
     }
     return replicas;
   }
@@ -130,7 +126,7 @@ public final class ReplicationTestUtil {
       ContainerID containerID, ContainerReplicaProto.State replicaState,
       int... indexes) {
     Set<ContainerReplica> replicas = new HashSet<>();
-    final DatanodeID originNodeId = DatanodeID.randomID();
+    UUID originNodeId = MockDatanodeDetails.randomDatanodeDetails().getUuid();
     for (int i : indexes) {
       replicas.add(createContainerReplica(
           containerID, i, IN_SERVICE, replicaState, 123L, 1234L,
@@ -138,7 +134,6 @@ public final class ReplicationTestUtil {
     }
     return replicas;
   }
-
   public static ContainerReplica createEmptyContainerReplica(ContainerID containerID,
       int replicaIndex, HddsProtos.NodeOperationalState opState,
       ContainerReplicaProto.State replicaState) {
@@ -146,14 +141,14 @@ public final class ReplicationTestUtil {
         = MockDatanodeDetails.randomDatanodeDetails();
     return createContainerReplica(containerID, replicaIndex, opState,
         replicaState, 0L, 0L,
-        datanodeDetails, datanodeDetails.getID());
+        datanodeDetails, datanodeDetails.getUuid());
   }
 
   public static Set<ContainerReplica> createReplicasWithOriginAndOpState(
       ContainerID containerID, ContainerReplicaProto.State replicaState,
-      Pair<DatanodeID, HddsProtos.NodeOperationalState>... nodes) {
+      Pair<UUID, HddsProtos.NodeOperationalState>... nodes) {
     Set<ContainerReplica> replicas = new HashSet<>();
-    for (Pair<DatanodeID, HddsProtos.NodeOperationalState> i : nodes) {
+    for (Pair<UUID, HddsProtos.NodeOperationalState> i : nodes) {
       replicas.add(createContainerReplica(
           containerID, 0, i.getRight(), replicaState, 123L, 1234L,
           MockDatanodeDetails.randomDatanodeDetails(), i.getLeft()));
@@ -168,7 +163,7 @@ public final class ReplicationTestUtil {
         = MockDatanodeDetails.randomDatanodeDetails();
     return createContainerReplica(containerID, replicaIndex, opState,
         replicaState, 123L, 1234L,
-        datanodeDetails, datanodeDetails.getID());
+        datanodeDetails, datanodeDetails.getUuid());
   }
 
   public static ContainerReplica createContainerReplica(ContainerID containerID,
@@ -178,14 +173,14 @@ public final class ReplicationTestUtil {
         = MockDatanodeDetails.randomDatanodeDetails();
     return createContainerReplica(containerID, replicaIndex, opState,
         replicaState, 123L, 1234L,
-        datanodeDetails, datanodeDetails.getID(), seqId);
+        datanodeDetails, datanodeDetails.getUuid(), seqId);
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber")
   public static ContainerReplica createContainerReplica(ContainerID containerID,
       int replicaIndex, HddsProtos.NodeOperationalState opState,
       ContainerReplicaProto.State replicaState, long keyCount, long bytesUsed,
-      DatanodeDetails datanodeDetails, DatanodeID originNodeId) {
+      DatanodeDetails datanodeDetails, UUID originNodeId) {
     ContainerReplica.ContainerReplicaBuilder builder
         = ContainerReplica.newBuilder();
     datanodeDetails.setPersistedOpState(opState);
@@ -205,7 +200,7 @@ public final class ReplicationTestUtil {
   public static ContainerReplica createContainerReplica(ContainerID containerID,
       int replicaIndex, HddsProtos.NodeOperationalState opState,
       ContainerReplicaProto.State replicaState, long keyCount, long bytesUsed,
-      DatanodeDetails datanodeDetails, DatanodeID originNodeId, long seqId) {
+      DatanodeDetails datanodeDetails, UUID originNodeId, long seqId) {
     ContainerReplica.ContainerReplicaBuilder builder
         = ContainerReplica.newBuilder();
     datanodeDetails.setPersistedOpState(opState);
@@ -333,9 +328,6 @@ public final class ReplicationTestUtil {
               List<DatanodeDetails> favoredNodes, int nodesRequiredToChoose,
               long metadataSizeRequired, long dataSizeRequired)
               throws SCMException {
-        long containerSize = (long) conf.getStorageSize(ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
-            ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-        assertEquals(HddsServerUtil.requiredReplicationSpace(containerSize), dataSizeRequired);
         if (nodesRequiredToChoose > 1) {
           throw new IllegalArgumentException("Only one node is allowed");
         }
@@ -364,9 +356,6 @@ public final class ReplicationTestUtil {
               List<DatanodeDetails> favoredNodes, int nodesRequiredToChoose,
               long metadataSizeRequired, long dataSizeRequired)
               throws SCMException {
-        long containerSize = (long) conf.getStorageSize(ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
-            ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-        assertEquals(HddsServerUtil.requiredReplicationSpace(containerSize), dataSizeRequired);
         throw new SCMException("No nodes available",
                 FAILED_TO_FIND_SUITABLE_NODE);
       }
@@ -394,9 +383,6 @@ public final class ReplicationTestUtil {
           List<DatanodeDetails> favoredNodes, int nodesRequiredToChoose,
           long metadataSizeRequired, long dataSizeRequired)
           throws SCMException {
-        long containerSize = (long) conf.getStorageSize(ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
-            ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-        assertEquals(HddsServerUtil.requiredReplicationSpace(containerSize), dataSizeRequired);
         if (nodesRequiredToChoose >= throwWhenThisOrMoreNodesRequested) {
           throw new SCMException("No nodes available",
               FAILED_TO_FIND_SUITABLE_NODE);

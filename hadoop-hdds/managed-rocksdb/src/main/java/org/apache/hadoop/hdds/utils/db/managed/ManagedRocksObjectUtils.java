@@ -19,11 +19,11 @@ package org.apache.hadoop.hdds.utils.db.managed;
 
 import jakarta.annotation.Nullable;
 import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.ratis.RatisHelper;
 import org.apache.hadoop.hdds.utils.LeakDetector;
-import org.apache.hadoop.hdds.utils.db.RocksDatabaseException;
 import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.rocksdb.RocksDB;
 import org.rocksdb.util.Environment;
@@ -34,16 +34,15 @@ import org.slf4j.LoggerFactory;
  * Utilities to help assert RocksObject closures.
  */
 public final class ManagedRocksObjectUtils {
+  private ManagedRocksObjectUtils() {
+  }
 
-  static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(ManagedRocksObjectUtils.class);
 
   private static final Duration POLL_INTERVAL_DURATION = Duration.ofMillis(100);
 
   private static final LeakDetector LEAK_DETECTOR = new LeakDetector("ManagedRocksObject");
-
-  private ManagedRocksObjectUtils() {
-  }
 
   static UncheckedAutoCloseable track(AutoCloseable object) {
     ManagedRocksObjectMetrics.INSTANCE.increaseManagedObject();
@@ -69,15 +68,15 @@ public final class ManagedRocksObjectUtils {
    * Wait for file to be deleted.
    * @param file File to be deleted.
    * @param maxDuration poll max duration.
-   * @throws RocksDatabaseException in case of failure.
+   * @throws IOException in case of failure.
    */
   public static void waitForFileDelete(File file, Duration maxDuration)
-      throws RocksDatabaseException {
+      throws IOException {
     if (!RatisHelper.attemptUntilTrue(() -> !file.exists(), POLL_INTERVAL_DURATION, maxDuration)) {
       String msg = String.format("File: %s didn't get deleted in %s secs.",
           file.getAbsolutePath(), maxDuration.getSeconds());
-      LOG.warn(msg);
-      throw new RocksDatabaseException(msg);
+      LOG.info(msg);
+      throw new IOException(msg);
     }
   }
 

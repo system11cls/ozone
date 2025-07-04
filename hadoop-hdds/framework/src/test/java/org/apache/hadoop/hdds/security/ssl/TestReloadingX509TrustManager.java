@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
  */
 public class TestReloadingX509TrustManager {
   private final LogCapturer reloaderLog =
-      LogCapturer.captureLogs(ReloadingX509TrustManager.class);
+      LogCapturer.captureLogs(ReloadingX509TrustManager.LOG);
   private static CertificateClientTestImpl caClient;
 
   @BeforeAll

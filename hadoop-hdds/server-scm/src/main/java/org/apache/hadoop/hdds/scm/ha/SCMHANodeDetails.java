@@ -68,7 +68,7 @@ import org.slf4j.LoggerFactory;
  * SCM HA node details.
  */
 public class SCMHANodeDetails {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMHANodeDetails.class);
 
   private final SCMNodeDetails localNodeDetails;

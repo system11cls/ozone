@@ -46,7 +46,7 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
 
   private final StreamingDestination destination;
   private boolean headerMode = true;
-  private String currentFileName = "";
+  private StringBuilder currentFileName = new StringBuilder();
   private RandomAccessFile destFile;
 
   private FileChannel destFileChannel;
@@ -76,10 +76,11 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
       if (eolPosition > 0) {
         headerMode = false;
         final ByteBuf name = buffer.readBytes(eolPosition);
-        currentFileName += name.toString(StandardCharsets.UTF_8);
+        currentFileName.append(name
+            .toString(StandardCharsets.UTF_8));
         name.release();
         buffer.skipBytes(1);
-        String[] parts = currentFileName.split(" ", 2);
+        String[] parts = currentFileName.toString().split(" ", 2);
         remaining = Long.parseLong(parts[0]);
         Path destFilePath = destination.mapToDestination(parts[1]);
         final Path destfileParent = destFilePath.getParent();
@@ -93,7 +94,8 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
         destFileChannel = this.destFile.getChannel();
 
       } else {
-        currentFileName += buffer.toString(StandardCharsets.UTF_8);
+        currentFileName
+            .append(buffer.toString(StandardCharsets.UTF_8));
       }
     }
     if (!headerMode) {
@@ -103,7 +105,7 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
             buffer.readBytes(destFileChannel, readableBytes);
       } else {
         remaining -= buffer.readBytes(destFileChannel, (int) remaining);
-        currentFileName = "";
+        currentFileName = new StringBuilder();
         headerMode = true;
         destFile.close();
         if (readableBytes > 0) {
@@ -116,7 +118,6 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
   public boolean isAtTheEnd() {
     return getCurrentFileName().equals(END_MARKER);
   }
-
   @Override
   public void channelUnregistered(ChannelHandlerContext ctx) {
     try {
@@ -141,6 +142,6 @@ public class DirstreamClientHandler extends ChannelInboundHandlerAdapter {
   }
 
   public String getCurrentFileName() {
-    return currentFileName;
+    return currentFileName.toString();
   }
 }

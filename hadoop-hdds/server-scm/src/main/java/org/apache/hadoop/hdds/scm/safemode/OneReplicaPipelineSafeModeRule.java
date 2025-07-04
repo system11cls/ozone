@@ -57,6 +57,7 @@ public class OneReplicaPipelineSafeModeRule extends
   private PipelineManager pipelineManager;
   private final double pipelinePercent;
 
+
   public OneReplicaPipelineSafeModeRule(EventQueue eventQueue, PipelineManager pipelineManager,
       SCMSafeModeManager safeModeManager, ConfigurationSource configuration) {
     super(safeModeManager, NAME, eventQueue);

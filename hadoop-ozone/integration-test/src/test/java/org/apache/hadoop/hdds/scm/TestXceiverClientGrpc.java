@@ -43,6 +43,7 @@ import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests for TestXceiverClientGrpc, to ensure topology aware reads work
@@ -85,6 +86,7 @@ public class TestXceiverClientGrpc {
   }
 
   @Test
+  @Timeout(5)
   public void testLeaderNodeIsCommandTarget() throws IOException {
     final Set<DatanodeDetails> seenDN = new HashSet<>();
     conf.setBoolean(
@@ -109,6 +111,7 @@ public class TestXceiverClientGrpc {
   }
 
   @Test
+  @Timeout(5)
   public void testGetBlockRetryAlNodes() {
     final ArrayList<DatanodeDetails> allDNs = new ArrayList<>(dns);
     assertThat(allDNs.size()).isGreaterThan(1);
@@ -129,6 +132,7 @@ public class TestXceiverClientGrpc {
   }
 
   @Test
+  @Timeout(5)
   public void testReadChunkRetryAllNodes() {
     final ArrayList<DatanodeDetails> allDNs = new ArrayList<>(dns);
     assertThat(allDNs.size()).isGreaterThan(1);
@@ -185,11 +189,9 @@ public class TestXceiverClientGrpc {
           node -> assertEquals(NodeOperationalState.IN_SERVICE, node.getPersistedOpState()));
 
       randomPipeline.getNodes().get(
-          RandomUtils.secure().randomInt(0, nodeCount)).
-          setPersistedOpState(NodeOperationalState.IN_MAINTENANCE);
+          RandomUtils.nextInt(0, nodeCount)).setPersistedOpState(NodeOperationalState.IN_MAINTENANCE);
       randomPipeline.getNodes().get(
-          RandomUtils.secure().randomInt(0, nodeCount)).
-          setPersistedOpState(NodeOperationalState.IN_MAINTENANCE);
+          RandomUtils.nextInt(0, nodeCount)).setPersistedOpState(NodeOperationalState.IN_MAINTENANCE);
       try (XceiverClientGrpc client = new XceiverClientGrpc(randomPipeline, conf) {
         @Override
         public XceiverClientReply sendCommandAsync(

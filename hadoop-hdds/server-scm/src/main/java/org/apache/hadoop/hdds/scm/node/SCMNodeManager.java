@@ -26,7 +26,6 @@ import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.HEALTHY
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.math.RoundingMode;
 import java.net.InetAddress;
@@ -37,10 +36,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -113,7 +114,7 @@ import org.slf4j.LoggerFactory;
  */
 public class SCMNodeManager implements NodeManager {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMNodeManager.class);
 
   private final NodeStateManager nodeStateManager;
@@ -147,11 +148,11 @@ public class SCMNodeManager implements NodeManager {
   private static final String TOTALCAPACITY = "CAPACITY";
   private static final String DNUUID = "UUID";
   private static final String VERSION = "VERSION";
-
   /**
    * Constructs SCM machine Manager.
    */
   public SCMNodeManager(
+
       OzoneConfiguration conf,
       SCMStorageConfig scmStorageConfig,
       EventPublisher eventPublisher,
@@ -250,14 +251,15 @@ public class SCMNodeManager implements NodeManager {
         .map(node -> (DatanodeDetails)node).collect(Collectors.toList());
   }
 
+  /**
+   * Returns all datanodes that are known to SCM.
+   *
+   * @return List of DatanodeDetails
+   */
   @Override
-  public List<DatanodeInfo> getAllNodes() {
-    return nodeStateManager.getAllNodes();
-  }
-
-  @Override
-  public int getAllNodeCount() {
-    return nodeStateManager.getAllNodeCount();
+  public List<DatanodeDetails> getAllNodes() {
+    return nodeStateManager.getAllNodes().stream()
+        .map(node -> (DatanodeDetails) node).collect(Collectors.toList());
   }
 
   /**
@@ -437,7 +439,10 @@ public class SCMNodeManager implements NodeManager {
         final DatanodeInfo oldNode = nodeStateManager.getNode(datanodeDetails);
         if (updateDnsToDnIdMap(oldNode.getHostName(), oldNode.getIpAddress(),
             hostName, ipAddress, dnId)) {
-          LOG.info("Updating datanode from {} to {}", oldNode, datanodeDetails);
+          LOG.info("Updating datanode {} from {} to {}",
+                  datanodeDetails.getUuidString(),
+                  oldNode,
+                  datanodeDetails);
           clusterMap.update(oldNode, datanodeDetails);
           nodeStateManager.updateNode(datanodeDetails, layoutInfo);
           DatanodeDetails dn = nodeStateManager.getNode(datanodeDetails);
@@ -446,9 +451,9 @@ public class SCMNodeManager implements NodeManager {
           LOG.info("Updated datanode to: {}", dn);
           scmNodeEventPublisher.fireEvent(SCMEvents.NODE_ADDRESS_UPDATE, dn);
         } else if (isVersionChange(oldNode.getVersion(), datanodeDetails.getVersion())) {
-          LOG.info("Update the version for registered datanode {}, " +
+          LOG.info("Update the version for registered datanode = {}, " +
               "oldVersion = {}, newVersion = {}.",
-              datanodeDetails, oldNode.getVersion(), datanodeDetails.getVersion());
+              datanodeDetails.getUuid(), oldNode.getVersion(), datanodeDetails.getVersion());
           nodeStateManager.updateNode(datanodeDetails, layoutInfo);
         }
       } catch (NodeNotFoundException e) {
@@ -546,9 +551,9 @@ public class SCMNodeManager implements NodeManager {
     writeLock().lock();
     try {
       Map<SCMCommandProto.Type, Integer> summary =
-          commandQueue.getDatanodeCommandSummary(datanodeDetails.getID());
+          commandQueue.getDatanodeCommandSummary(datanodeDetails.getUuid());
       List<SCMCommand<?>> commands =
-          commandQueue.getCommand(datanodeDetails.getID());
+          commandQueue.getCommand(datanodeDetails.getUuid());
 
       // Update the SCMCommand of deleteBlocksCommand Status
       for (SCMCommand<?> command : commands) {
@@ -610,7 +615,7 @@ public class SCMNodeManager implements NodeManager {
               scmStatus.getOperationalState(),
               scmStatus.getOpStateExpiryEpochSeconds());
           command.setTerm(scmContext.getTermOfLeader());
-          addDatanodeCommand(reportedDn.getID(), command);
+          addDatanodeCommand(reportedDn.getUuid(), command);
         } catch (NotLeaderException nle) {
           LOG.warn("Skip sending SetNodeOperationalStateCommand,"
               + " since current SCM is not leader.", nle);
@@ -631,34 +636,9 @@ public class SCMNodeManager implements NodeManager {
       }
     }
     DatanodeDetails scmDnd = nodeStateManager.getNode(reportedDn);
-    NodeOperationalState oldPersistedOpState = scmDnd.getPersistedOpState();
-    NodeOperationalState newPersistedOpState = reportedDn.getPersistedOpState();
-
     scmDnd.setPersistedOpStateExpiryEpochSec(
         reportedDn.getPersistedOpStateExpiryEpochSec());
-    scmDnd.setPersistedOpState(newPersistedOpState);
-
-    maybeNotifyReplicationManager(reportedDn, oldPersistedOpState, newPersistedOpState);
-  }
-
-  private void maybeNotifyReplicationManager(
-      DatanodeDetails datanode,
-      NodeOperationalState oldState,
-      NodeOperationalState newState) {
-    if (!scmContext.isLeader()) {
-      return;
-    }
-
-    if (oldState != newState) {
-      // Notify when a node is entering maintenance, decommissioning or back to service
-      if (newState == NodeOperationalState.ENTERING_MAINTENANCE
-          || newState == NodeOperationalState.DECOMMISSIONING
-          || newState == NodeOperationalState.IN_SERVICE) {
-        LOG.info("Notifying ReplicationManager of node state change for {}: {} -> {}",
-            datanode, oldState, newState);
-        scmNodeEventPublisher.fireEvent(SCMEvents.REPLICATION_MANAGER_NOTIFY, datanode);
-      }
-    }
+    scmDnd.setPersistedOpState(reportedDn.getPersistedOpState());
   }
 
   @Override
@@ -778,7 +758,7 @@ public class SCMNodeManager implements NodeManager {
             // Send Finalize command to the data node. Its OK to
             // send Finalize command multiple times.
             scmNodeEventPublisher.fireEvent(SCMEvents.DATANODE_COMMAND,
-                new CommandForDatanode<>(datanodeDetails,
+                new CommandForDatanode<>(datanodeDetails.getUuid(),
                     finalizeCmd));
           } catch (NotLeaderException ex) {
             LOG.warn("Skip sending finalize upgrade command since current SCM" +
@@ -852,7 +832,7 @@ public class SCMNodeManager implements NodeManager {
    * @return The count of commands queued, or zero if none.
    */
   @Override
-  public int getCommandQueueCount(DatanodeID dnID, SCMCommandProto.Type cmdType) {
+  public int getCommandQueueCount(UUID dnID, SCMCommandProto.Type cmdType) {
     readLock().lock();
     try {
       return commandQueue.getDatanodeCommandCount(dnID, cmdType);
@@ -884,7 +864,7 @@ public class SCMNodeManager implements NodeManager {
             ". Assuming zero", datanodeDetails, cmdType);
         dnCount = 0;
       }
-      return getCommandQueueCount(datanodeDetails.getID(), cmdType) + dnCount;
+      return getCommandQueueCount(datanodeDetails.getUuid(), cmdType) + dnCount;
     } finally {
       readLock().unlock();
     }
@@ -1064,7 +1044,8 @@ public class SCMNodeManager implements NodeManager {
       return new SCMNodeStat(capacity, used, remaining, committed,
           freeSpaceToSpare);
     } catch (NodeNotFoundException e) {
-      LOG.warn("Cannot generate NodeStat, datanode {} not found.", datanodeDetails);
+      LOG.warn("Cannot generate NodeStat, datanode {} not found.",
+          datanodeDetails.getUuidString());
       return null;
     }
   }
@@ -1436,7 +1417,6 @@ public class SCMNodeManager implements NodeManager {
     public String getLabel() {
       return label;
     }
-
     UsageStatics(String label) {
       this.label = label;
     }
@@ -1449,11 +1429,9 @@ public class SCMNodeManager implements NodeManager {
     ENTERING_MAINTENANCE("EnteringMaintenance"),
     VOLUME_FAILURES("VolumeFailures");
     private String label;
-
     public String getLabel() {
       return label;
     }
-
     StateStatistics(String label) {
       this.label = label;
     }
@@ -1464,13 +1442,10 @@ public class SCMNodeManager implements NodeManager {
     SCM_USED("Scmused"),
     NON_SCM_USED("NonScmused"),
     REMAINING("Remaining");
-
     private String label;
-
     public String getLabel() {
       return label;
     }
-
     SpaceStatistics(String label) {
       this.label = label;
     }
@@ -1489,7 +1464,7 @@ public class SCMNodeManager implements NodeManager {
                 getHealthyVolumeCount());
       } catch (NodeNotFoundException e) {
         LOG.warn("Cannot generate NodeStat, datanode {} not found.",
-                dn.getID());
+                dn.getUuid());
       }
     }
     Preconditions.checkArgument(!volumeCountList.isEmpty());
@@ -1524,7 +1499,7 @@ public class SCMNodeManager implements NodeManager {
       }
     } catch (NodeNotFoundException e) {
       LOG.warn("Cannot generate NodeStat, datanode {} not found.",
-          dn.getID());
+          dn.getUuid());
     }
     return 0;
   }
@@ -1547,7 +1522,7 @@ public class SCMNodeManager implements NodeManager {
     HashSet<DatanodeDetails> dns = new HashSet<>();
     Preconditions.checkNotNull(dn);
     Set<PipelineID> pipelines =
-        nodeStateManager.getPipelineByDnID(dn.getID());
+        nodeStateManager.getPipelineByDnID(dn.getUuid());
     PipelineManager pipelineManager = scmContext.getScm().getPipelineManager();
     if (!pipelines.isEmpty()) {
       pipelines.forEach(id -> {
@@ -1573,7 +1548,7 @@ public class SCMNodeManager implements NodeManager {
    */
   @Override
   public Set<PipelineID> getPipelines(DatanodeDetails datanodeDetails) {
-    return nodeStateManager.getPipelineByDnID(datanodeDetails.getID());
+    return nodeStateManager.getPipelineByDnID(datanodeDetails.getUuid());
   }
 
   /**
@@ -1621,6 +1596,20 @@ public class SCMNodeManager implements NodeManager {
   }
 
   /**
+   * Update set of containers available on a datanode.
+   *
+   * @param datanodeDetails - DatanodeID
+   * @param containerIds    - Set of containerIDs
+   * @throws NodeNotFoundException - if datanode is not known. For new datanode
+   *                               use addDatanodeInContainerMap call.
+   */
+  @Override
+  public void setContainers(DatanodeDetails datanodeDetails,
+      Set<ContainerID> containerIds) throws NodeNotFoundException {
+    nodeStateManager.setContainers(datanodeDetails.getID(), containerIds);
+  }
+
+  /**
    * Return set of containerIDs available on a datanode. This is a copy of the
    * set which resides inside NodeManager and hence can be modified without
    * synchronization or side effects.
@@ -1645,10 +1634,10 @@ public class SCMNodeManager implements NodeManager {
   }
 
   @Override
-  public void addDatanodeCommand(DatanodeID datanodeID, SCMCommand<?> command) {
+  public void addDatanodeCommand(UUID dnId, SCMCommand<?> command) {
     writeLock().lock();
     try {
-      this.commandQueue.addCommand(datanodeID, command);
+      this.commandQueue.addCommand(dnId, command);
     } finally {
       writeLock().unlock();
     }
@@ -1670,7 +1659,7 @@ public class SCMNodeManager implements NodeManager {
       return;
     }
     getNodes(IN_SERVICE, HEALTHY).forEach(datanode ->
-        addDatanodeCommand(datanode.getID(), refreshVolumeUsageCommand));
+        addDatanodeCommand(datanode.getUuid(), refreshVolumeUsageCommand));
   }
 
   /**
@@ -1688,7 +1677,7 @@ public class SCMNodeManager implements NodeManager {
   }
 
   @Override
-  public List<SCMCommand<?>> getCommandQueue(DatanodeID dnID) {
+  public List<SCMCommand<?>> getCommandQueue(UUID dnID) {
     // Getting the queue actually clears it and returns the commands, so this
     // is a write operation and not a read as the method name suggests.
     writeLock().lock();
@@ -1699,27 +1688,31 @@ public class SCMNodeManager implements NodeManager {
     }
   }
 
+  /**
+   * Given datanode uuid, returns the DatanodeDetails for the node.
+   *
+   * @param uuid node host address
+   * @return the given datanode, or null if not found
+   */
   @Override
-  public DatanodeInfo getNode(DatanodeID id) {
-    if (id == null) {
+  public DatanodeDetails getNodeByUuid(String uuid) {
+    return uuid != null && !uuid.isEmpty()
+        ? getNodeByUuid(UUID.fromString(uuid))
+        : null;
+  }
+
+  @Override
+  public DatanodeDetails getNodeByUuid(UUID uuid) {
+    if (uuid == null) {
       return null;
     }
 
     try {
-      return nodeStateManager.getNode(id);
+      return nodeStateManager.getNode(DatanodeID.of(uuid));
     } catch (NodeNotFoundException e) {
-      LOG.warn("Cannot find node for uuid {}", id);
+      LOG.warn("Cannot find node for uuid {}", uuid);
       return null;
     }
-  }
-
-  @Override
-  @Nullable
-  public DatanodeInfo getDatanodeInfo(DatanodeDetails datanodeDetails) {
-    if (datanodeDetails == null) {
-      return null;
-    }
-    return getNode(datanodeDetails.getID());
   }
 
   /**
@@ -1731,16 +1724,29 @@ public class SCMNodeManager implements NodeManager {
    */
   @Override
   public List<DatanodeDetails> getNodesByAddress(String address) {
+    List<DatanodeDetails> allNodes = getAllNodes();
+    List<DatanodeDetails> results = new LinkedList<>();
     if (Strings.isNullOrEmpty(address)) {
-      return Collections.emptyList();
+      LOG.warn("address is null");
+      return results;
     }
     Set<DatanodeID> datanodeIDS = dnsToDnIdMap.get(address);
     if (datanodeIDS == null) {
-      return Collections.emptyList();
+      LOG.debug("Cannot find node for address {}", address);
+      return results;
     }
-    return datanodeIDS.stream()
-        .map(this::getNode)
-        .collect(Collectors.toList());
+
+    datanodeIDS.forEach(datanodeID -> {
+      try {
+        List<DatanodeDetails> datanodeDetails = allNodes.stream().
+            filter(node -> node.getID().equals(datanodeID)).
+            collect(Collectors.toList());
+        results.addAll(datanodeDetails);
+      } catch (Exception e) {
+        LOG.warn("Error find node for DataNode ID {}", datanodeID);
+      }
+    });
+    return results;
   }
 
   /**
@@ -1843,7 +1849,7 @@ public class SCMNodeManager implements NodeManager {
         }
         nodeStateManager.removeNode(datanodeDetails.getID());
         removeFromDnsToDnIdMap(datanodeDetails.getID(), datanodeDetails.getIpAddress());
-        final List<SCMCommand<?>> cmdList = getCommandQueue(datanodeDetails.getID());
+        final List<SCMCommand<?>> cmdList = getCommandQueue(datanodeDetails.getUuid());
         LOG.info("Clearing command queue of size {} for DN {}", cmdList.size(), datanodeDetails);
       } else {
         LOG.warn("Node not decommissioned or dead, cannot remove: {}", datanodeDetails);

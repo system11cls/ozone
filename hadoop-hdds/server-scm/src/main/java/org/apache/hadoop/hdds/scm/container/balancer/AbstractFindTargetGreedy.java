@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -80,7 +81,9 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
     if (ret != 0) {
       return ret;
     }
-    return a.getDatanodeID().compareTo(b.getDatanodeID());
+    UUID uuidA = a.getDatanodeDetails().getUuid();
+    UUID uuidB = b.getDatanodeDetails().getUuid();
+    return uuidA.compareTo(uuidB);
   }
 
   private void setConfiguration(ContainerBalancerConfiguration conf) {
@@ -124,7 +127,7 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
       }
     }
     logger.debug("Container Balancer could not find a target for " +
-        "source datanode {}", source);
+        "source datanode {}", source.getUuidString());
     return null;
   }
 
@@ -161,7 +164,8 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
     boolean isPolicySatisfied = placementStatus.isPolicySatisfied();
     if (!isPolicySatisfied) {
       logger.debug("Moving container {} from source {} to target {} will not " +
-              "satisfy placement policy.", containerID, source, target);
+              "satisfy placement policy.", containerID, source.getUuidString(),
+          target.getUuidString());
     }
     return isPolicySatisfied;
   }
@@ -187,7 +191,7 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
       if (sizeEnteringAfterMove > config.getMaxSizeEnteringTarget()) {
         logger.debug("{} bytes cannot enter datanode {} because 'size" +
                 ".entering.target.max' limit is {} and {} bytes have already " +
-                "entered.", size, target,
+                "entered.", size, target.getUuidString(),
             config.getMaxSizeEnteringTarget(),
             sizeEnteringNode.get(target));
         return false;
@@ -196,13 +200,14 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
           .calculateUtilization(sizeEnteringAfterMove), upperLimit) > 0) {
         logger.debug("{} bytes cannot enter datanode {} because its " +
                 "utilization will exceed the upper limit of {}.", size,
-            target, upperLimit);
+            target.getUuidString(), upperLimit);
         return false;
       }
       return true;
     }
 
-    logger.warn("No record of how much size has entered datanode {}", target);
+    logger.warn("No record of how much size has entered datanode {}",
+        target.getUuidString());
     return false;
   }
 
@@ -225,7 +230,8 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
       }
       return;
     }
-    logger.warn("Cannot find {} in the candidates target nodes", target);
+    logger.warn("Cannot find {} in the candidates target nodes",
+        target.getUuid());
   }
 
   /**

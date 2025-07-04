@@ -38,7 +38,7 @@ import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.utils.MetadataKeyFilters.KeyPrefixFilter;
+import org.apache.hadoop.hdds.utils.MetadataKeyFilters;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -121,6 +121,7 @@ public class TestKeyValueBlockIterator {
         clusterID);
     db = BlockUtils.getDB(containerData, conf);
   }
+
 
   @AfterEach
   public void tearDown() throws Exception {
@@ -305,14 +306,16 @@ public class TestKeyValueBlockIterator {
 
     // Test arbitrary filter.
     String schemaPrefix = containerData.containerPrefix();
-    final KeyPrefixFilter secondFilter = KeyPrefixFilter.newFilter(schemaPrefix + secondPrefix);
+    MetadataKeyFilters.KeyPrefixFilter secondFilter =
+            new MetadataKeyFilters.KeyPrefixFilter()
+            .addFilter(schemaPrefix + secondPrefix);
     testWithFilter(secondFilter, blockIDs.get(secondPrefix));
   }
 
   /**
    * Helper method to run some iterator tests with a provided filter.
    */
-  private void testWithFilter(KeyPrefixFilter filter,
+  private void testWithFilter(MetadataKeyFilters.KeyPrefixFilter filter,
                               List<Long> expectedIDs) throws Exception {
     try (BlockIterator<BlockData> iterator =
                 db.getStore().getBlockIterator(CONTAINER_ID, filter)) {

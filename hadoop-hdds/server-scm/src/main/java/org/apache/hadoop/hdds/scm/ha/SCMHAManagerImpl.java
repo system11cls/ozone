@@ -428,6 +428,7 @@ public class SCMHAManagerImpl implements SCMHAManager {
     return ratisServer.removeSCM(request);
   }
 
+
   void stopServices() throws Exception {
 
     // just stop the SCMMetaData store. All other background
@@ -469,4 +470,8 @@ public class SCMHAManagerImpl implements SCMHAManager {
     grpcServer.stop();
   }
 
+  @VisibleForTesting
+  public static Logger getLogger() {
+    return LOG;
+  }
 }

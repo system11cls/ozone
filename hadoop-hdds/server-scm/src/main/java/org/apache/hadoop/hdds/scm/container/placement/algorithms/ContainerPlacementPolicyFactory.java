@@ -38,13 +38,14 @@ public final class ContainerPlacementPolicyFactory {
 
   private static final Class<? extends PlacementPolicy>
       OZONE_SCM_CONTAINER_PLACEMENT_IMPL_DEFAULT =
-      SCMContainerPlacementRackAware.class;
+      SCMContainerPlacementRandom.class;
   private static final Class<? extends PlacementPolicy>
       OZONE_SCM_CONTAINER_PLACEMENT_EC_IMPL_DEFAULT =
       SCMContainerPlacementRackScatter.class;
 
   private ContainerPlacementPolicyFactory() {
   }
+
 
   public static PlacementPolicy getPolicy(
       ConfigurationSource conf, final NodeManager nodeManager,
@@ -62,6 +63,7 @@ public final class ContainerPlacementPolicyFactory {
       ConfigurationSource conf, final NodeManager nodeManager,
       NetworkTopology clusterMap, final boolean fallback,
       SCMContainerPlacementMetrics metrics) throws SCMException {
+    // TODO: Change default placement policy for EC
     final Class<? extends PlacementPolicy> placementClass = conf
         .getClass(ScmConfigKeys.OZONE_SCM_CONTAINER_PLACEMENT_EC_IMPL_KEY,
             OZONE_SCM_CONTAINER_PLACEMENT_EC_IMPL_DEFAULT,

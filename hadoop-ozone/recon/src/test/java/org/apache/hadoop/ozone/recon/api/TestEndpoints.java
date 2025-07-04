@@ -97,7 +97,6 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
 import org.apache.hadoop.hdds.scm.protocol.StorageContainerLocationProtocol;
 import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
 import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
-import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.TypedTable;
 import org.apache.hadoop.hdfs.web.URLConnectionFactory;
 import org.apache.hadoop.ozone.OzoneAcl;
@@ -490,12 +489,12 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
             .setQuotaInBytes(OzoneConsts.GB)
             .setQuotaInNamespace(1000)
             .setUsedNamespace(500)
-            .addOzoneAcls(OzoneAcl.of(
+            .addOzoneAcls(new OzoneAcl(
                 IAccessAuthorizer.ACLIdentityType.USER,
                 "TestUser2",
                 OzoneAcl.AclScope.ACCESS, IAccessAuthorizer.ACLType.WRITE
             ))
-            .addOzoneAcls(OzoneAcl.of(
+            .addOzoneAcls(new OzoneAcl(
                 IAccessAuthorizer.ACLIdentityType.USER,
                 "TestUser2",
                 OzoneAcl.AclScope.ACCESS, IAccessAuthorizer.ACLType.READ
@@ -506,7 +505,7 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
     OmBucketInfo bucketInfo = OmBucketInfo.newBuilder()
         .setVolumeName("sampleVol2")
         .setBucketName("bucketOne")
-        .addAcl(OzoneAcl.of(
+        .addAcl(new OzoneAcl(
             IAccessAuthorizer.ACLIdentityType.GROUP,
             "TestGroup2",
             OzoneAcl.AclScope.ACCESS, IAccessAuthorizer.ACLType.WRITE
@@ -529,7 +528,7 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
     OmBucketInfo bucketInfo2 = OmBucketInfo.newBuilder()
         .setVolumeName("sampleVol2")
         .setBucketName("bucketTwo")
-        .addAcl(OzoneAcl.of(
+        .addAcl(new OzoneAcl(
             IAccessAuthorizer.ACLIdentityType.GROUP,
             "TestGroup2",
             OzoneAcl.AclScope.ACCESS, IAccessAuthorizer.ACLType.READ
@@ -671,7 +670,7 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
     // Change Node OperationalState with NodeManager
     final NodeManager nodeManager = reconScm.getScmNodeManager();
     final DatanodeDetails dnDetailsInternal =
-        nodeManager.getNode(datanodeDetails.getID());
+        nodeManager.getNodeByUuid(datanodeDetails.getUuidString());
     // Backup existing state and sanity check
     final NodeStatus nStatus = nodeManager.getNodeStatus(dnDetailsInternal);
     final NodeOperationalState backupOpState =
@@ -834,8 +833,10 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
         .TypedTableIterator.class);
     TypedTable.TypedTableIterator mockKeyIterFso = mock(TypedTable
         .TypedTableIterator.class);
-    final Table.KeyValue mockKeyValueLegacy = mock(Table.KeyValue.class);
-    final Table.KeyValue mockKeyValueFso = mock(Table.KeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueLegacy = mock(
+        TypedTable.TypedKeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueFso = mock(
+        TypedTable.TypedKeyValue.class);
 
     when(keyTableLegacy.iterator()).thenReturn(mockKeyIterLegacy);
     when(keyTableFso.iterator()).thenReturn(mockKeyIterFso);
@@ -1279,7 +1280,7 @@ public class TestEndpoints extends AbstractReconSqlDBTest {
     // Change Node3 OperationalState with NodeManager to NodeOperationalState.DECOMMISSIONED
     final NodeManager nodeManager = reconScm.getScmNodeManager();
     final DatanodeDetails dnDetailsInternal =
-        nodeManager.getNode(datanodeDetails3.getID());
+        nodeManager.getNodeByUuid(datanodeDetails3.getUuidString());
     // Backup existing state and sanity check
     final NodeStatus nStatus = nodeManager.getNodeStatus(dnDetailsInternal);
     final NodeOperationalState backupOpState =

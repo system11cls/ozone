@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +52,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -66,6 +64,7 @@ import org.apache.hadoop.fs.ozone.OzoneFileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.TestDataUtil;
@@ -76,6 +75,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneSnapshot;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.om.KeyManagerImpl;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OmSnapshotManager;
@@ -89,23 +89,25 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Abstract class for OmSnapshot file system tests.
  */
+@Timeout(120)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class TestOmSnapshotFileSystem {
   protected static final String VOLUME_NAME =
-      "volume" + RandomStringUtils.secure().nextNumeric(5);
+      "volume" + RandomStringUtils.randomNumeric(5);
   protected static final String BUCKET_NAME_FSO =
-      "bucket-fso-" + RandomStringUtils.secure().nextNumeric(5);
+      "bucket-fso-" + RandomStringUtils.randomNumeric(5);
   protected static final String BUCKET_NAME_LEGACY =
-      "bucket-legacy-" + RandomStringUtils.secure().nextNumeric(5);
+      "bucket-legacy-" + RandomStringUtils.randomNumeric(5);
 
   private MiniOzoneCluster cluster = null;
   private OzoneClient client;
@@ -161,7 +163,7 @@ public abstract class TestOmSnapshotFileSystem {
     keyManager.stop();
   }
 
-  @BeforeAll
+  @BeforeEach
   public void setupFsClient() throws IOException {
     String rootPath = String.format("%s://%s.%s/",
         OzoneConsts.OZONE_URI_SCHEME, bucketName, VOLUME_NAME);
@@ -176,7 +178,6 @@ public abstract class TestOmSnapshotFileSystem {
   @AfterAll
   void tearDown() {
     IOUtils.closeQuietly(client);
-    IOUtils.closeQuietly(fs);
     if (cluster != null) {
       cluster.shutdown();
     }
@@ -209,6 +210,9 @@ public abstract class TestOmSnapshotFileSystem {
         return false;
       }
     }, 1000, 120000);
+
+    IOUtils.closeQuietly(fs);
+    IOUtils.closeQuietly(o3fs);
   }
 
   @Test
@@ -360,10 +364,10 @@ public abstract class TestOmSnapshotFileSystem {
 
   private void readkey(OzoneBucket ozoneBucket, String key, int length, byte[] input)
       throws Exception {
+    OzoneInputStream ozoneInputStream = ozoneBucket.readKey(key);
     byte[] read = new byte[length];
-    try (InputStream ozoneInputStream = ozoneBucket.readKey(key)) {
-      IOUtils.readFully(ozoneInputStream, read);
-    }
+    ozoneInputStream.read(read, 0, length);
+    ozoneInputStream.close();
 
     String inputString = new String(input, StandardCharsets.UTF_8);
     assertEquals(inputString, new String(read, StandardCharsets.UTF_8));
@@ -373,9 +377,10 @@ public abstract class TestOmSnapshotFileSystem {
         bucketName, VOLUME_NAME);
     OzoneFileSystem o3fsNew = (OzoneFileSystem) FileSystem
         .get(new URI(rootPath), conf);
-    try (InputStream fsDataInputStream = o3fsNew.open(new Path(key))) {
-      IOUtils.readFully(fsDataInputStream, read);
-    }
+    FSDataInputStream fsDataInputStream = o3fsNew.open(new Path(key));
+    read = new byte[length];
+    fsDataInputStream.read(read, 0, length);
+    fsDataInputStream.close();
 
     assertEquals(inputString, new String(read, StandardCharsets.UTF_8));
   }

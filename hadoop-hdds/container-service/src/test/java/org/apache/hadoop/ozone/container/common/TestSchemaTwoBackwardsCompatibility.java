@@ -18,7 +18,7 @@
 package org.apache.hadoop.ozone.container.common;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.commons.lang3.RandomStringUtils.secure;
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.apache.hadoop.ozone.OzoneConsts.BLOCK_COUNT;
 import static org.apache.hadoop.ozone.OzoneConsts.CONTAINER_BYTES_USED;
 import static org.apache.hadoop.ozone.OzoneConsts.PENDING_DELETE_BLOCK_COUNT;
@@ -51,6 +51,7 @@ import org.apache.hadoop.ozone.common.ChunkBuffer;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
+import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.BlockIterator;
@@ -111,7 +112,7 @@ public class TestSchemaTwoBackwardsCompatibility {
   private static final int BLOCKS_PER_TXN = 2;
   private static final int CHUNK_LENGTH = 1024;
   private static final byte[] SAMPLE_DATA =
-      secure().nextAlphanumeric(1024).getBytes(UTF_8);
+      randomAlphanumeric(1024).getBytes(UTF_8);
 
   @BeforeEach
   public void setup() throws Exception {
@@ -132,7 +133,8 @@ public class TestSchemaTwoBackwardsCompatibility {
     chunkManager = new FilePerBlockStrategy(true, blockManager);
 
     containerSet = newContainerSet();
-    keyValueHandler = ContainerTestUtils.getKeyValueHandler(conf, datanodeUuid, containerSet, volumeSet);
+    keyValueHandler = new KeyValueHandler(conf, datanodeUuid,
+        containerSet, volumeSet, ContainerMetrics.create(conf), c -> { });
     ozoneContainer = mock(OzoneContainer.class);
     when(ozoneContainer.getContainerSet()).thenReturn(containerSet);
     when(ozoneContainer.getWriteChannel()).thenReturn(null);

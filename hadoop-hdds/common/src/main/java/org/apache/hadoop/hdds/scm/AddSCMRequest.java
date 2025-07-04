@@ -45,7 +45,6 @@ public class AddSCMRequest {
     return HddsProtos.AddScmRequestProto.newBuilder().setClusterId(clusterId)
         .setScmId(scmId).setRatisAddr(ratisAddr).build();
   }
-
   /**
    * Builder for AddSCMRequest.
    */
@@ -53,6 +52,7 @@ public class AddSCMRequest {
     private String clusterId;
     private String scmId;
     private String ratisAddr;
+
 
     /**
      * sets the cluster id.

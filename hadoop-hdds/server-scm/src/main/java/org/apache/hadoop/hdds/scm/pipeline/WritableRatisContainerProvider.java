@@ -53,6 +53,7 @@ public class WritableRatisContainerProvider
     this.pipelineChoosePolicy = pipelineChoosePolicy;
   }
 
+
   @Override
   public ContainerInfo getContainer(final long size,
       ReplicationConfig repConfig, String owner, ExcludeList excludeList)

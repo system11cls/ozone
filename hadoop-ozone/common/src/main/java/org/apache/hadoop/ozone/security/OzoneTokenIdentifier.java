@@ -117,7 +117,7 @@ public class OzoneTokenIdentifier extends
     return this;
   }
 
-  public OMTokenProto toProtoBuf() {
+  public OMTokenProto toProtoBuf() throws IOException {
     OMTokenProto.Builder builder = OMTokenProto.newBuilder()
         .setMaxDate(getMaxDate())
         .setType(getTokenType())

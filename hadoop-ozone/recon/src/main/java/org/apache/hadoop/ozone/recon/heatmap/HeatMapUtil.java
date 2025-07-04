@@ -115,6 +115,7 @@ public class HeatMapUtil {
     bucket.setSize(bucket.getSize() + keySize);
   }
 
+
   private void addPrefixPathInfoToBucket(
       EntityReadAccessHeatMapResponse rootEntity, String[] split,
       EntityReadAccessHeatMapResponse bucket,

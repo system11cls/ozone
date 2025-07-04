@@ -166,6 +166,7 @@ public abstract class SCMFailoverProxyProviderBase<T> implements FailoverProxyPr
     }
   }
 
+
   @VisibleForTesting
   public synchronized void changeCurrentProxy(String nodeId) {
     currentProxyIndex = scmNodeIds.indexOf(nodeId);

@@ -39,6 +39,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.TableIterator;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
@@ -69,7 +70,7 @@ import picocli.CommandLine;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TestFSORepairTool {
 
-  private static final Logger LOG = LoggerFactory.getLogger(TestFSORepairTool.class);
+  public static final Logger LOG = LoggerFactory.getLogger(TestFSORepairTool.class);
   private static final int ORDER_DRY_RUN = 1;
   //private static final int ORDER_REPAIR_SOME = 2; // TODO add test case
   private static final int ORDER_REPAIR_ALL = 3;
@@ -354,7 +355,7 @@ public class TestFSORepairTool {
 
   private <K, V> int countTableEntries(Table<K, V> table) throws Exception {
     int count = 0;
-    try (Table.KeyValueIterator<K, V> iterator = table.iterator()) {
+    try (TableIterator<K, ? extends Table.KeyValue<K, V>> iterator = table.iterator()) {
       while (iterator.hasNext()) {
         iterator.next();
         count++;
@@ -496,7 +497,7 @@ public class TestFSORepairTool {
 
   private static void disconnectDirectory(String dirName) throws Exception {
     Table<String, OmDirectoryInfo> dirTable = cluster.getOzoneManager().getMetadataManager().getDirectoryTable();
-    try (Table.KeyValueIterator<String, OmDirectoryInfo> iterator = dirTable.iterator()) {
+    try (TableIterator<String, ? extends Table.KeyValue<String, OmDirectoryInfo>> iterator = dirTable.iterator()) {
       while (iterator.hasNext()) {
         Table.KeyValue<String, OmDirectoryInfo> entry = iterator.next();
         String key = entry.getKey();

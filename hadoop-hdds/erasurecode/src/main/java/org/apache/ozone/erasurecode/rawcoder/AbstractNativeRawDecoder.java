@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Private
 @SuppressWarnings("checkstyle:VisibilityModifier")
 abstract class AbstractNativeRawDecoder extends RawErasureDecoder {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(AbstractNativeRawDecoder.class);
 
   // Protect ISA-L coder data structure in native layer from being accessed and

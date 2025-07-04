@@ -37,10 +37,12 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test Ozone Prefix Parser.
  */
+@Timeout(120)
 public class TestOzoneFileSystemPrefixParser {
 
   private static MiniOzoneCluster cluster = null;
@@ -58,8 +60,8 @@ public class TestOzoneFileSystemPrefixParser {
 
   @BeforeAll
   public static void init() throws Exception {
-    volumeName = RandomStringUtils.secure().nextAlphabetic(10).toLowerCase();
-    bucketName = RandomStringUtils.secure().nextAlphabetic(10).toLowerCase();
+    volumeName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
+    bucketName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
 
     configuration = new OzoneConfiguration();
 
@@ -123,7 +125,7 @@ public class TestOzoneFileSystemPrefixParser {
   private void testPrefixParseWithInvalidPaths() throws Exception {
     PrefixParser invalidVolumeParser = new PrefixParser();
     String invalidVolumeName =
-        RandomStringUtils.secure().nextAlphabetic(10).toLowerCase();
+        RandomStringUtils.randomAlphabetic(10).toLowerCase();
     invalidVolumeParser.parse(invalidVolumeName, bucketName,
         OMStorage.getOmDbDir(configuration).getPath(),
         file.toString());
@@ -131,7 +133,7 @@ public class TestOzoneFileSystemPrefixParser {
 
     PrefixParser invalidBucketParser = new PrefixParser();
     String invalidBucketName =
-        RandomStringUtils.secure().nextAlphabetic(10).toLowerCase();
+        RandomStringUtils.randomAlphabetic(10).toLowerCase();
     invalidBucketParser.parse(volumeName, invalidBucketName,
         OMStorage.getOmDbDir(configuration).getPath(),
         file.toString());

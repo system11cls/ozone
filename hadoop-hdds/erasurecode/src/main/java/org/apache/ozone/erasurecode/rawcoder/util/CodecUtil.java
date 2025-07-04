@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Private
 public final class CodecUtil {
 
-  private static final Logger LOG = LoggerFactory.getLogger(CodecUtil.class);
+  public static final Logger LOG = LoggerFactory.getLogger(CodecUtil.class);
 
   private CodecUtil() {
   }

@@ -53,6 +53,7 @@ public class SignatureInfo {
 
   private String unfilteredURI = null;
 
+
   private String stringToSign = null;
 
   public SignatureInfo() { }

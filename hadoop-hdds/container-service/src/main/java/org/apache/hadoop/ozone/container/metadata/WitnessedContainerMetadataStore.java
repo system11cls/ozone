@@ -17,7 +17,6 @@
 
 package org.apache.hadoop.ozone.container.metadata;
 
-import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.utils.db.Table;
 
 /**
@@ -29,5 +28,5 @@ public interface WitnessedContainerMetadataStore extends DBStoreManager {
    *
    * @return Table
    */
-  Table<ContainerID, String> getContainerIdsTable();
+  Table<Long, String> getContainerIdsTable();
 }

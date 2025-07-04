@@ -31,6 +31,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.SetRangerServiceVersionRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.SetRangerServiceVersionResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Handles OMSetRangerServiceVersionRequest.
@@ -40,6 +42,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.SetRang
  * OzoneServiceVersion (retrieved from Ranger) to OM DB during the sync.
  */
 public class OMSetRangerServiceVersionRequest extends OMClientRequest {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(OMSetRangerServiceVersionRequest.class);
 
   public OMSetRangerServiceVersionRequest(OMRequest omRequest) {
     super(omRequest);

@@ -19,6 +19,8 @@ package org.apache.hadoop.ozone.om.request.validation;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static org.apache.hadoop.ozone.om.request.validation.RequestProcessingPhase.POST_PROCESS;
+import static org.apache.hadoop.ozone.om.request.validation.RequestProcessingPhase.PRE_PROCESS;
 import static org.apache.hadoop.ozone.om.request.validation.ValidationCondition.CLUSTER_NEEDS_FINALIZATION;
 import static org.apache.hadoop.ozone.om.request.validation.ValidationCondition.OLDER_CLIENT_REQUESTS;
 import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.GeneralValidatorsForTesting.finishValidatorTest;
@@ -26,8 +28,6 @@ import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.Ge
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateDirectory;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateKey;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateVolume;
-import static org.apache.hadoop.ozone.request.validation.RequestProcessingPhase.POST_PROCESS;
-import static org.apache.hadoop.ozone.request.validation.RequestProcessingPhase.PRE_PROCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

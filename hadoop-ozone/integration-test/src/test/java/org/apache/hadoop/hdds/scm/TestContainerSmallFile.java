@@ -42,11 +42,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test Container calls.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(300)
 public abstract class TestContainerSmallFile implements NonHATests.TestCase {
 
   private OzoneConfiguration ozoneConfig;

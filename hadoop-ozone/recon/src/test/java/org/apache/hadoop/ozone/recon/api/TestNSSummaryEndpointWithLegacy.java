@@ -670,6 +670,7 @@ public class TestNSSummaryEndpointWithLegacy {
         invalidResObj.getResponseCode());
   }
 
+
   @Test
   public void testFileSizeDist() throws Exception {
     checkFileSizeDist(ROOT_PATH, 2, 3, 4, 1);

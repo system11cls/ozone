@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 public class MismatchedReplicasHandler extends AbstractCheck {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(MismatchedReplicasHandler.class);
 
   private final ReplicationManager replicationManager;

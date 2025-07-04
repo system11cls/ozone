@@ -357,6 +357,7 @@ public final class OzoneManagerRatisServer {
     final List<RaftPeer> newPeersList = new ArrayList<>(raftPeerMap.values());
     newPeersList.add(newRaftPeer);
 
+    checkLeaderStatus();
     SetConfigurationRequest request = new SetConfigurationRequest(clientId,
         server.getId(), raftGroupId, nextCallId(), newPeersList);
 
@@ -389,6 +390,7 @@ public final class OzoneManagerRatisServer {
         .map(Map.Entry::getValue)
         .collect(Collectors.toList());
 
+    checkLeaderStatus();
     SetConfigurationRequest request = new SetConfigurationRequest(clientId,
         server.getId(), raftGroupId, nextCallId(), newPeersList);
 
@@ -722,11 +724,6 @@ public final class OzoneManagerRatisServer {
         OMConfigKeys.OZONE_OM_RATIS_LOG_PURGE_GAP,
         OMConfigKeys.OZONE_OM_RATIS_LOG_PURGE_GAP_DEFAULT));
 
-    // This avoids writing commit metadata to Raft Log, which can be used to recover the
-    // commit index even if a majority of servers are dead. We don't need this for OzoneManager,
-    // disabling this will avoid the additional disk IO.
-    RaftServerConfigKeys.Log.setLogMetadataEnabled(properties, false);
-
     // Set the number of maximum cached segments
     RaftServerConfigKeys.Log.setSegmentCacheNumMax(properties, 2);
   }
@@ -832,7 +829,7 @@ public final class OzoneManagerRatisServer {
    *
    * @return RaftServerStatus.
    */
-  public RaftServerStatus getLeaderStatus() {
+  public RaftServerStatus checkLeaderStatus() {
     final RaftServer.Division division = getServerDivision();
     if (division == null) {
       return RaftServerStatus.NOT_LEADER;

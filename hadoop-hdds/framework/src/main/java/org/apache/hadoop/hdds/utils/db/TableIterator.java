@@ -18,9 +18,8 @@
 package org.apache.hadoop.hdds.utils.db;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.Iterator;
-import java.util.function.Function;
-import org.apache.hadoop.hdds.utils.db.Table.KeyValueIterator;
 
 /**
  * To iterate a {@link Table}.
@@ -29,8 +28,6 @@ import org.apache.hadoop.hdds.utils.db.Table.KeyValueIterator;
  * @param <T> The type to be iterated.
  */
 public interface TableIterator<KEY, T> extends Iterator<T>, Closeable {
-  @Override
-  void close() throws RocksDatabaseException;
 
   /**
    * seek to first entry.
@@ -48,58 +45,14 @@ public interface TableIterator<KEY, T> extends Iterator<T>, Closeable {
    * @param key - Bytes that represent the key.
    * @return VALUE.
    */
-  T seek(KEY key) throws RocksDatabaseException, CodecException;
+  T seek(KEY key) throws IOException;
 
   /**
    * Remove the actual value of the iterator from the database table on
    * which the iterator is working on.
-   */
-  void removeFromDB() throws RocksDatabaseException, CodecException;
-
-  /**
-   * Convert the given {@link KeyValueIterator} to a {@link TableIterator} using the given converter.
    *
-   * @param <K> The key type of both the input and the output iterators
-   * @param <INPUT> The value type of the input iterator
-   * @param <OUTPUT> The value type of the output iterator
+   * @throws IOException when there is an error occurred during deletion.
    */
-  static <K, INPUT, OUTPUT> TableIterator<K, OUTPUT> convert(KeyValueIterator<K, INPUT> i,
-      Function<Table.KeyValue<K, INPUT>, OUTPUT> converter) throws RocksDatabaseException, CodecException {
-    return new TableIterator<K, OUTPUT>() {
-      @Override
-      public boolean hasNext() {
-        return i.hasNext();
-      }
+  void removeFromDB() throws IOException;
 
-      @Override
-      public OUTPUT next() {
-        return converter.apply(i.next());
-      }
-
-      @Override
-      public void close() throws RocksDatabaseException {
-        i.close();
-      }
-
-      @Override
-      public void seekToFirst() {
-        i.seekToFirst();
-      }
-
-      @Override
-      public void seekToLast() {
-        i.seekToLast();
-      }
-
-      @Override
-      public OUTPUT seek(K key) throws RocksDatabaseException, CodecException {
-        return converter.apply(i.seek(key));
-      }
-
-      @Override
-      public void removeFromDB() throws RocksDatabaseException, CodecException {
-        i.removeFromDB();
-      }
-    };
-  }
 }

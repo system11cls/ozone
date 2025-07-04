@@ -27,8 +27,8 @@ import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
+import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
-import org.apache.hadoop.ozone.om.OmSnapshotInternalMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.SnapshotChainManager;
 import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
@@ -65,7 +65,7 @@ public class OMSnapshotPurgeRequest extends OMClientRequest {
 
   @Override
   public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
-    OmSnapshotInternalMetrics omSnapshotIntMetrics = ozoneManager.getOmSnapshotIntMetrics();
+    OMMetrics omMetrics = ozoneManager.getMetrics();
 
     final long trxnLogIndex = context.getIndex();
 
@@ -101,11 +101,9 @@ public class OMSnapshotPurgeRequest extends OMClientRequest {
           continue;
         }
         SnapshotInfo nextSnapshot = SnapshotUtils.getNextSnapshot(ozoneManager, snapshotChainManager, fromSnapshot);
-        SnapshotInfo nextToNextSnapshot = nextSnapshot == null ? null : SnapshotUtils.getNextSnapshot(ozoneManager,
-            snapshotChainManager, nextSnapshot);
-        // Step 1: Update the deep clean flag for the next snapshot
+
+        // Step 1: Update the deep clean flag for the next active snapshot
         updateSnapshotInfoAndCache(nextSnapshot, omMetadataManager, trxnLogIndex);
-        updateSnapshotInfoAndCache(nextToNextSnapshot, omMetadataManager, trxnLogIndex);
         // Step 2: Update the snapshot chain.
         updateSnapshotChainAndCache(omMetadataManager, fromSnapshot, trxnLogIndex);
         // Step 3: Purge the snapshot from SnapshotInfoTable cache and also remove from the map.
@@ -122,13 +120,13 @@ public class OMSnapshotPurgeRequest extends OMClientRequest {
 
       omClientResponse = new OMSnapshotPurgeResponse(omResponse.build(), snapshotDbKeys, updatedSnapshotInfos);
 
-      omSnapshotIntMetrics.incNumSnapshotPurges();
+      omMetrics.incNumSnapshotPurges();
       LOG.info("Successfully executed snapshotPurgeRequest: {{}} along with updating snapshots:{}.",
           snapshotPurgeRequest, updatedSnapshotInfos);
     } catch (IOException ex) {
       omClientResponse = new OMSnapshotPurgeResponse(
           createErrorOMResponse(omResponse, ex));
-      omSnapshotIntMetrics.incNumSnapshotPurgeFails();
+      omMetrics.incNumSnapshotPurgeFails();
       LOG.error("Failed to execute snapshotPurgeRequest:{{}}.", snapshotPurgeRequest, ex);
     }
 
@@ -142,7 +140,6 @@ public class OMSnapshotPurgeRequest extends OMClientRequest {
       // current snapshot is deleted. We can potentially
       // reclaim more keys in the next snapshot.
       snapInfo.setDeepClean(false);
-      snapInfo.setDeepCleanedDeletedDir(false);
 
       // Update table cache first
       omMetadataManager.getSnapshotInfoTable().addCacheEntry(new CacheKey<>(snapInfo.getTableKey()),

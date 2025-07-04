@@ -24,14 +24,13 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 
 /**
  * Request for Complete Multipart Upload request.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "CompleteMultipartUpload", namespace =
-    S3Consts.S3_XML_NAMESPACE)
+    "http://s3.amazonaws.com/doc/2006-03-01/")
 public class CompleteMultipartUploadRequest {
 
   @XmlElement(name = "Part")

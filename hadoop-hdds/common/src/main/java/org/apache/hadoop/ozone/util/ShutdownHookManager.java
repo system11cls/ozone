@@ -39,7 +39,6 @@ import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,17 +74,16 @@ public final class ShutdownHookManager {
 
   private static final ShutdownHookManager MGR = new ShutdownHookManager();
 
-  private static final Logger LOG = LoggerFactory.getLogger(ShutdownHookManager.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(ShutdownHookManager.class);
+
+
 
   private static final ExecutorService EXECUTOR =
       Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat("shutdown-hook-%01d")
           .build());
-
-  private final Set<HookEntry> hooks = Collections.synchronizedSet(new HashSet<>());
-
-  private final AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
 
   static {
     try {
@@ -97,9 +95,9 @@ public final class ShutdownHookManager {
                 LOG.info("Shutdown process invoked a second time: ignoring");
                 return;
               }
-              long started = Time.monotonicNow();
+              long started = System.currentTimeMillis();
               int timeoutCount = MGR.executeShutdown();
-              long ended = Time.monotonicNow();
+              long ended = System.currentTimeMillis();
               LOG.debug(String.format(
                   "Completed shutdown in %.3f seconds; Timeouts: %d",
                   (ended - started) / 1000.0, timeoutCount));
@@ -248,6 +246,11 @@ public final class ShutdownHookManager {
       return unit;
     }
   }
+
+  private final Set<HookEntry> hooks =
+      Collections.synchronizedSet(new HashSet<>());
+
+  private final AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
 
   private ShutdownHookManager() {
   }

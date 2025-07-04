@@ -17,81 +17,75 @@
 
 package org.apache.hadoop.hdds.scm.container;
 
+import com.google.common.base.Preconditions;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
-import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.ozone.common.statemachine.InvalidStateTransitionException;
 import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
 import org.apache.hadoop.ozone.protocol.commands.DeleteContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.util.MemoizedSupplier;
-import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 
 /**
  * Base class for all the container report handlers.
  */
-abstract class AbstractContainerReportHandler {
-  private final NodeManager nodeManager;
+public class AbstractContainerReportHandler {
+
   private final ContainerManager containerManager;
   private final SCMContext scmContext;
+  private final Logger logger;
 
-  AbstractContainerReportHandler(NodeManager nodeManager, ContainerManager containerManager, SCMContext scmContext) {
-    this.nodeManager = Objects.requireNonNull(nodeManager, "nodeManager == null");
-    this.containerManager = Objects.requireNonNull(containerManager, "containerManager == null");
-    this.scmContext = Objects.requireNonNull(scmContext, "scmContext == null");
+  /**
+   * Constructs AbstractContainerReportHandler instance with the
+   * given ContainerManager instance.
+   *
+   * @param containerManager ContainerManager
+   * @param logger Logger to be used for logging
+   */
+  AbstractContainerReportHandler(final ContainerManager containerManager,
+                                 final SCMContext scmContext,
+                                 final Logger logger) {
+    Preconditions.checkNotNull(containerManager);
+    Preconditions.checkNotNull(scmContext);
+    Preconditions.checkNotNull(logger);
+    this.containerManager = containerManager;
+    this.scmContext = scmContext;
+    this.logger = logger;
   }
 
-  protected abstract Logger getLogger();
-
-  /** @return the container in SCM and the replica from a datanode details for logging. */
-  protected static Object getDetailsForLogging(ContainerInfo container, ContainerReplicaProto replica,
-      DatanodeDetails datanode) {
-    Objects.requireNonNull(replica, "replica == null");
-    Objects.requireNonNull(datanode, "datanode == null");
-    if (container != null) {
-      Preconditions.assertSame(container.getContainerID(), replica.getContainerID(), "Container ID");
-    }
-
-    final Supplier<String> details = MemoizedSupplier.valueOf(() -> {
-      final StringBuilder b = new StringBuilder();
-      if (container == null) {
-        b.append("Container #").append(replica.getContainerID()).append(" (NOT_FOUND");
-      } else {
-        b.append("Container ").append(container.containerID())
-            .append(" (").append(container.getState()).append(", sid=").append(container.getSequenceId());
-      }
-      return b.append(") r").append(replica.getReplicaIndex())
-          .append(" (").append(replica.getState())
-          .append(", bcsid=").append(replica.getBlockCommitSequenceId())
-          .append(", origin=").append(replica.getOriginNodeId())
-          .append(", ").append(replica.hasIsEmpty() && replica.getIsEmpty() ? "empty" : "non-empty")
-          .append(") from dn ").append(datanode)
-          .toString();
-    });
-
-    return new Object() {
-      @Override
-      public String toString() {
-        return details.get();
-      }
-    };
+  /**
+   * Process the given ContainerReplica received from specified datanode.
+   *
+   * @param datanodeDetails DatanodeDetails for the DN
+   * @param replicaProto Protobuf representing the replicas
+   * @param publisher EventPublisher instance
+   * @throws IOException
+   * @throws InvalidStateTransitionException
+   * @throws TimeoutException
+   */
+  protected void processContainerReplica(final DatanodeDetails datanodeDetails,
+      final ContainerReplicaProto replicaProto, final EventPublisher publisher)
+      throws IOException, InvalidStateTransitionException, TimeoutException {
+    ContainerInfo container = getContainerManager().getContainer(
+        ContainerID.valueOf(replicaProto.getContainerID()));
+    processContainerReplica(
+        datanodeDetails, container, replicaProto, publisher);
   }
 
   /**
@@ -102,18 +96,27 @@ abstract class AbstractContainerReportHandler {
    * @param containerInfo ContainerInfo represending the container
    * @param replicaProto ContainerReplica
    * @param publisher EventPublisher instance
+   *
+   * @throws IOException In case of any Exception while processing the report
+   * @throws TimeoutException In case of timeout while updating container state
    */
   protected void processContainerReplica(final DatanodeDetails datanodeDetails,
       final ContainerInfo containerInfo,
-      final ContainerReplicaProto replicaProto, final EventPublisher publisher, Object detailsForLogging)
-      throws IOException, InvalidStateTransitionException {
-    getLogger().debug("Processing replica {}", detailsForLogging);
+      final ContainerReplicaProto replicaProto, final EventPublisher publisher)
+      throws IOException, InvalidStateTransitionException, TimeoutException {
+    final ContainerID containerId = containerInfo.containerID();
+
+    if (logger.isDebugEnabled()) {
+      logger.debug("Processing replica of container {} from datanode {}",
+          containerId, datanodeDetails);
+    }
     // Synchronized block should be replaced by container lock,
     // once we have introduced lock inside ContainerInfo.
     synchronized (containerInfo) {
-      updateContainerStats(datanodeDetails, containerInfo, replicaProto, detailsForLogging);
-      if (!updateContainerState(datanodeDetails, containerInfo, replicaProto, publisher, detailsForLogging)) {
-        updateContainerReplica(datanodeDetails, containerInfo.containerID(), replicaProto);
+      updateContainerStats(datanodeDetails, containerInfo, replicaProto);
+      if (!updateContainerState(datanodeDetails, containerInfo, replicaProto,
+          publisher)) {
+        updateContainerReplica(datanodeDetails, containerId, replicaProto);
       }
     }
   }
@@ -128,15 +131,18 @@ abstract class AbstractContainerReportHandler {
    */
   private void updateContainerStats(final DatanodeDetails datanodeDetails,
                                     final ContainerInfo containerInfo,
-                                    final ContainerReplicaProto replicaProto,
-      Object detailsForLogging) throws ContainerNotFoundException {
+                                    final ContainerReplicaProto replicaProto)
+      throws ContainerNotFoundException {
     if (containerInfo.getState() == HddsProtos.LifeCycleState.CLOSED && containerInfo.getSequenceId() <
         replicaProto.getBlockCommitSequenceId()) {
-      getLogger().error("Container CLOSED with sequence ID lower than a replica: {}, proto={}",
-          detailsForLogging, TextFormat.shortDebugString(replicaProto));
+      logger.error(
+          "There is a CLOSED container with lower sequence ID than a replica. Container: {}, Container's " +
+              "sequence ID: {}, Replica: {}, Replica's sequence ID: {}, Datanode: {}.", containerInfo,
+          containerInfo.getSequenceId(), TextFormat.shortDebugString(replicaProto),
+          replicaProto.getBlockCommitSequenceId(), datanodeDetails);
     }
 
-    if (isHealthy(replicaProto.getState())) {
+    if (isHealthy(replicaProto::getState)) {
       if (containerInfo.getSequenceId() <
           replicaProto.getBlockCommitSequenceId()) {
         containerInfo.updateSequenceId(
@@ -194,7 +200,8 @@ abstract class AbstractContainerReportHandler {
     }
   }
 
-  private static long calculateUsage(ContainerInfo containerInfo, long lastValue, long thisValue) {
+  private long calculateUsage(ContainerInfo containerInfo, long lastValue,
+      long thisValue) {
     if (containerInfo.getState().equals(HddsProtos.LifeCycleState.OPEN)) {
       // Open containers are generally growing in key count and size, the
       // overall size should be the min of all reported replicas.
@@ -206,7 +213,8 @@ abstract class AbstractContainerReportHandler {
     }
   }
 
-  private static void updateContainerUsedAndKeys(ContainerInfo containerInfo, long usedBytes, long keyCount) {
+  private void updateContainerUsedAndKeys(ContainerInfo containerInfo,
+      long usedBytes, long keyCount) {
     if (containerInfo.getUsedBytes() != usedBytes) {
       containerInfo.setUsedBytes(usedBytes);
     }
@@ -232,41 +240,61 @@ abstract class AbstractContainerReportHandler {
    * Updates the container state based on the given replica state.
    *
    * @param datanode Datanode from which the report is received
-   * @param container ContainerInfo representing the container
+   * @param container ContainerInfo representing the the container
    * @param replica ContainerReplica
-   * @return true iff replica must be ignored in the next process
+   * @boolean true - replica should be ignored in the next process
    * @throws IOException In case of Exception
+   * @throws TimeoutException In case of timeout while updating container state
    */
   private boolean updateContainerState(final DatanodeDetails datanode,
                                     final ContainerInfo container,
                                     final ContainerReplicaProto replica,
-                                    final EventPublisher publisher,
-      Object detailsForLogging) throws IOException, InvalidStateTransitionException {
+                                    final EventPublisher publisher)
+      throws IOException, InvalidStateTransitionException, TimeoutException {
 
     final ContainerID containerId = container.containerID();
+    boolean ignored = false;
     boolean replicaIsEmpty = replica.hasIsEmpty() && replica.getIsEmpty();
-
     switch (container.getState()) {
     case OPEN:
-      // If the state of a container is OPEN and a replica is in different state, finalize the container.
+      /*
+       * If the state of a container is OPEN, datanodes cannot report
+       * any other state.
+       */
       if (replica.getState() != State.OPEN) {
-        getLogger().info("FINALIZE (i.e. CLOSING) {}", detailsForLogging);
-        containerManager.updateContainerState(containerId, LifeCycleEvent.FINALIZE);
+        logger.info("Moving OPEN container {} to CLOSING state, datanode {} " +
+                "reported {} replica with index {}.", containerId, datanode,
+            replica.getState(), replica.getReplicaIndex());
+        containerManager.updateContainerState(containerId,
+            LifeCycleEvent.FINALIZE);
       }
-      return false;
+      break;
     case CLOSING:
-      // When the container is in CLOSING state, a replica can be either OPEN, CLOSING, QUASI_CLOSED or CLOSED
+      /*
+       * When the container is in CLOSING state the replicas can be in any
+       * of the following states:
+       *
+       * - OPEN
+       * - CLOSING
+       * - QUASI_CLOSED
+       * - CLOSED
+       *
+       * If all the replica are either in OPEN or CLOSING state, do nothing.
+       *
+       * If the replica is in QUASI_CLOSED state, move the container to
+       * QUASI_CLOSED state.
+       *
+       * If the replica is in CLOSED state, mark the container as CLOSED.
+       *
+       */
 
-      // If the replica are either in OPEN or CLOSING state, do nothing.
-
-      // If the replica is in QUASI_CLOSED state, move the container to QUASI_CLOSED state.
       if (replica.getState() == State.QUASI_CLOSED) {
-        getLogger().info("QUASI_CLOSE {}", detailsForLogging);
-        containerManager.updateContainerState(containerId, LifeCycleEvent.QUASI_CLOSE);
-        return false;
+        logger.info("Moving container {} to QUASI_CLOSED state, datanode {} " +
+                "reported QUASI_CLOSED replica.", containerId, datanode);
+        containerManager.updateContainerState(containerId,
+            LifeCycleEvent.QUASI_CLOSE);
       }
 
-      // If the replica is in CLOSED state, mark the container as CLOSED.
       if (replica.getState() == State.CLOSED) {
         /*
         For an EC container, only the first index and the parity indexes are
@@ -279,72 +307,114 @@ abstract class AbstractContainerReportHandler {
           int dataNum =
               ((ECReplicationConfig)container.getReplicationConfig()).getData();
           if (replicaIndex != 1 && replicaIndex <= dataNum) {
-            return false;
+            break;
           }
         }
 
-        if (bcsidMismatched(container, replica, detailsForLogging)) {
+        if (!verifyBcsId(replica.getBlockCommitSequenceId(), container.getSequenceId(), datanode, containerId)) {
+          logger.warn("Ignored moving container {} from CLOSING to CLOSED state because replica bcsId ({}) " +
+                  "reported by datanode {} does not match sequenceId ({}).",
+              containerId, replica.getBlockCommitSequenceId(), datanode, container.getSequenceId());
           return true;
         }
-        getLogger().info("CLOSE {}", detailsForLogging);
-        containerManager.updateContainerState(containerId, LifeCycleEvent.CLOSE);
+        logger.info("Moving container {} from CLOSING to CLOSED state, datanode {} " +
+                "reported CLOSED replica with index {}.", containerId, datanode,
+            replica.getReplicaIndex());
+        containerManager.updateContainerState(containerId,
+            LifeCycleEvent.CLOSE);
       }
-      return false;
-    case QUASI_CLOSED:
-      // The container is QUASI_CLOSED, this means that at least one of the replicas was QUASI_CLOSED.
-      // Now replicas can be in either OPEN, CLOSING, QUASI_CLOSED or CLOSED
 
-      // If one of the replica is in CLOSED state, mark the container as CLOSED.
+      break;
+    case QUASI_CLOSED:
+      /*
+       * The container is in QUASI_CLOSED state, this means that at least
+       * one of the replica was QUASI_CLOSED.
+       *
+       * Now replicas can be in any of the following state.
+       *
+       * 1. OPEN
+       * 2. CLOSING
+       * 3. QUASI_CLOSED
+       * 4. CLOSED
+       *
+       * If at least one of the replica is in CLOSED state, mark the
+       * container as CLOSED.
+       *
+       */
       if (replica.getState() == State.CLOSED) {
-        if (bcsidMismatched(container, replica, detailsForLogging)) {
+        if (!verifyBcsId(replica.getBlockCommitSequenceId(), container.getSequenceId(), datanode, containerId)) {
+          logger.warn("Ignored moving container {} from QUASI_CLOSED to CLOSED state because replica bcsId ({}) " +
+                  "reported by datanode {} does not match sequenceId ({}).",
+              containerId, replica.getBlockCommitSequenceId(), datanode, container.getSequenceId());
           return true;
         }
-        getLogger().info("FORCE_CLOSE for {}", detailsForLogging);
-        containerManager.updateContainerState(containerId, LifeCycleEvent.FORCE_CLOSE);
+        logger.info("Moving container {} from QUASI_CLOSED to CLOSED state, datanode {} " +
+                "reported CLOSED replica with index {}.", containerId, datanode,
+            replica.getReplicaIndex());
+        containerManager.updateContainerState(containerId,
+            LifeCycleEvent.FORCE_CLOSE);
       }
-      return false;
+      break;
     case CLOSED:
-      // The container is already in closed state. do nothing.
-      return false;
+      /*
+       * The container is already in closed state. do nothing.
+       */
+      break;
     case DELETED:
       // If container is in DELETED state and the reported replica is empty, delete the empty replica.
       // We should also do this for DELETING containers and currently DeletingContainerHandler does that
       if (replicaIsEmpty) {
-        deleteReplica(containerId, datanode, publisher, "DELETED", false, detailsForLogging);
-        return false;
+        deleteReplica(containerId, datanode, publisher, "DELETED", false);
+        break;
       }
-      // HDDS-12421: fall-through to case DELETING
     case DELETING:
-      // HDDS-11136: If a DELETING container has a non-empty CLOSED replica, transition the container to CLOSED
-      // HDDS-12421: If a DELETING or DELETED container has a non-empty replica, transition the container to CLOSED
+      /*
+       * HDDS-11136: If a DELETING container has a non-empty CLOSED replica, the container should be moved back to
+       * CLOSED state.
+       *
+       * HDDS-12421: If a DELETING or DELETED container has a non-empty replica, the container should also be moved
+       * back to CLOSED state.
+       */
       boolean replicaStateAllowed = (replica.getState() != State.INVALID && replica.getState() != State.DELETED);
       if (!replicaIsEmpty && replicaStateAllowed) {
-        getLogger().info("transitionDeletingToClosed due to non-empty CLOSED replica (keyCount={}) for {}",
-            replica.getKeyCount(), detailsForLogging);
+        logger.info("Moving container {} from {} to CLOSED state, datanode {} reported replica with state={}, " +
+            "isEmpty={}, bcsId={}, keyCount={}, and origin={}",
+            container, container.getState(), datanode.getHostName(), replica.getState(),
+            replica.getIsEmpty(), replica.getBlockCommitSequenceId(), replica.getKeyCount(), replica.getOriginNodeId());
         containerManager.transitionDeletingOrDeletedToClosedState(containerId);
       }
-      return false;
+      break;
     default:
-      getLogger().error("Replica not processed due to container state {}: {}",
-          container.getState(), detailsForLogging);
-      return false;
+      break;
     }
+
+    return ignored;
   }
 
   /**
    * Helper method to verify that the replica's bcsId matches the container's in SCM.
-   *
-   * @param replica Replica reported from a datanode
-   * @param container Container in SCM
-   * @param detailsForLogging The detail information of the container in SCM and the replica from a datanode
-   * @return true iff the BCSIDs are mismatched
+   * Throws IOException if the bcsIds do not match.
+   * <p>
+   * @param replicaBcsId Replica bcsId
+   * @param containerBcsId Container bcsId in SCM
+   * @param datanode DatanodeDetails for logging
+   * @param containerId ContainerID for logging
+   * @return true if verification has passed, false otherwise
    */
-  private boolean bcsidMismatched(ContainerInfo container, ContainerReplicaProto replica, Object detailsForLogging) {
-    if (replica.getBlockCommitSequenceId() == container.getSequenceId()) {
+  private boolean verifyBcsId(long replicaBcsId, long containerBcsId,
+      DatanodeDetails datanode, ContainerID containerId) {
+
+    if (replicaBcsId != containerBcsId) {
+      final String errMsg = "Unexpected bcsId for container " + containerId +
+          " from datanode " + datanode + ". replica's: " + replicaBcsId +
+          ", SCM's: " + containerBcsId +
+          ". Ignoring container report for " + containerId;
+
+      logger.error(errMsg);
       return false;
+    } else {
+      return true;
     }
-    getLogger().warn("Replica BCSID mismatched for {} ", detailsForLogging);
-    return true;
   }
 
   private void updateContainerReplica(final DatanodeDetails datanodeDetails,
@@ -356,13 +426,12 @@ abstract class AbstractContainerReportHandler {
         .setContainerID(containerId)
         .setContainerState(replicaProto.getState())
         .setDatanodeDetails(datanodeDetails)
-        .setOriginNodeId(DatanodeID.fromUuidString(replicaProto.getOriginNodeId()))
+        .setOriginNodeId(UUID.fromString(replicaProto.getOriginNodeId()))
         .setSequenceId(replicaProto.getBlockCommitSequenceId())
         .setKeyCount(replicaProto.getKeyCount())
         .setReplicaIndex(replicaProto.getReplicaIndex())
         .setBytesUsed(replicaProto.getUsed())
         .setEmpty(replicaProto.getIsEmpty())
-        .setDataChecksum(replicaProto.getDataChecksum())
         .build();
 
     if (replica.getState().equals(State.DELETED)) {
@@ -380,35 +449,34 @@ abstract class AbstractContainerReportHandler {
    * @param replicaState State of the container replica.
    * @return true if healthy, false otherwise
    */
-  private boolean isHealthy(final State replicaState) {
-    return replicaState != State.UNHEALTHY
-        && replicaState != State.INVALID
-        && replicaState != State.DELETED;
+  private boolean isHealthy(final Supplier<State> replicaState) {
+    return replicaState.get() != State.UNHEALTHY
+        && replicaState.get() != State.INVALID
+        && replicaState.get() != State.DELETED;
   }
 
-  protected NodeManager getNodeManager() {
-    return nodeManager;
-  }
-
+  /**
+   * Return ContainerManager.
+   * @return {@link ContainerManager}
+   */
   protected ContainerManager getContainerManager() {
     return containerManager;
   }
 
   protected void deleteReplica(ContainerID containerID, DatanodeDetails dn,
-      EventPublisher publisher, String reason, boolean force, Object detailsForLogging) {
-    final long term;
+      EventPublisher publisher, String reason, boolean force) {
+    SCMCommand<?> command = new DeleteContainerCommand(
+        containerID.getId(), force);
     try {
-      term = scmContext.getTermOfLeader();
+      command.setTerm(scmContext.getTermOfLeader());
     } catch (NotLeaderException nle) {
-      final String message = "Skip sending DeleteContainerCommand for " + detailsForLogging + ": " + nle;
-      getLogger().warn(message);
+      logger.warn("Skip sending delete container command," +
+          " since not leader SCM", nle);
       return;
     }
-
-    final SCMCommand<?> command = new DeleteContainerCommand(containerID, force);
-    command.setTerm(term);
-    publisher.fireEvent(SCMEvents.DATANODE_COMMAND, new CommandForDatanode<>(dn, command));
-    getLogger().info("Sending {}DeleteContainerCommand due to {} for {}",
-        force ? "force" : "", reason, detailsForLogging);
+    publisher.fireEvent(SCMEvents.DATANODE_COMMAND,
+        new CommandForDatanode<>(dn.getUuid(), command));
+    logger.info("Sending delete container command for " + reason +
+        " container {} to datanode {}", containerID.getId(), dn);
   }
 }

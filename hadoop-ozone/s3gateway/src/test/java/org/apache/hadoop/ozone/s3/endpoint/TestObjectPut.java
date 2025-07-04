@@ -30,7 +30,6 @@ import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_KEY_LENGTH_LIMIT;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_NUM_LIMIT;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.TAG_VALUE_LENGTH_LIMIT;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
 import static org.apache.hadoop.ozone.s3.util.S3Utils.urlEncode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -128,7 +127,6 @@ class TestObjectPut {
     clientStub.getObjectStore().createS3Bucket(DEST_BUCKET_NAME);
 
     headers = mock(HttpHeaders.class);
-    when(headers.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
 
     // Create PutObject and setClient to OzoneClientStub
     objectEndpoint = EndpointBuilder.newObjectEndpointBuilder()
@@ -153,7 +151,7 @@ class TestObjectPut {
   @MethodSource("argumentsForPutObject")
   void testPutObject(int length, ReplicationConfig replication) throws IOException, OS3Exception {
     //GIVEN
-    final String content = RandomStringUtils.secure().nextAlphanumeric(length);
+    final String content = RandomStringUtils.randomAlphanumeric(length);
     ByteArrayInputStream body = new ByteArrayInputStream(content.getBytes(UTF_8));
     bucket.setReplicationConfig(replication);
 
@@ -210,7 +208,6 @@ class TestObjectPut {
   @Test
   public void testPutObjectWithTags() throws IOException, OS3Exception {
     HttpHeaders headersWithTags = Mockito.mock(HttpHeaders.class);
-    when(headersWithTags.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     when(headersWithTags.getHeaderString(TAG_HEADER)).thenReturn("tag1=value1&tag2=value2");
 
     ByteArrayInputStream body =
@@ -235,7 +232,6 @@ class TestObjectPut {
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
     HttpHeaders headerWithOnlyTagKey = Mockito.mock(HttpHeaders.class);
-    when(headerWithOnlyTagKey.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     // Try to send with only the key (no value)
     when(headerWithOnlyTagKey.getHeaderString(TAG_HEADER)).thenReturn("tag1");
     objectEndpoint.setHeaders(headerWithOnlyTagKey);
@@ -256,7 +252,6 @@ class TestObjectPut {
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
     HttpHeaders headersWithDuplicateTagKey = Mockito.mock(HttpHeaders.class);
-    when(headersWithDuplicateTagKey.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     when(headersWithDuplicateTagKey.getHeaderString(TAG_HEADER)).thenReturn("tag1=value1&tag1=value2");
     objectEndpoint.setHeaders(headersWithDuplicateTagKey);
     try {
@@ -275,7 +270,6 @@ class TestObjectPut {
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
     HttpHeaders headersWithLongTagKey = Mockito.mock(HttpHeaders.class);
-    when(headersWithLongTagKey.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     String longTagKey = StringUtils.repeat('k', TAG_KEY_LENGTH_LIMIT + 1);
     when(headersWithLongTagKey.getHeaderString(TAG_HEADER)).thenReturn(longTagKey + "=value1");
     objectEndpoint.setHeaders(headersWithLongTagKey);
@@ -295,7 +289,6 @@ class TestObjectPut {
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
     HttpHeaders headersWithLongTagValue = Mockito.mock(HttpHeaders.class);
-    when(headersWithLongTagValue.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     objectEndpoint.setHeaders(headersWithLongTagValue);
     String longTagValue = StringUtils.repeat('v', TAG_VALUE_LENGTH_LIMIT + 1);
     when(headersWithLongTagValue.getHeaderString(TAG_HEADER)).thenReturn("tag1=" + longTagValue);
@@ -315,12 +308,11 @@ class TestObjectPut {
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
     HttpHeaders headersWithTooManyTags = Mockito.mock(HttpHeaders.class);
-    when(headersWithTooManyTags.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < TAG_NUM_LIMIT + 1; i++) {
       sb.append(String.format("tag%d=value%d", i, i));
       if (i < TAG_NUM_LIMIT) {
-        sb.append('&');
+        sb.append("&");
       }
     }
     when(headersWithTooManyTags.getHeaderString(TAG_HEADER)).thenReturn(sb.toString());
@@ -587,7 +579,6 @@ class TestObjectPut {
   public void testCopyObjectWithTags() throws IOException, OS3Exception {
     // Put object in to source bucket
     HttpHeaders headersForPut = Mockito.mock(HttpHeaders.class);
-    when(headersForPut.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     when(headersForPut.getHeaderString(TAG_HEADER)).thenReturn("tag1=value1&tag2=value2");
     ByteArrayInputStream body =
         new ByteArrayInputStream(CONTENT.getBytes(UTF_8));
@@ -609,7 +600,6 @@ class TestObjectPut {
     // Copy object without x-amz-tagging-directive (default to COPY)
     String destKey = "key=value/2";
     HttpHeaders headersForCopy = Mockito.mock(HttpHeaders.class);
-    when(headersForCopy.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     when(headersForCopy.getHeaderString(COPY_SOURCE_HEADER)).thenReturn(
         BUCKET_NAME  + "/" + urlEncode(sourceKeyName));
 
@@ -686,7 +676,7 @@ class TestObjectPut {
 
     OS3Exception e = assertThrows(OS3Exception.class, () -> objectEndpoint.put(
         BUCKET_NAME, KEY_NAME, CONTENT.length(), 1, null, null, null, body));
-    assertEquals(S3ErrorTable.INVALID_STORAGE_CLASS.getErrorMessage(),
+    assertEquals(S3ErrorTable.INVALID_ARGUMENT.getErrorMessage(),
         e.getErrorMessage());
     assertEquals("random", e.getResource());
   }
@@ -748,7 +738,6 @@ class TestObjectPut {
   @Test
   public void testPutEmptyObject() throws IOException, OS3Exception {
     HttpHeaders headersWithTags = Mockito.mock(HttpHeaders.class);
-    when(headersWithTags.getHeaderString(X_AMZ_CONTENT_SHA256)).thenReturn("mockSignature");
     String emptyString = "";
     ByteArrayInputStream body = new ByteArrayInputStream(emptyString.getBytes(UTF_8));
     objectEndpoint.setHeaders(headersWithTags);

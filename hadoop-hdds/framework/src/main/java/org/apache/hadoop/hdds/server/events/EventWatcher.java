@@ -33,7 +33,6 @@ import org.apache.hadoop.ozone.lease.LeaseAlreadyExistException;
 import org.apache.hadoop.ozone.lease.LeaseExpiredException;
 import org.apache.hadoop.ozone.lease.LeaseManager;
 import org.apache.hadoop.ozone.lease.LeaseNotFoundException;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,7 +116,7 @@ public abstract class EventWatcher<TIMEOUT_PAYLOAD extends
                                              EventPublisher publisher) {
     metrics.incrementTrackedEvents();
     long identifier = payload.getId();
-    startTrackingTimes.put(identifier, Time.monotonicNow());
+    startTrackingTimes.put(identifier, System.currentTimeMillis());
 
     trackedEventsByID.put(identifier, payload);
     trackedEvents.add(payload);
@@ -140,7 +139,7 @@ public abstract class EventWatcher<TIMEOUT_PAYLOAD extends
     if (trackedEvents.remove(payload)) {
       metrics.incrementCompletedEvents();
       long originalTime = startTrackingTimes.remove(id);
-      metrics.updateFinishingTime(Time.monotonicNow() - originalTime);
+      metrics.updateFinishingTime(System.currentTimeMillis() - originalTime);
       onFinished(publisher, payload);
     }
   }
@@ -154,6 +153,7 @@ public abstract class EventWatcher<TIMEOUT_PAYLOAD extends
     onTimeout(publisher, payload);
     return null;
   }
+
 
   /**
    * Check if a specific payload is in-progress.

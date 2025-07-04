@@ -34,11 +34,13 @@ import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPla
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * This class tests container balancer operations
  * from cblock clients.
  */
+@Timeout(value = 300)
 public class TestContainerBalancerOperations {
 
   private static ScmClient containerBalancerClient;
@@ -82,7 +84,7 @@ public class TestContainerBalancerOperations {
     Optional<Long> maxSizeLeavingSourceInGB = Optional.of(6L);
     Optional<Integer> balancingInterval = Optional.of(70);
     Optional<Integer> moveTimeout = Optional.of(65);
-    Optional<Integer> moveReplicationTimeout = Optional.of(50);
+    Optional<Integer> moveReplicationTimeout = Optional.of(55);
     Optional<Boolean> networkTopologyEnable = Optional.of(false);
     Optional<String> includeNodes = Optional.of("");
     Optional<String> excludeNodes = Optional.of("");
@@ -147,7 +149,7 @@ public class TestContainerBalancerOperations {
     Optional<Long> maxSizeEnteringTargetInGB = Optional.of(6L);
     Optional<Long> maxSizeLeavingSourceInGB = Optional.of(6L);
     Optional<Integer> moveTimeout = Optional.of(65);
-    Optional<Integer> moveReplicationTimeout = Optional.of(50);
+    Optional<Integer> moveReplicationTimeout = Optional.of(55);
     Optional<Boolean> networkTopologyEnable = Optional.of(true);
     Optional<String> includeNodes = Optional.of("");
     Optional<String> excludeNodes = Optional.of("");

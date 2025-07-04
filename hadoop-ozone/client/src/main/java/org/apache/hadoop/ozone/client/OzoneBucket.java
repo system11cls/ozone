@@ -1454,10 +1454,11 @@ public class OzoneBucket extends WithMetadata {
         keyInfo.getModificationTime(),
         keyInfo.getReplicationConfig(),
         metadata,
-        status.isFile(),
+        keyInfo.isFile(),
         keyInfo.getOwnerName(),
         Collections.emptyMap());
   }
+
 
   /**
    * An Iterator to iterate over {@link OzoneKey} list.

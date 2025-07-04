@@ -43,7 +43,7 @@ public class TestOmPrefixInfoCodec extends Proto2CodecTestBase<OmPrefixInfo> {
   public void testToAndFromPersistedFormat() throws IOException {
 
     List<OzoneAcl> acls = new LinkedList<>();
-    OzoneAcl ozoneAcl = OzoneAcl.of(ACLIdentityType.USER,
+    OzoneAcl ozoneAcl = new OzoneAcl(ACLIdentityType.USER,
         "hive", ACCESS, ACLType.ALL);
     acls.add(ozoneAcl);
     OmPrefixInfo opiSave = OmPrefixInfo.newBuilder()

@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * Utility class used by SCM HA.
  */
 public final class SCMHAUtils {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMHAUtils.class);
 
   private static final ImmutableList<Class<? extends Exception>>

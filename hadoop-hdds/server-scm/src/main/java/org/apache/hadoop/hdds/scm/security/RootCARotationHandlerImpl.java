@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  */
 public class RootCARotationHandlerImpl implements RootCARotationHandler {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(RootCARotationHandlerImpl.class);
 
   private final StorageContainerManager scm;

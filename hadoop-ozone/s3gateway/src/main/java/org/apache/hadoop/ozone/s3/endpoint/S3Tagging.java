@@ -25,14 +25,13 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 
 /**
  * S3 tagging.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "Tagging",
-    namespace = S3Consts.S3_XML_NAMESPACE)
+    namespace = "http://s3.amazonaws.com/doc/2006-03-01/")
 public class S3Tagging {
 
   @XmlElement(name = "TagSet")

@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -43,7 +44,6 @@ import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
@@ -201,10 +201,10 @@ public class TestCloseContainerEventHandler {
         .fireEvent(eq(DATANODE_COMMAND), commandCaptor.capture());
 
     List<CommandForDatanode> cmds = commandCaptor.getAllValues();
-    final Set<DatanodeID> pipelineDNs = pipeline
+    Set<UUID> pipelineDNs = pipeline
         .getNodes()
         .stream()
-        .map(DatanodeDetails::getID)
+        .map(d -> d.getUuid())
         .collect(Collectors.toSet());
     for (CommandForDatanode c : cmds) {
       assertThat(pipelineDNs).contains(c.getDatanodeId());
@@ -228,7 +228,7 @@ public class TestCloseContainerEventHandler {
       dns.add(MockDatanodeDetails.randomDatanodeDetails());
     }
     builder.setNodes(dns);
-    builder.setLeaderId(dns.get(0).getID());
+    builder.setLeaderId(dns.get(0).getUuid());
     return builder.build();
   }
 

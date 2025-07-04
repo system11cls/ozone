@@ -265,6 +265,7 @@ public class EndpointStateMachine
     isPassive = passive;
   }
 
+
   /**
    * States that an Endpoint can be in.
    * <p>

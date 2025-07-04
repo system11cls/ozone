@@ -40,7 +40,6 @@ public class TestOMKeyRenameResponse extends TestOMKeyResponse {
   protected OmKeyInfo fromKeyParent;
   protected OmKeyInfo toKeyParent;
   protected OmBucketInfo bucketInfo;
-
   @Test
   public void testAddToDBBatch() throws Exception {
     OMResponse omResponse =

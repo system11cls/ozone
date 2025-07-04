@@ -207,4 +207,9 @@ public interface ContainerStateManager {
    */
   void reinitialize(Table<ContainerID, ContainerInfo> containerStore)
       throws IOException;
+
+  /**
+   *
+   */
+  void close() throws IOException;
 }

@@ -42,6 +42,7 @@ public class TestEventQueueChain {
     queue.processAll(5000);
   }
 
+
   static class FailedNode {
     private final String nodeId;
 

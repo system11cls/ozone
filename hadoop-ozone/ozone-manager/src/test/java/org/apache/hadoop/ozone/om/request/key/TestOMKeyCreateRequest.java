@@ -58,7 +58,6 @@ import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.KeyValue;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.om.OmConfig;
 import org.apache.hadoop.ozone.om.PrefixManager;
 import org.apache.hadoop.ozone.om.PrefixManagerImpl;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
@@ -347,6 +346,8 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     assertNull(omKeyInfo);
   }
 
+
+
   @ParameterizedTest
   @MethodSource("data")
   public void testValidateAndUpdateCacheWithVolumeNotFound(
@@ -386,6 +387,7 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     assertNull(omKeyInfo);
 
   }
+
 
   @ParameterizedTest
   @MethodSource("data")
@@ -428,6 +430,7 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     assertNull(omKeyInfo);
 
   }
+
 
   @ParameterizedTest
   @MethodSource("data")
@@ -563,6 +566,7 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     // Verify the new metadata is correctly applied in the response
     verifyMetadataInResponse(overwriteResponse, overwriteMetadata);
   }
+
 
   private void verifyMetadataInResponse(OMClientResponse response,
                                         Map<String, String> expectedMetadata) {
@@ -784,7 +788,6 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     OzoneConfiguration configuration = getOzoneConfiguration();
     configuration.setBoolean(OZONE_OM_ENABLE_FILESYSTEM_PATHS, true);
     when(ozoneManager.getConfiguration()).thenReturn(configuration);
-    when(ozoneManager.getConfig()).thenReturn(configuration.getObject(OmConfig.class));
     when(ozoneManager.getEnableFileSystemPaths()).thenReturn(true);
     when(ozoneManager.getOzoneLockProvider()).thenReturn(
         new OzoneLockProvider(setKeyPathLock, true));
@@ -1046,6 +1049,7 @@ public class TestOMKeyCreateRequest extends TestOMKeyRequest {
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
         keyName.substring(1), 0L, RatisReplicationConfig.getInstance(THREE), omMetadataManager);
   }
+
 
   private void checkNotAValidPath(String keyName) throws IOException {
     OMRequest omRequest = createKeyRequest(false, 0, keyName);

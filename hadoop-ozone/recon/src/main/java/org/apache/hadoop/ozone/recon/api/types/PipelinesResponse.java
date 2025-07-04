@@ -37,6 +37,7 @@ public class PipelinesResponse {
   @JsonProperty("pipelines")
   private Collection<PipelineMetadata> pipelines;
 
+
   public PipelinesResponse() {
     this(0, new ArrayList<>());
   }

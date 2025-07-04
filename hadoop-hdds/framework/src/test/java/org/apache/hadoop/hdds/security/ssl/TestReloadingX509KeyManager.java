@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
  */
 public class TestReloadingX509KeyManager {
   private final LogCapturer reloaderLog =
-      LogCapturer.captureLogs(ReloadingX509KeyManager.class);
+      LogCapturer.captureLogs(ReloadingX509KeyManager.LOG);
   private static OzoneConfiguration conf;
   private static CertificateClientTestImpl caClient;
 

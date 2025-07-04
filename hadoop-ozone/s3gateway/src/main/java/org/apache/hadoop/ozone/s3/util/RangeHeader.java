@@ -28,6 +28,7 @@ public class RangeHeader {
   private boolean readFull;
   private boolean inValidRange;
 
+
   /**
    * Construct RangeHeader object.
    * @param startOffset

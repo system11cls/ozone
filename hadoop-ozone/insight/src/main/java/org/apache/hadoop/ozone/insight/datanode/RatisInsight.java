@@ -54,7 +54,7 @@ public class RatisInsight extends BaseInsightPoint implements InsightPoint {
           dn -> {
             result
                 .add(new LoggerSource(dn,
-                    "org.apache.ratis.server",
+                    "org.apache.ratis.server.impl",
                     defaultLevel(verbose)));
             return null;
           });

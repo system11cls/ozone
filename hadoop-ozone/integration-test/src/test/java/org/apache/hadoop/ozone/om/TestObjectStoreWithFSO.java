@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -43,9 +42,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -53,6 +52,7 @@ import org.apache.hadoop.fs.ozone.OzoneFileSystem;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OmUtils;
@@ -66,6 +66,7 @@ import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.KeyOutputStream;
+import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -79,11 +80,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests to verify Object store with prefix enabled cases.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(1200)
 public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
   private static final Path ROOT =
       new Path(OZONE_URI_DELIMITER);
@@ -148,7 +151,7 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
   @Test
   public void testCreateKey() throws Exception {
     String parent = "a/b/c/";
-    String file = "key" + RandomStringUtils.secure().nextNumeric(5);
+    String file = "key" + RandomStringUtils.randomNumeric(5);
     String key = parent + file;
 
     ObjectStore objectStore = client.getObjectStore();
@@ -216,7 +219,7 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     String testBucketName = testBucket.getName();
 
     String parent = "a/b/c/";
-    String file = "key" + RandomStringUtils.secure().nextNumeric(5);
+    String file = "key" + RandomStringUtils.randomNumeric(5);
     String key = parent + file;
 
     ObjectStore objectStore = client.getObjectStore();
@@ -268,7 +271,7 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
   @Test
   public void testLookupKey() throws Exception {
     String parent = "a/b/c/";
-    String fileName = "key" + RandomStringUtils.secure().nextNumeric(5);
+    String fileName = "key" + RandomStringUtils.randomNumeric(5);
     String key = parent + fileName;
 
     ObjectStore objectStore = client.getObjectStore();
@@ -565,10 +568,10 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
   private void readKey(OzoneBucket ozoneBucket, String key, int length, byte[] input)
       throws Exception {
 
+    OzoneInputStream ozoneInputStream = ozoneBucket.readKey(key);
     byte[] read = new byte[length];
-    try (InputStream ozoneInputStream = ozoneBucket.readKey(key)) {
-      IOUtils.readFully(ozoneInputStream, read);
-    }
+    ozoneInputStream.read(read, 0, length);
+    ozoneInputStream.close();
 
     String inputString = new String(input, StandardCharsets.UTF_8);
     assertEquals(inputString, new String(read, StandardCharsets.UTF_8));
@@ -578,9 +581,10 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
         bucketName, volumeName, StandardCharsets.UTF_8);
     OzoneFileSystem o3fs = (OzoneFileSystem) FileSystem.get(new URI(rootPath),
         conf);
-    try (InputStream fsDataInputStream = o3fs.open(new Path(key))) {
-      IOUtils.readFully(fsDataInputStream, read);
-    }
+    FSDataInputStream fsDataInputStream = o3fs.open(new Path(key));
+    read = new byte[length];
+    fsDataInputStream.read(read, 0, length);
+    fsDataInputStream.close();
 
     assertEquals(inputString, new String(read, StandardCharsets.UTF_8));
   }

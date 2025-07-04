@@ -15,11 +15,12 @@
 
 *** Settings ***
 Documentation       Test recon compatibility
-Resource            lib.resource
+Library             BuiltIn
+Resource            ../lib/os.robot
 Test Timeout        5 minutes
 
 *** Test Cases ***
 Picks up command line options
     Pass Execution If    '%{HADOOP_OPTS}' == ''    Command-line option required for process check
-    Wait for server command-line options
-    Check client command-line options
+    ${processes} =    List All Processes
+    Should Contain    ${processes}   %{HADOOP_OPTS}

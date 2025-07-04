@@ -17,7 +17,7 @@
 
 package org.apache.hadoop.ozone.om.response.key;
 
-import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.DELETED_TABLE;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DELETED_TABLE;
 
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
@@ -129,6 +129,7 @@ public abstract class AbstractOMKeyDeleteResponse extends OmKeyResponse {
           batchOperation, deleteKeyName, repeatedOmKeyInfo);
     }
   }
+
 
   @Override
   public abstract void addToDBBatch(OMMetadataManager omMetadataManager,

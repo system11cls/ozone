@@ -139,6 +139,7 @@ public class ResolvedBucket {
     return realVolume == null || realBucket == null;
   }
 
+
   public Map<String, String> audit() {
     return audit(new LinkedHashMap<>());
   }

@@ -77,6 +77,7 @@ public class TestPipelineChoosePolicyFactory {
     assertSame(DummyGoodImpl.class, policy.getClass());
   }
 
+
   /**
    * A dummy pipeline choose policy implementation for test with an invalid
    * constructor.
@@ -116,6 +117,7 @@ public class TestPipelineChoosePolicyFactory {
       return -1;
     }
   }
+
 
   @Test
   public void testConstructorNotFound() throws SCMException {

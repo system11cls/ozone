@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 public final class OzoneConfigUtil {
   static final Logger LOG =
       LoggerFactory.getLogger(OzoneConfigUtil.class);
-
   private OzoneConfigUtil() {
   }
 

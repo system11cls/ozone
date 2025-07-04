@@ -46,7 +46,9 @@ public abstract class AbstractContractCopyFromLocalTest extends
   @Override
   public void teardown() throws Exception {
     super.teardown();
-    FileUtils.deleteQuietly(file);
+    if (file != null) {
+      file.delete();
+    }
   }
 
   @Test
@@ -97,7 +99,7 @@ public abstract class AbstractContractCopyFromLocalTest extends
   public void testCopyMissingFile() throws Throwable {
     describe("Copying a file that's not there must fail.");
     file = createTempFile("test");
-    FileUtils.deleteQuietly(file);
+    file.delete();
     // first upload to create
     intercept(FileNotFoundException.class, "",
         () -> copyFromLocal(file, true));
@@ -260,9 +262,7 @@ public abstract class AbstractContractCopyFromLocalTest extends
     Files.createTempFile(srcDir, "test1", ".txt");
 
     Path src = new Path(srcDir.toUri());
-    java.nio.file.Path fileName = srcDir.getFileName();
-    Assertions.assertThat(fileName).isNotNull();
-    Path dst = path(fileName.toString());
+    Path dst = path(srcDir.getFileName().toString());
     getFileSystem().copyFromLocalFile(true, true, src, dst);
 
     Assertions.assertThat(srcDir)

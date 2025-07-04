@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  * and all its replicas are empty.
  */
 public class EmptyContainerHandler extends AbstractCheck {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(EmptyContainerHandler.class);
 
   private final ReplicationManager replicationManager;
@@ -134,7 +134,7 @@ public class EmptyContainerHandler extends AbstractCheck {
                 " {} on datanode {}",
             rp.getReplicaIndex(),
             containerInfo.containerID(),
-            rp.getDatanodeDetails(), e);
+            rp.getDatanodeDetails().getUuidString(), e);
       }
     }
   }

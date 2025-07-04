@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdds.utils;
 
 import static org.apache.hadoop.hdds.utils.NativeConstants.ROCKS_TOOLS_NATIVE_LIBRARY_NAME;
-import static org.apache.hadoop.hdds.utils.NativeConstants.ROCKS_TOOLS_NATIVE_PROPERTY;
 import static org.apache.hadoop.hdds.utils.NativeLibraryLoader.NATIVE_LIB_TMP_DIR;
 import static org.apache.hadoop.hdds.utils.NativeLibraryLoader.getJniLibraryFileName;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +37,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRawSSTFileReader;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.apache.ozone.test.tag.Native;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,7 +55,7 @@ public class TestNativeLibraryLoader {
     return Stream.of("", tempDir.toAbsolutePath().toString(), null);
   }
 
-  @EnabledIfSystemProperty(named = ROCKS_TOOLS_NATIVE_PROPERTY, matches = "true")
+  @Native(ROCKS_TOOLS_NATIVE_LIBRARY_NAME)
   @ParameterizedTest
   @MethodSource("nativeLibraryDirectoryLocations")
   public void testNativeLibraryLoader(String nativeLibraryDirectoryLocation) throws NativeLibraryNotLoadedException {

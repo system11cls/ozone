@@ -80,10 +80,8 @@ public abstract class ContainerDeletionChoosingPolicyTemplate
         }
       }
     }
-    if (!orderedList.isEmpty()) {
-      LOG.info("Chosen {}/{} blocks from {} candidate containers.",
-          (originalBlockCount - blockCount), blockCount, orderedList.size());
-    }
+    LOG.info("Chosen {}/{} blocks from {} candidate containers.",
+        (originalBlockCount - blockCount), blockCount, orderedList.size());
     return result;
   }
 

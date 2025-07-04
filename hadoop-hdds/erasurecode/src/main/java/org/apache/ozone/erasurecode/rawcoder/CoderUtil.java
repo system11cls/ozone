@@ -26,11 +26,11 @@ import org.apache.ozone.erasurecode.ECChunk;
  */
 public final class CoderUtil {
 
-  private static byte[] emptyChunk = new byte[4096];
-
   private CoderUtil() {
-    // Not called
+    // No called
   }
+
+  private static byte[] emptyChunk = new byte[4096];
 
   /**
    * Make sure to return an empty chunk buffer for the desired length.
@@ -96,6 +96,7 @@ public final class CoderUtil {
     }
   }
 
+
   /**
    * Convert an array of this chunks to an array of ByteBuffers.
    *
@@ -134,6 +135,8 @@ public final class CoderUtil {
     directBuffer.flip();
     return directBuffer;
   }
+
+
 
   /**
    * Find the valid input from all the inputs.

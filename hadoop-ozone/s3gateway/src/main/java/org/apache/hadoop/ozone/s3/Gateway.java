@@ -70,6 +70,8 @@ public class Gateway extends GenericCli implements Callable<Void> {
     new Gateway().run(args);
   }
 
+
+
   @Override
   public Void call() throws Exception {
     OzoneConfiguration ozoneConfiguration = getOzoneConf();

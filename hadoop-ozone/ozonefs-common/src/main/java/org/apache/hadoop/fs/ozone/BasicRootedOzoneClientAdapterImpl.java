@@ -81,7 +81,6 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
-import org.apache.hadoop.ozone.client.OzoneClientUtils;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneSnapshot;
 import org.apache.hadoop.ozone.client.OzoneVolume;
@@ -120,7 +119,7 @@ import org.slf4j.LoggerFactory;
 public class BasicRootedOzoneClientAdapterImpl
     implements OzoneClientAdapter {
 
-  private static final Logger LOG =
+  static final Logger LOG =
       LoggerFactory.getLogger(BasicRootedOzoneClientAdapterImpl.class);
 
   private OzoneClient ozoneClient;
@@ -684,20 +683,19 @@ public class BasicRootedOzoneClientAdapterImpl
    * valid bucket path or valid snapshot path.
    * Throws exception in case of failure.
    */
-  private FileStatusAdapter getFileStatusForKeyOrSnapshot(
-      OFSPath ofsPath, URI uri, Path qualifiedPath, String userName)
+  private FileStatusAdapter getFileStatusForKeyOrSnapshot(OFSPath ofsPath, URI uri, Path qualifiedPath, String userName)
       throws IOException {
+    String volumeName = ofsPath.getVolumeName();
+    String bucketName = ofsPath.getBucketName();
     String key = ofsPath.getKeyName();
     try {
-      OzoneBucket bucket = getBucket(ofsPath, false);
       if (ofsPath.isSnapshotPath()) {
-        OzoneVolume volume = objectStore.getVolume(ofsPath.getVolumeName());
-        return getFileStatusAdapterWithSnapshotIndicator(
-            volume, bucket, uri);
+        OzoneVolume volume = objectStore.getVolume(volumeName);
+        OzoneBucket bucket = getBucket(volumeName, bucketName, false);
+        return getFileStatusAdapterWithSnapshotIndicator(volume, bucket, uri);
       } else {
-        OzoneFileStatus status = bucket.getFileStatus(key);
-        return toFileStatusAdapter(status, userName, uri, qualifiedPath,
-            ofsPath.getNonKeyPath());
+        OzoneFileStatus status = proxy.getOzoneFileStatus(volumeName, bucketName, key);
+        return toFileStatusAdapter(status, userName, uri, qualifiedPath, ofsPath.getNonKeyPath());
       }
     } catch (OMException e) {
       if (e.getResult() == OMException.ResultCodes.FILE_NOT_FOUND) {
@@ -1369,7 +1367,7 @@ public class BasicRootedOzoneClientAdapterImpl
           getSnapshotDiffReportOnceComplete(fromSnapshot, toSnapshot, volume,
               bucket, "");
       aggregated = report;
-      while (StringUtils.isNotEmpty(report.getToken())) {
+      while (!report.getToken().isEmpty()) {
         LOG.info(
             "Total Snapshot Diff length between snapshot {} and {} exceeds"
                 + " max page size, Performing another" +

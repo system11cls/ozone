@@ -22,6 +22,7 @@ import static org.apache.hadoop.hdds.StringUtils.string2Bytes;
 import static org.apache.hadoop.hdds.client.ReplicationFactor.ONE;
 import static org.apache.hadoop.hdds.client.ReplicationFactor.THREE;
 import static org.apache.hadoop.hdds.client.ReplicationType.RATIS;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,7 +49,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
@@ -56,6 +56,7 @@ import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -64,6 +65,7 @@ import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneKeyLocation;
 import org.apache.hadoop.ozone.client.OzoneMultipartUpload;
@@ -73,7 +75,6 @@ import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
-import org.apache.hadoop.ozone.om.OmConfig;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -85,50 +86,83 @@ import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartUploadCompleteInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.helpers.QuotaUtil;
+import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.ozone.test.NonHATests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * This test verifies all the S3 multipart client apis - prefix layout.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class TestOzoneClientMultipartUploadWithFSO implements NonHATests.TestCase {
+@Timeout(300)
+public class TestOzoneClientMultipartUploadWithFSO {
 
-  private ObjectStore store;
-  private MiniOzoneCluster cluster;
-  private OzoneClient ozClient;
-  private MessageDigest eTagProvider;
+  private static ObjectStore store = null;
+  private static MiniOzoneCluster cluster = null;
+  private static OzoneClient ozClient = null;
+  private static MessageDigest eTagProvider;
 
   private String volumeName;
   private String bucketName;
   private String keyName;
   private OzoneVolume volume;
   private OzoneBucket bucket;
-  private boolean originalFileSystemPathEnabled;
 
+  /**
+   * Create a MiniOzoneCluster for testing.
+   * <p>
+   * Ozone is made active by setting OZONE_ENABLED = true
+   *
+   * @throws IOException
+   */
   @BeforeAll
-  void init() throws Exception {
-    cluster = cluster();
-    ozClient = cluster.newClient();
-    store = ozClient.getObjectStore();
+  public static void init() throws Exception {
+    OzoneConfiguration conf = new OzoneConfiguration();
+    conf.setInt(OZONE_SCM_RATIS_PIPELINE_LIMIT, 10);
+    OMRequestTestUtils.configureFSOptimizedPaths(conf, true);
+    startCluster(conf);
     eTagProvider = MessageDigest.getInstance(OzoneConsts.MD5_HASH);
-    OmConfig omConfig = cluster().getOzoneManager().getConfig();
-    originalFileSystemPathEnabled = omConfig.isFileSystemPathEnabled();
-    omConfig.setFileSystemPathEnabled(true);
   }
 
+  /**
+   * Close OzoneClient and shutdown MiniOzoneCluster.
+   */
   @AfterAll
-  void shutdown() {
-    IOUtils.closeQuietly(ozClient);
-    OmConfig omConfig = cluster().getOzoneManager().getConfig();
-    omConfig.setFileSystemPathEnabled(originalFileSystemPathEnabled);
+  public static void shutdown() throws IOException {
+    shutdownCluster();
+  }
+
+
+  /**
+   * Create a MiniOzoneCluster for testing.
+   * @param conf Configurations to start the cluster.
+   * @throws Exception
+   */
+  static void startCluster(OzoneConfiguration conf) throws Exception {
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(5)
+        .build();
+    cluster.waitForClusterToBeReady();
+    ozClient = OzoneClientFactory.getRpcClient(conf);
+    store = ozClient.getObjectStore();
+  }
+
+  /**
+   * Close OzoneClient and shutdown MiniOzoneCluster.
+   */
+  static void shutdownCluster() throws IOException {
+    if (ozClient != null) {
+      ozClient.close();
+    }
+
+    if (cluster != null) {
+      cluster.shutdown();
+    }
   }
 
   @BeforeEach
@@ -442,7 +476,7 @@ public abstract class TestOzoneClientMultipartUploadWithFSO implements NonHATest
 
     // upload part 1.
     byte[] data = generateData(5 * 1024 * 1024,
-        (byte) RandomUtils.secure().randomLong());
+        (byte) RandomUtils.nextLong());
     OzoneOutputStream ozoneOutputStream = bucket.createMultipartKey(keyName,
         data.length, 1, uploadID);
     ozoneOutputStream.write(data, 0, data.length);
@@ -473,7 +507,7 @@ public abstract class TestOzoneClientMultipartUploadWithFSO implements NonHATest
 
     byte[] fileContent = new byte[data.length];
     try (OzoneInputStream inputStream = bucket.readKey(keyName)) {
-      IOUtils.readFully(inputStream, fileContent);
+      inputStream.read(fileContent);
     }
     StringBuilder sb = new StringBuilder(data.length);
 
@@ -868,7 +902,7 @@ public abstract class TestOzoneClientMultipartUploadWithFSO implements NonHATest
       StringBuilder key = new StringBuilder();
       int depth = 1 + i % 3; // Creates varying depth (1-3 levels)
       for (int j = 0; j < depth; j++) {
-        key.append("dir").append(j + 1).append('/');
+        key.append("dir").append(j + 1).append("/");
       }
       key.append("file").append(i);
       keys.add(key.toString());

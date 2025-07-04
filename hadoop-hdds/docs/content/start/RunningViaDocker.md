@@ -21,8 +21,7 @@ weight: 23
 -->
 
 {{< requirements >}}
- * [Docker Engine](https://docs.docker.com/engine/install/) latest stable version
- * [Docker Compose](https://docs.docker.com/compose/install/) at least v2.30
+ * docker and docker-compose
 {{< /requirements >}}
 
 * Download the Ozone binary tarball and untar it.

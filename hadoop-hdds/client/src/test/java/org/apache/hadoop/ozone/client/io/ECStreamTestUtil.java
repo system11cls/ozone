@@ -212,6 +212,7 @@ public final class ECStreamTestUtil {
     return map;
   }
 
+
   /**
    * A stream factory which can be used in tests to provide TestBlockStream
    * instances.
@@ -356,7 +357,7 @@ public final class ECStreamTestUtil {
         buf.put(data.get());
       }
       return toRead;
-    }
+    };
 
     private void throwError() throws IOException {
       if (errorToThrow != null) {

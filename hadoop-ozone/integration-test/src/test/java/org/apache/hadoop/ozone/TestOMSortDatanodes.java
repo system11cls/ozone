@@ -47,6 +47,7 @@ import org.apache.hadoop.ozone.om.OzoneManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -54,6 +55,7 @@ import org.junit.jupiter.api.io.TempDir;
  * sortDatanodes tests for
  * {@link org.apache.hadoop.ozone.om.KeyManagerImpl#sortDatanodes(List, String)}.
  */
+@Timeout(300)
 public class TestOMSortDatanodes {
 
   @TempDir
@@ -128,7 +130,7 @@ public class TestOMSortDatanodes {
   public void sortDatanodesRelativeToDatanode() {
     for (DatanodeDetails dn : nodeManager.getAllNodes()) {
       assertEquals(ROOT_LEVEL + 2, dn.getLevel());
-      List<? extends DatanodeDetails> sorted =
+      List<DatanodeDetails> sorted =
           keyManager.sortDatanodes(nodeManager.getAllNodes(), nodeAddress(dn));
       assertEquals(dn, sorted.get(0),
           "Source node should be sorted very first");
@@ -146,12 +148,12 @@ public class TestOMSortDatanodes {
 
   @Test
   public void testSortDatanodes() {
-    List<? extends DatanodeDetails> nodes = nodeManager.getAllNodes();
+    List<DatanodeDetails> nodes = nodeManager.getAllNodes();
 
     // sort normal datanodes
     String client;
     client = nodeManager.getAllNodes().get(0).getIpAddress();
-    List<? extends DatanodeDetails> datanodeDetails =
+    List<DatanodeDetails> datanodeDetails =
         keyManager.sortDatanodes(nodes, client);
     assertEquals(NODE_COUNT, datanodeDetails.size());
 
@@ -166,7 +168,7 @@ public class TestOMSortDatanodes {
     assertEquals(NODE_COUNT, datanodeDetails.size());
   }
 
-  private static void assertRackOrder(String rack, List<? extends DatanodeDetails> list) {
+  private static void assertRackOrder(String rack, List<DatanodeDetails> list) {
     int size = list.size();
     for (int i = 0; i < size / 2; i++) {
       assertEquals(rack, list.get(i).getNetworkLocation(),

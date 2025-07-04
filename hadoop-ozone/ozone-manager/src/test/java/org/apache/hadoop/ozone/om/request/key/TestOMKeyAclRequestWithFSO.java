@@ -38,7 +38,8 @@ public class TestOMKeyAclRequestWithFSO extends TestOMKeyAclRequest {
   protected String addKeyToTable() throws Exception {
     String parentDir = "c/d/e";
     String fileName = "file1";
-    keyName = parentDir + "/" + fileName; // updated key name
+    String key = parentDir + "/" + fileName;
+    keyName = key; // updated key name
 
     // Create parent dirs for the path
     long parentId = OMRequestTestUtils
@@ -46,7 +47,7 @@ public class TestOMKeyAclRequestWithFSO extends TestOMKeyAclRequest {
             omMetadataManager);
 
     OmKeyInfo omKeyInfo =
-        OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, fileName, RatisReplicationConfig.getInstance(ONE))
+        OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, key, RatisReplicationConfig.getInstance(ONE))
             .setObjectID(parentId + 1L)
             .setParentObjectID(parentId)
             .setUpdateID(100L)

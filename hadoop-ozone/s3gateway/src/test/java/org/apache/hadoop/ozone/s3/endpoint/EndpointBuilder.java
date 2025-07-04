@@ -111,7 +111,7 @@ public class EndpointBuilder<T extends EndpointBase> {
   }
 
   public static EndpointBuilder<BucketEndpoint> newBucketEndpointBuilder() {
-    return new BucketEndpointBuilder();
+    return new EndpointBuilder<>(BucketEndpoint::new);
   }
 
   public static EndpointBuilder<ObjectEndpoint> newObjectEndpointBuilder() {

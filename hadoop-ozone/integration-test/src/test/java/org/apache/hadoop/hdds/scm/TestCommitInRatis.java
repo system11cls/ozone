@@ -42,14 +42,16 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.proto.RaftProtos;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * This class tests the 2 way and 3 way commit in Ratis.
  */
+@Timeout(300)
 public class TestCommitInRatis {
   private MiniOzoneCluster cluster;
   private OzoneClient client;
@@ -114,6 +116,7 @@ public class TestCommitInRatis {
         .getStorageContainerLocationClient();
   }
 
+
   /**
    * Shutdown MiniDFSCluster.
    */
@@ -132,7 +135,8 @@ public class TestCommitInRatis {
     ratisClientConfig.setWatchType(watchType.toString());
     conf.setFromObject(ratisClientConfig);
     startCluster(conf);
-    LogCapturer logCapturer = LogCapturer.captureLogs(XceiverClientRatis.class);
+    GenericTestUtils.LogCapturer logCapturer =
+        GenericTestUtils.LogCapturer.captureLogs(XceiverClientRatis.LOG);
     XceiverClientManager clientManager = new XceiverClientManager(conf);
 
     ContainerWithPipeline container1 = storageContainerLocationClient

@@ -38,10 +38,6 @@ import org.apache.ratis.util.function.CheckedFunction;
  */
 public class SelectorOutputStream<OUT extends OutputStream>
     extends OutputStream implements Syncable, StreamCapabilities {
-
-  private final ByteArrayBuffer buffer;
-  private final Underlying underlying;
-
   /** A buffer backed by a byte[]. */
   static final class ByteArrayBuffer {
     private byte[] array;
@@ -111,6 +107,9 @@ public class SelectorOutputStream<OUT extends OutputStream>
       return out;
     }
   }
+
+  private final ByteArrayBuffer buffer;
+  private final Underlying underlying;
 
   /**
    * Construct a {@link SelectorOutputStream} which first writes to a buffer.

@@ -103,6 +103,7 @@ public class StreamingClient implements AutoCloseable {
     }
   }
 
+
   @Override
   public void close() {
     group.shutdownGracefully();

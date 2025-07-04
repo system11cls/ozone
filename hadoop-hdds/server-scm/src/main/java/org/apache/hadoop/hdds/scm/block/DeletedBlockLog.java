@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
@@ -91,7 +91,7 @@ public interface DeletedBlockLog extends Closeable {
    * @param dnTxSet Set of transaction IDs for the DataNode.
    */
   void recordTransactionCreated(
-      DatanodeID dnId, long scmCmdId, Set<Long> dnTxSet);
+      UUID dnId, long scmCmdId, Set<Long> dnTxSet);
 
   /**
    * Handles the cleanup process when a DataNode is reported dead. This method
@@ -100,7 +100,7 @@ public interface DeletedBlockLog extends Closeable {
    *
    * @param dnId The identifier of the dead DataNode.
    */
-  void onDatanodeDead(DatanodeID dnId);
+  void onDatanodeDead(UUID dnId);
 
   /**
    * Records the event of sending a block deletion command to a DataNode. This
@@ -142,6 +142,4 @@ public interface DeletedBlockLog extends Closeable {
    * @param deletedBlocksTXTable delete transaction table
    */
   void reinitialize(Table<Long, DeletedBlocksTransaction> deletedBlocksTXTable);
-
-  int getTransactionToDNsCommitMapSize();
 }

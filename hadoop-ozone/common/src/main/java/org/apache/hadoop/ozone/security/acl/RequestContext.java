@@ -140,6 +140,7 @@ public class RequestContext {
     return new Builder();
   }
 
+
   public static RequestContext.Builder getBuilder(
       UserGroupInformation ugi, InetAddress remoteAddress, String hostName,
       ACLType aclType, String ownerName) {

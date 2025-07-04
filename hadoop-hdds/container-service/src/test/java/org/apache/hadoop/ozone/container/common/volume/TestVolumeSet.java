@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -41,11 +42,14 @@ import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tests {@link MutableVolumeSet} operations.
  */
+@Timeout(300)
 public class TestVolumeSet {
 
   private OzoneConfiguration conf;
@@ -161,7 +165,8 @@ public class TestVolumeSet {
 
     // Attempting to remove a volume which does not exist in VolumeSet should
     // log a warning.
-    LogCapturer logs = LogCapturer.captureLogs(MutableVolumeSet.class);
+    LogCapturer logs = LogCapturer.captureLogs(
+        LoggerFactory.getLogger(MutableVolumeSet.class));
     volumeSet.removeVolume(HddsVolumeUtil.getHddsRoot(volume1));
     assertEquals(1, volumeSet.getVolumesList().size());
     String expectedLogMessage = "Volume : " +
@@ -208,7 +213,8 @@ public class TestVolumeSet {
 
     // Verify that volume usage can be queried during shutdown.
     for (StorageVolume volume : volumesList) {
-      assertThat(volume.getVolumeUsage()).isPresent();
+      assertNotNull(volume.getVolumeInfo().get()
+              .getUsageForTesting());
       volume.getCurrentUsage();
     }
   }

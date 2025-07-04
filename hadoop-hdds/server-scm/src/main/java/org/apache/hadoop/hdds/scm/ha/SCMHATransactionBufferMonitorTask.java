@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * buffer.
  */
 public class SCMHATransactionBufferMonitorTask implements Runnable {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMHATransactionBufferMonitorTask.class);
   private final SCMRatisServer server;
   private final SCMHADBTransactionBuffer transactionBuffer;

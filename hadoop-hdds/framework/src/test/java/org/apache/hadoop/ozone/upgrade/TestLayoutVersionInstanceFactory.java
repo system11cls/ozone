@@ -36,6 +36,7 @@ public class TestLayoutVersionInstanceFactory {
   private final MockInterface m1 = new MockClassV1();
   private final MockInterface m2 = new MockClassV2();
 
+
   @Test
   void testRegister() {
     LayoutVersionManager lvm = getMockLvm(1, 2);
@@ -106,6 +107,7 @@ public class TestLayoutVersionInstanceFactory {
     assertEquals("v1", method.get());
   }
 
+
   private VersionFactoryKey getKey(String key, Integer version) {
     VersionFactoryKey.Builder vfKey = new VersionFactoryKey.Builder().key(key);
     if (version != null) {
@@ -113,6 +115,8 @@ public class TestLayoutVersionInstanceFactory {
     }
     return vfKey.build();
   }
+
+
 
   @Test
   void testOnFinalize() {

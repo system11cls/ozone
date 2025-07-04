@@ -115,7 +115,7 @@ public class TestRatisUnderReplicationHandler {
         replicationManager.getNodeStatus(any(DatanodeDetails.class)))
         .thenAnswer(invocationOnMock -> {
           DatanodeDetails dn = invocationOnMock.getArgument(0);
-          return NodeStatus.valueOf(dn.getPersistedOpState(),
+          return new NodeStatus(dn.getPersistedOpState(),
               HddsProtos.NodeState.HEALTHY);
         });
 

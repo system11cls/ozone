@@ -99,6 +99,7 @@ public class VaultS3SecretStoreBuilder {
     return this;
   }
 
+
   public VaultS3SecretStoreBuilder setNameSpace(String nameSpace) {
     this.nameSpace = nameSpace;
     return this;

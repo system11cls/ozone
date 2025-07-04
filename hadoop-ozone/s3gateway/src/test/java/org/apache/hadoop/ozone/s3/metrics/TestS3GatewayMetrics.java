@@ -23,7 +23,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.BUCKET_ALREADY_EXISTS;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.COPY_SOURCE_HEADER;
 import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
 import static org.apache.hadoop.ozone.s3.util.S3Utils.urlEncode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -55,7 +54,6 @@ import org.apache.hadoop.ozone.s3.endpoint.RootEndpoint;
 import org.apache.hadoop.ozone.s3.endpoint.TestBucketAcl;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +74,7 @@ public class TestS3GatewayMetrics {
   private static final String CONTENT = "0123456789";
   private S3GatewayMetrics metrics;
   private ContainerRequestContext context;
+
 
   @BeforeEach
   public void setup() throws Exception {
@@ -98,9 +97,6 @@ public class TestS3GatewayMetrics {
     headers = mock(HttpHeaders.class);
     when(headers.getHeaderString(STORAGE_CLASS_HEADER)).thenReturn(
         "STANDARD");
-    when(headers.getHeaderString(X_AMZ_CONTENT_SHA256))
-        .thenReturn("mockSignature");
-    bucketEndpoint.setHeaders(headers);
     keyEndpoint.setHeaders(headers);
     metrics = bucketEndpoint.getMetrics();
 
@@ -146,7 +142,7 @@ public class TestS3GatewayMetrics {
     bucketEndpoint.get(bucketName, null,
         null, null, 1000, null,
         null, "random", null,
-        null, null, null, 0).getEntity();
+        null, null, null, 0, null).getEntity();
 
     long curMetric = metrics.getGetBucketSuccess();
     assertEquals(1L, curMetric - oriMetric);
@@ -159,7 +155,7 @@ public class TestS3GatewayMetrics {
     // Searching for a bucket that does not exist
     OS3Exception e = assertThrows(OS3Exception.class, () -> bucketEndpoint.get(
         "newBucket", null, null, null, 1000, null, null, "random", null,
-        null, null, null, 0));
+        null, null, null, 0, null));
     assertEquals(S3ErrorTable.NO_SUCH_BUCKET.getCode(), e.getCode());
     assertEquals(S3ErrorTable.NO_SUCH_BUCKET.getErrorMessage(),
         e.getErrorMessage());
@@ -171,7 +167,7 @@ public class TestS3GatewayMetrics {
   public void testCreateBucketSuccess() throws Exception {
 
     long oriMetric = metrics.getCreateBucketSuccess();
-    assertDoesNotThrow(() -> bucketEndpoint.put("newBucket", null, null));
+    assertDoesNotThrow(() -> bucketEndpoint.put("newBucket", null, null, null));
     long curMetric = metrics.getCreateBucketSuccess();
     assertEquals(1L, curMetric - oriMetric);
   }
@@ -182,7 +178,7 @@ public class TestS3GatewayMetrics {
 
     // Creating an error by trying to create a bucket that already exists
     OS3Exception e = assertThrows(OS3Exception.class, () -> bucketEndpoint.put(
-        bucketName, null, null));
+        bucketName, null, null, null));
     assertEquals(HTTP_CONFLICT, e.getHttpCode());
     assertEquals(BUCKET_ALREADY_EXISTS.getCode(), e.getCode());
 
@@ -223,7 +219,7 @@ public class TestS3GatewayMetrics {
     Response response =
         bucketEndpoint.get(bucketName, null, null,
             null, 0, null, null,
-            null, null, "acl", null, null, 0);
+            null, null, "acl", null, null, 0, null);
     long curMetric = metrics.getGetAclSuccess();
     assertEquals(HTTP_OK, response.getStatus());
     assertEquals(1L, curMetric - oriMetric);
@@ -236,7 +232,7 @@ public class TestS3GatewayMetrics {
     // Failing the getACL endpoint by applying ACL on a non-Existent Bucket
     OS3Exception e = assertThrows(OS3Exception.class, () -> bucketEndpoint.get(
         "random_bucket", null, null, null, 0, null,
-        null, null, null, "acl", null, null, 0));
+        null, null, null, "acl", null, null, 0, null));
     assertEquals(S3ErrorTable.NO_SUCH_BUCKET.getCode(), e.getCode());
     assertEquals(S3ErrorTable.NO_SUCH_BUCKET.getErrorMessage(),
         e.getErrorMessage());
@@ -252,7 +248,7 @@ public class TestS3GatewayMetrics {
     InputStream inputBody = TestBucketAcl.class.getClassLoader()
         .getResourceAsStream("userAccessControlList.xml");
 
-    bucketEndpoint.put("b1", ACL_MARKER, inputBody);
+    bucketEndpoint.put("b1", ACL_MARKER, headers, inputBody);
     inputBody.close();
     long curMetric = metrics.getPutAclSuccess();
     assertEquals(1L, curMetric - oriMetric);
@@ -266,7 +262,7 @@ public class TestS3GatewayMetrics {
     InputStream inputBody = TestBucketAcl.class.getClassLoader()
         .getResourceAsStream("userAccessControlList.xml");
     try {
-      assertThrows(OS3Exception.class, () -> bucketEndpoint.put("unknown_bucket", ACL_MARKER,
+      assertThrows(OS3Exception.class, () -> bucketEndpoint.put("unknown_bucket", ACL_MARKER, headers,
           inputBody));
     } finally {
       inputBody.close();
@@ -329,6 +325,7 @@ public class TestS3GatewayMetrics {
     long curMetric = metrics.getCreateKeyFailure();
     assertEquals(1L, curMetric - oriMetric);
   }
+
 
   @Test
   public void testDeleteKeySuccess() throws Exception {
@@ -425,6 +422,7 @@ public class TestS3GatewayMetrics {
     long curMetric = metrics.getAbortMultiPartUploadFailure();
     assertEquals(1L, curMetric - oriMetric);
   }
+
 
   @Test
   public void testCompleteMultiPartUploadSuccess() throws Exception {
@@ -671,7 +669,7 @@ public class TestS3GatewayMetrics {
 
   private static InputStream getPutTaggingBody() {
     String xml =
-        "<Tagging xmlns=\"" + S3Consts.S3_XML_NAMESPACE + "\">" +
+        "<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
             "   <TagSet>" +
             "      <Tag>" +
             "         <Key>tag1</Key>" +

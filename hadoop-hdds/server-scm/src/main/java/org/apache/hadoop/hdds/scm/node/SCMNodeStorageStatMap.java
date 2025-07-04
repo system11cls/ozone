@@ -51,7 +51,6 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
   private final double criticalUtilizationThreshold;
 
   private final Map<UUID, Set<StorageLocationReport>> scmNodeStorageReportMap;
-
   /**
    * constructs the scmNodeStorageReportMap object.
    */
@@ -98,6 +97,8 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
         .map(Map.Entry::getKey)
         .collect(Collectors.toList());
   }
+
+
 
   /**
    * Insert a new datanode into Node2Container Map.
@@ -311,6 +312,7 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
     return scmNodeStorageReportMap.get(datanodeID);
   }
 
+
   /**
    * Truncate to 4 digits since uncontrolled precision is some times
    * counter intuitive to what users expect.
@@ -330,7 +332,6 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
         truncateDecimals(scmUsed / (double) capacity);
     return scmUsedRatio;
   }
-
   /**
    * Results possible from processing a Node report by
    * Node2ContainerMapper.

@@ -302,7 +302,6 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
     resp = wrappedResponse.getAddScmResponse();
     return resp.getSuccess();
   }
-
   /**
    * Sort the datanodes based on distance from client.
    * @return list of datanodes;

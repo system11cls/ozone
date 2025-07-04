@@ -29,10 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,9 +41,16 @@ import org.junit.jupiter.api.Test;
  */
 public class TestQuasiClosedStuckReplicaCount {
 
-  private final DatanodeID origin1 = DatanodeID.randomID();
-  private final DatanodeID origin2 = DatanodeID.randomID();
-  private final DatanodeID origin3 = DatanodeID.randomID();
+  private UUID origin1;
+  private UUID origin2;
+  private UUID origin3;
+
+  @BeforeEach
+  public void setUp() {
+    origin1 = UUID.randomUUID();
+    origin2 = UUID.randomUUID();
+    origin3 = UUID.randomUUID();
+  }
 
   @Test
   public void testCorrectlyReplicationWithThreeOrigins() {
@@ -114,7 +122,7 @@ public class TestQuasiClosedStuckReplicaCount {
     assertTrue(misReplicatedOrigins.size() == 2);
 
     for (QuasiClosedStuckReplicaCount.MisReplicatedOrigin misReplicatedOrigin : misReplicatedOrigins) {
-      final DatanodeID source = misReplicatedOrigin.getSources().iterator().next().getOriginDatanodeId();
+      UUID source = misReplicatedOrigin.getSources().iterator().next().getOriginDatanodeId();
       assertTrue(source.equals(origin1) || source.equals(origin3));
     }
   }
@@ -328,7 +336,7 @@ public class TestQuasiClosedStuckReplicaCount {
 
   private void validateMisReplicatedOrigins(
       List<QuasiClosedStuckReplicaCount.MisReplicatedOrigin> misReplicatedOrigins,
-      int expectedUnderRepOrigins, int expectedSources, int expectedDelta, DatanodeID expectedOrigin) {
+      int expectedUnderRepOrigins, int expectedSources, int expectedDelta, UUID expectedOrigin) {
 
     assertTrue(misReplicatedOrigins.size() == expectedUnderRepOrigins);
     Set<ContainerReplica> sources = misReplicatedOrigins.get(0).getSources();

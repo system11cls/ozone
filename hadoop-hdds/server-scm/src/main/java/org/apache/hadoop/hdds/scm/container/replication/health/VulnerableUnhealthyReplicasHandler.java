@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * copy of such replicas.
  */
 public class VulnerableUnhealthyReplicasHandler extends AbstractCheck {
-  private static final Logger LOG = LoggerFactory.getLogger(VulnerableUnhealthyReplicasHandler.class);
+  public static final Logger LOG = LoggerFactory.getLogger(VulnerableUnhealthyReplicasHandler.class);
   private final ReplicationManager replicationManager;
 
   public VulnerableUnhealthyReplicasHandler(ReplicationManager replicationManager) {

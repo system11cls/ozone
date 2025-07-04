@@ -274,6 +274,7 @@ public class SCMRatisServerImpl implements SCMRatisServer {
     return isStopped;
   }
 
+
   @Override
   public List<String> getRatisRoles() {
     Collection<RaftPeer> peers = division.getGroup().getPeers();
@@ -298,7 +299,6 @@ public class SCMRatisServerImpl implements SCMRatisServer {
     }
     return ratisRoles;
   }
-
   /**
    * {@inheritDoc}
    */

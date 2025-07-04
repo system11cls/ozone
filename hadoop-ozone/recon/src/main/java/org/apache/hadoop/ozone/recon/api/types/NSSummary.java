@@ -116,15 +116,4 @@ public class NSSummary {
   public void setParentId(long parentId) {
     this.parentId = parentId;
   }
-
-  @Override
-  public String toString() {
-    return "NSSummary{dirName='" + dirName + '\'' +
-        ", parentId=" + parentId +
-        ", childDir=" + childDir +
-        ", numOfFiles=" + numOfFiles +
-        ", sizeOfFiles=" + sizeOfFiles +
-        ", fileSizeBucket=" + Arrays.toString(fileSizeBucket) +
-        '}';
-  }
 }

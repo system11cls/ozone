@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  */
 public class GrpcOMFailoverProxyProvider<T> extends
     OMFailoverProxyProviderBase<T> {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(GrpcOMFailoverProxyProvider.class);
 
   public GrpcOMFailoverProxyProvider(ConfigurationSource configuration,

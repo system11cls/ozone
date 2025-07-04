@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdds.utils.db;
 
 import jakarta.annotation.Nonnull;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -168,11 +169,12 @@ abstract class StringCodecBase implements Codec<String> {
   }
 
   @Override
-  public CodecBuffer toCodecBuffer(@Nonnull String object, CodecBuffer.Allocator allocator) throws CodecException {
+  public CodecBuffer toCodecBuffer(@Nonnull String object,
+      CodecBuffer.Allocator allocator) throws IOException {
     // allocate a larger buffer to avoid encoding twice.
     final int upperBound = getSerializedSizeUpperBound(object);
     final CodecBuffer buffer = allocator.apply(upperBound);
-    buffer.putFromSource(encode(object, null, CodecException::new));
+    buffer.putFromSource(encode(object, null, IOException::new));
     return buffer;
   }
 
@@ -182,8 +184,8 @@ abstract class StringCodecBase implements Codec<String> {
   }
 
   @Override
-  public byte[] toPersistedFormat(String object) throws CodecException {
-    return string2Bytes(object, CodecException::new);
+  public byte[] toPersistedFormat(String object) throws IOException {
+    return string2Bytes(object, IOException::new);
   }
 
   @Override

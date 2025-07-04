@@ -46,7 +46,6 @@ public class OS3Exception extends Exception {
     mapper.registerModule(new JaxbAnnotationModule());
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
   }
-
   @XmlElement(name = "Code")
   private String code;
 

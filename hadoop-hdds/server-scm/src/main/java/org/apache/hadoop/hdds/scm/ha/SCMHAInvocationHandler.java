@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 public class SCMHAInvocationHandler implements InvocationHandler {
 
+
   private static final Logger LOG = LoggerFactory
       .getLogger(SCMHAInvocationHandler.class);
 

@@ -202,56 +202,44 @@ public class ContainerReader implements Runnable {
       throws IOException {
     switch (containerData.getContainerType()) {
     case KeyValueContainer:
-      if (!(containerData instanceof KeyValueContainerData)) {
-        throw new StorageContainerException("Container File is corrupted. " +
-            "ContainerType is KeyValueContainer but cast to " +
-            "KeyValueContainerData failed. ",
-            ContainerProtos.Result.CONTAINER_METADATA_ERROR);
-      }
-
-      KeyValueContainerData kvContainerData = (KeyValueContainerData)
-          containerData;
-      containerData.setVolume(hddsVolume);
-      KeyValueContainerUtil.parseKVContainerData(kvContainerData, config);
-      KeyValueContainer kvContainer = new KeyValueContainer(kvContainerData,
-          config);
-      if (kvContainer.getContainerState() == RECOVERING) {
-        if (shouldDelete) {
-          // delete Ratis replicated RECOVERING containers
-          if (kvContainer.getContainerData().getReplicaIndex() == 0) {
-            cleanupContainer(hddsVolume, kvContainer);
-          } else {
+      if (containerData instanceof KeyValueContainerData) {
+        KeyValueContainerData kvContainerData = (KeyValueContainerData)
+            containerData;
+        containerData.setVolume(hddsVolume);
+        KeyValueContainerUtil.parseKVContainerData(kvContainerData, config);
+        KeyValueContainer kvContainer = new KeyValueContainer(kvContainerData,
+            config);
+        if (kvContainer.getContainerState() == RECOVERING) {
+          if (shouldDelete) {
             kvContainer.markContainerUnhealthy();
             LOG.info("Stale recovering container {} marked UNHEALTHY",
                 kvContainerData.getContainerID());
             containerSet.addContainer(kvContainer);
           }
+          return;
         }
-        return;
-      } else if (kvContainer.getContainerState() == DELETED) {
-        if (shouldDelete) {
-          cleanupContainer(hddsVolume, kvContainer);
+        if (kvContainer.getContainerState() == DELETED) {
+          if (shouldDelete) {
+            cleanupContainer(hddsVolume, kvContainer);
+          }
+          return;
         }
-        return;
-      }
-
-      try {
-        containerSet.addContainer(kvContainer);
-        // this should be the last step of this block
-        containerData.commitSpace();
-      } catch (StorageContainerException e) {
-        if (e.getResult() != ContainerProtos.Result.CONTAINER_EXISTS) {
-          throw e;
-        }
-        if (shouldDelete) {
-          KeyValueContainer existing = (KeyValueContainer) containerSet.getContainer(
-              kvContainer.getContainerData().getContainerID());
-          boolean swapped = resolveDuplicate(existing, kvContainer);
-          if (swapped) {
-            existing.getContainerData().releaseCommitSpace();
-            kvContainer.getContainerData().commitSpace();
+        try {
+          containerSet.addContainer(kvContainer);
+        } catch (StorageContainerException e) {
+          if (e.getResult() != ContainerProtos.Result.CONTAINER_EXISTS) {
+            throw e;
+          }
+          if (shouldDelete) {
+            resolveDuplicate((KeyValueContainer) containerSet.getContainer(
+                kvContainer.getContainerData().getContainerID()), kvContainer);
           }
         }
+      } else {
+        throw new StorageContainerException("Container File is corrupted. " +
+            "ContainerType is KeyValueContainer but cast to " +
+            "KeyValueContainerData failed. ",
+            ContainerProtos.Result.CONTAINER_METADATA_ERROR);
       }
       break;
     default:
@@ -261,14 +249,7 @@ public class ContainerReader implements Runnable {
     }
   }
 
-  /**
-   * Resolve duplicate containers.
-   * @param existing
-   * @param toAdd
-   * @return true if the container was swapped, false otherwise
-   * @throws IOException
-   */
-  private boolean resolveDuplicate(KeyValueContainer existing,
+  private void resolveDuplicate(KeyValueContainer existing,
       KeyValueContainer toAdd) throws IOException {
     if (existing.getContainerData().getReplicaIndex() != 0 ||
         toAdd.getContainerData().getReplicaIndex() != 0) {
@@ -282,7 +263,7 @@ public class ContainerReader implements Runnable {
           existing.getContainerData().getContainerID(),
           existing.getContainerData().getContainerPath(),
           toAdd.getContainerData().getContainerPath());
-      return false;
+      return;
     }
 
     long existingBCSID = existing.getBlockCommitSequenceId();
@@ -302,7 +283,7 @@ public class ContainerReader implements Runnable {
             toAdd.getContainerData().getContainerPath(), toAddState);
         KeyValueContainerUtil.removeContainer(toAdd.getContainerData(),
             hddsVolume.getConf());
-        return false;
+        return;
       } else if (toAddState == CLOSED) {
         LOG.warn("Container {} is present at {} with state CLOSED and at " +
                 "{} with state {}. Removing the latter container.",
@@ -310,7 +291,7 @@ public class ContainerReader implements Runnable {
             toAdd.getContainerData().getContainerPath(),
             existing.getContainerData().getContainerPath(), existingState);
         swapAndRemoveContainer(existing, toAdd);
-        return true;
+        return;
       }
     }
 
@@ -323,7 +304,6 @@ public class ContainerReader implements Runnable {
           toAdd.getContainerData().getContainerPath());
       KeyValueContainerUtil.removeContainer(toAdd.getContainerData(),
           hddsVolume.getConf());
-      return false;
     } else {
       LOG.warn("Container {} is present at {} with a lesser BCSID " +
               "than at {}. Removing the former container.",
@@ -331,7 +311,6 @@ public class ContainerReader implements Runnable {
           existing.getContainerData().getContainerPath(),
           toAdd.getContainerData().getContainerPath());
       swapAndRemoveContainer(existing, toAdd);
-      return true;
     }
   }
 

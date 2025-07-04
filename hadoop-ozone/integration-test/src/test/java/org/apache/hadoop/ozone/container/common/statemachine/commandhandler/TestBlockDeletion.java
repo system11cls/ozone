@@ -93,7 +93,6 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
-import org.apache.hadoop.util.Time;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.apache.ozone.test.tag.Flaky;
@@ -111,7 +110,7 @@ import org.slf4j.event.Level;
  */
 public class TestBlockDeletion {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(TestBlockDeletion.class);
 
   private OzoneConfiguration conf = null;
@@ -128,9 +127,9 @@ public class TestBlockDeletion {
   @BeforeEach
   public void init() throws Exception {
     conf = new OzoneConfiguration();
-    GenericTestUtils.setLogLevel(DeletedBlockLogImpl.class, Level.DEBUG);
-    GenericTestUtils.setLogLevel(SCMBlockDeletingService.class, Level.DEBUG);
-    GenericTestUtils.setLogLevel(ReplicationManager.class, Level.DEBUG);
+    GenericTestUtils.setLogLevel(DeletedBlockLogImpl.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(SCMBlockDeletingService.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(ReplicationManager.LOG, Level.DEBUG);
 
     conf.set("ozone.replication.allowed-configs",
         "^(RATIS/THREE)|(EC/2-1-256k)$");
@@ -210,9 +209,10 @@ public class TestBlockDeletion {
   public void testBlockDeletion(ReplicationConfig repConfig) throws Exception {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
-    LogCapturer logCapturer = LogCapturer.captureLogs(DeleteBlocksCommandHandler.class);
+    GenericTestUtils.LogCapturer logCapturer = GenericTestUtils.LogCapturer
+        .captureLogs(DeleteBlocksCommandHandler.LOG);
 
-    String value = RandomStringUtils.secure().next(1024 * 1024);
+    String value = RandomStringUtils.random(1024 * 1024);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
@@ -262,7 +262,7 @@ public class TestBlockDeletion {
     assertTrue(
         e.getMessage().startsWith("expected: <null> but was:"));
 
-    assertEquals(0L, metrics.getNumBlockDeletionTransactionsOnDatanodes());
+    assertEquals(0L, metrics.getNumBlockDeletionTransactionSent());
     // close the containers which hold the blocks for the key
     OzoneTestUtils.closeAllContainers(scm.getEventQueue(), scm);
 
@@ -322,9 +322,9 @@ public class TestBlockDeletion {
     assertThat(metrics.getNumBlockDeletionCommandSent())
         .isGreaterThanOrEqualTo(metrics.getNumBlockDeletionCommandSuccess() +
             metrics.getBNumBlockDeletionCommandFailure());
-    assertThat(metrics.getNumBlockDeletionTransactionsOnDatanodes())
-        .isGreaterThanOrEqualTo(metrics.getNumBlockDeletionTransactionFailureOnDatanodes() +
-            metrics.getNumBlockDeletionTransactionSuccessOnDatanodes());
+    assertThat(metrics.getNumBlockDeletionTransactionSent())
+        .isGreaterThanOrEqualTo(metrics.getNumBlockDeletionTransactionFailure() +
+            metrics.getNumBlockDeletionTransactionSuccess());
     LOG.info(metrics.toString());
 
     // Datanode should receive retried requests with continuous retry counts.
@@ -346,7 +346,7 @@ public class TestBlockDeletion {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
-    String value = RandomStringUtils.secure().next(1024 * 1024);
+    String value = RandomStringUtils.random(1024 * 1024);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
@@ -403,7 +403,7 @@ public class TestBlockDeletion {
       });
     });
 
-    LogCapturer logCapturer = LogCapturer.captureLogs(ReplicationManager.class);
+    LogCapturer logCapturer = LogCapturer.captureLogs(ReplicationManager.LOG);
     logCapturer.clearOutput();
     cluster.shutdownHddsDatanode(0);
     replicationManager.processAll();
@@ -457,7 +457,7 @@ public class TestBlockDeletion {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
-    String value = RandomStringUtils.secure().next(10 * 10);
+    String value = RandomStringUtils.random(10 * 10);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
@@ -587,7 +587,7 @@ public class TestBlockDeletion {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
-    String value = RandomStringUtils.secure().next(1024 * 1024);
+    String value = RandomStringUtils.random(1024 * 1024);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
@@ -788,7 +788,7 @@ public class TestBlockDeletion {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
-    String value = RandomStringUtils.secure().next(64 * 1024);
+    String value = RandomStringUtils.random(64 * 1024);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
@@ -822,7 +822,7 @@ public class TestBlockDeletion {
 
     // Wait for block delete command sent from OM
     OzoneTestUtils.flushAndWaitForDeletedBlockLog(scm);
-    long start = Time.monotonicNow();
+    long start = System.currentTimeMillis();
     // Wait for all blocks been deleted.
     GenericTestUtils.waitFor(() -> {
       try {
@@ -834,7 +834,7 @@ public class TestBlockDeletion {
       }
       return false;
     }, 100, 30000);
-    long end = Time.monotonicNow();
+    long end = System.currentTimeMillis();
     System.out.println("Block deletion costs " + (end - start) + "ms");
   }
 }

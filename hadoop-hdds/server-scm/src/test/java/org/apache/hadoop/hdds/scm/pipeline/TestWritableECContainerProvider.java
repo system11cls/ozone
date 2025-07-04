@@ -447,7 +447,7 @@ public class TestWritableECContainerProvider {
     // Ensure ContainerManager always throws when a container is requested so
     // existing pipelines cannot be used
     doAnswer(call -> {
-      throw ContainerNotFoundException.newInstanceForTesting();
+      throw new ContainerNotFoundException();
     }).when(containerManager).getContainer(any(ContainerID.class));
 
     ContainerInfo newContainer =

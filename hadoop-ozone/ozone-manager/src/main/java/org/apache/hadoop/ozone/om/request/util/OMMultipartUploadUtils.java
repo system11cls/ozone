@@ -32,6 +32,7 @@ import org.apache.hadoop.ozone.util.UUIDv7;
  */
 public final class OMMultipartUploadUtils {
 
+
   private OMMultipartUploadUtils() {
   }
 
@@ -93,6 +94,7 @@ public final class OMMultipartUploadUtils {
       return omMetadataManager.getMultipartKey(volumeName, bucketName, keyName, multipartUploadId);
     }
   }
+
 
   /**
    * Check whether key's isMultipartKey flag is set.

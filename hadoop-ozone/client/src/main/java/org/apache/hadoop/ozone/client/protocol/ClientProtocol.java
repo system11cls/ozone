@@ -38,6 +38,7 @@ import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneMultipartUploadList;
 import org.apache.hadoop.ozone.client.OzoneMultipartUploadPartListParts;
 import org.apache.hadoop.ozone.client.OzoneSnapshot;
+import org.apache.hadoop.ozone.client.OzoneSnapshotDiff;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.TenantArgs;
 import org.apache.hadoop.ozone.client.VolumeArgs;
@@ -50,7 +51,6 @@ import org.apache.hadoop.ozone.om.helpers.DeleteTenantState;
 import org.apache.hadoop.ozone.om.helpers.ErrorInfo;
 import org.apache.hadoop.ozone.om.helpers.LeaseKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
-import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartUploadCompleteInfo;
@@ -68,7 +68,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRoleI
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.ozone.snapshot.CancelSnapshotDiffResponse;
-import org.apache.hadoop.ozone.snapshot.ListSnapshotDiffJobResponse;
 import org.apache.hadoop.ozone.snapshot.ListSnapshotResponse;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse;
 import org.apache.hadoop.security.KerberosInfo;
@@ -437,17 +436,6 @@ public interface ClientProtocol {
   OzoneInputStream getKey(String volumeName, String bucketName, String keyName)
       throws IOException;
 
-  /**
-   * Reads key info from an existing bucket.
-   * @param volumeName Name of the Volume
-   * @param bucketName Name of the Bucket
-   * @param keyName Name of the Key
-   * @param forceUpdateContainerCache if true force OM to update container cache location from SCM
-   * @return {@link OmKeyInfo}
-   * @throws IOException
-   */
-  OmKeyInfo getKeyInfo(String volumeName, String bucketName, String keyName,
-      boolean forceUpdateContainerCache) throws IOException;
 
   /**
    * Deletes an existing key.
@@ -1124,6 +1112,7 @@ public interface ClientProtocol {
    */
   void setThreadLocalS3Auth(S3Auth s3Auth);
 
+
   void setIsS3Request(boolean isS3Request);
 
   /**
@@ -1219,7 +1208,6 @@ public interface ClientProtocol {
    * @return message which tells the image name, parent dir and OM leader
    * node information.
    */
-  @Deprecated
   String printCompactionLogDag(String fileNamePrefix, String graphType)
       throws IOException;
 
@@ -1277,19 +1265,15 @@ public interface ClientProtocol {
    * @param volumeName Name of the volume to which the snapshotted bucket belong
    * @param bucketName Name of the bucket to which the snapshots belong
    * @param jobStatus JobStatus to be used to filter the snapshot diff jobs
-   * @param listAllStatus Option to specify whether to list all jobs regardless of status
-   * @param prevSnapshotDiffJob list snapshot diff jobs after this snapshot diff job.
-   * @param maxListResult maximum entries to be returned from the startSnapshotDiffJob.
+   * @param listAll Option to specify whether to list all jobs or not
    * @return a list of SnapshotDiffJob objects
    * @throws IOException in case there is a failure while getting a response.
    */
-  ListSnapshotDiffJobResponse listSnapshotDiffJobs(
-      String volumeName,
-      String bucketName,
-      String jobStatus,
-      boolean listAllStatus,
-      String prevSnapshotDiffJob,
-      int maxListResult) throws IOException;
+  List<OzoneSnapshotDiff> listSnapshotDiffJobs(String volumeName,
+                                               String bucketName,
+                                               String jobStatus,
+                                               boolean listAll)
+      throws IOException;
 
   /**
    * Time to be set for given Ozone object. This operations updates modification

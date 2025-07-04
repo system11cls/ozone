@@ -80,10 +80,10 @@ public class TestOzoneRpcClientForAclAuditLog {
       LoggerFactory.getLogger(TestOzoneRpcClientForAclAuditLog.class);
   private static UserGroupInformation ugi;
   private static final OzoneAcl USER_ACL =
-      OzoneAcl.of(IAccessAuthorizer.ACLIdentityType.USER,
+      new OzoneAcl(IAccessAuthorizer.ACLIdentityType.USER,
           "johndoe", ACCESS, IAccessAuthorizer.ACLType.ALL);
   private static final OzoneAcl USER_ACL_2 =
-      OzoneAcl.of(IAccessAuthorizer.ACLIdentityType.USER,
+      new OzoneAcl(IAccessAuthorizer.ACLIdentityType.USER,
           "jane", ACCESS, IAccessAuthorizer.ACLType.ALL);
   private static List<OzoneAcl> aclListToAdd = new ArrayList<>();
   private static MiniOzoneCluster cluster = null;
@@ -175,7 +175,7 @@ public class TestOzoneRpcClientForAclAuditLog {
 
     String userName = ugi.getUserName();
     String adminName = ugi.getUserName();
-    String volumeName = "volume" + RandomStringUtils.secure().nextNumeric(5);
+    String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
 
     VolumeArgs createVolumeArgs = VolumeArgs.newBuilder()
         .setAdmin(adminName)
@@ -223,7 +223,7 @@ public class TestOzoneRpcClientForAclAuditLog {
 
     String userName = "bilbo";
     String adminName = "bilbo";
-    String volumeName = "volume" + RandomStringUtils.secure().nextNumeric(5);
+    String volumeName = "volume" + RandomStringUtils.randomNumeric(5);
 
     VolumeArgs createVolumeArgs = VolumeArgs.newBuilder()
         .setAdmin(adminName)

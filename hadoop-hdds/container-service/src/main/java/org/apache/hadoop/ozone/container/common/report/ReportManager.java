@@ -104,6 +104,7 @@ public final class ReportManager {
     private ReportPublisherFactory publisherFactory;
     private String threadNamePrefix = "";
 
+
     private Builder(ConfigurationSource conf) {
       this.reportPublishers = new ArrayList<>();
       this.publisherFactory = new ReportPublisherFactory(conf);

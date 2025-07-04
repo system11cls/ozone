@@ -76,7 +76,7 @@ public class TestSCMServiceManager {
 
     // PAUSING when out of safe mode.
     scmContext.updateSafeModeStatus(
-        SCMSafeModeManager.SafeModeStatus.of(false, true));
+        new SCMSafeModeManager.SafeModeStatus(false, true));
     serviceManager.notifyStatusChanged();
     assertFalse(serviceRunWhenLeader.shouldRun());
 
@@ -87,7 +87,7 @@ public class TestSCMServiceManager {
 
     // RUNNING when in safe mode.
     scmContext.updateSafeModeStatus(
-        SCMSafeModeManager.SafeModeStatus.of(true, false));
+        new SCMSafeModeManager.SafeModeStatus(true, false));
     serviceManager.notifyStatusChanged();
     assertTrue(serviceRunWhenLeader.shouldRun());
 
@@ -146,7 +146,7 @@ public class TestSCMServiceManager {
 
     // PAUSING when out of safe mode.
     scmContext.updateSafeModeStatus(
-        SCMSafeModeManager.SafeModeStatus.of(false, true));
+        new SCMSafeModeManager.SafeModeStatus(false, true));
     serviceManager.notifyStatusChanged();
     assertFalse(serviceRunWhenLeaderAndOutOfSafeMode.shouldRun());
 
@@ -157,7 +157,7 @@ public class TestSCMServiceManager {
 
     // PAUSING when in safe mode.
     scmContext.updateSafeModeStatus(
-        SCMSafeModeManager.SafeModeStatus.of(true, false));
+        new SCMSafeModeManager.SafeModeStatus(true, false));
     serviceManager.notifyStatusChanged();
     assertFalse(serviceRunWhenLeaderAndOutOfSafeMode.shouldRun());
 

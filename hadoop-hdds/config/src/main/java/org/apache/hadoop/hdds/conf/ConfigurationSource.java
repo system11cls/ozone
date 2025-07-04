@@ -151,7 +151,6 @@ public interface ConfigurationSource {
   default boolean isConfigured(String key) {
     return get(key) != null;
   }
-
   /**
    * Create a Configuration object and inject the required configuration values.
    *

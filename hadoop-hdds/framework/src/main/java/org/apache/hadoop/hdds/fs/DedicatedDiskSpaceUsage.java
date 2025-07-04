@@ -51,7 +51,7 @@ public class DedicatedDiskSpaceUsage extends AbstractSpaceUsageSource {
    * @return used space
    */
   private long calculateUsedSpace() {
-    return getCapacity() - getFile().getUsableSpace();
+    return getCapacity() - getFile().getFreeSpace();
   }
 
 }

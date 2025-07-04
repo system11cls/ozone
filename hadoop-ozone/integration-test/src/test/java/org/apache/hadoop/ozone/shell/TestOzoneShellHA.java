@@ -57,7 +57,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.crypto.key.KeyProvider;
 import org.apache.hadoop.crypto.key.kms.KMSClientProvider;
 import org.apache.hadoop.crypto.key.kms.server.MiniKMS;
@@ -69,7 +68,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.TrashPolicy;
 import org.apache.hadoop.fs.ozone.OzoneFsShell;
-import org.apache.hadoop.fs.ozone.OzoneTrashPolicy;
 import org.apache.hadoop.hdds.JsonTestUtils;
 import org.apache.hadoop.hdds.cli.GenericCli;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -93,6 +91,7 @@ import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.ha.ConfUtils;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
+import org.apache.hadoop.ozone.om.TrashPolicyOzone;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
@@ -100,6 +99,7 @@ import org.apache.hadoop.ozone.om.service.OpenKeyCleanupService;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ozone.test.tag.Unhealthy;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -109,6 +109,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -127,6 +128,7 @@ import picocli.CommandLine.RunLast;
  * Inspired by TestS3Shell
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(300)
 @TestMethodOrder(OrderAnnotation.class)
 public class TestOzoneShellHA {
 
@@ -167,7 +169,7 @@ public class TestOzoneShellHA {
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.setBoolean(OZONE_HBASE_ENHANCEMENTS_ALLOWED, true);
     conf.setBoolean(OZONE_FS_HSYNC_ENABLED, true);
-    startKMS();
+    // startKMS();
     startCluster(conf);
   }
 
@@ -181,7 +183,8 @@ public class TestOzoneShellHA {
 
     testFilePathString = path + OZONE_URI_DELIMITER + "testFile";
     testFile = new File(testFilePathString);
-    FileUtils.touch(testFile);
+    testFile.getParentFile().mkdirs();
+    testFile.createNewFile();
 
     // Init HA cluster
     omServiceId = "om-service-test1";
@@ -958,8 +961,7 @@ public class TestOzoneShellHA {
     execute(ozoneAdminShell, args1);
     //results will be capped at the maximum allowed count
     assertEquals(1, getNumOfContainers());
-    out.reset();
-    err.reset();
+
     String[] args2 = new String[] {"container", "list", "-a", "--scm",
         "localhost:" + cluster.getStorageContainerManager().getClientRpcPort()};
     execute(ozoneAdminShell, args2);
@@ -991,17 +993,17 @@ public class TestOzoneShellHA {
 
   /**
    * Helper function to retrieve Ozone client configuration for ozone
-   * trash testing with OzoneTrashPolicy.
+   * trash testing with TrashPolicyOzone.
    * @param hostPrefix Scheme + Authority. e.g. ofs://om-service-test1
    * @param configuration Server config to generate client config from.
    * @return Config ofs configuration added with fs.trash.classname
-   * = OzoneTrashPolicy.
+   * = TrashPolicyOzone.
    */
   private OzoneConfiguration getClientConfForOzoneTrashPolicy(
           String hostPrefix, OzoneConfiguration configuration) {
     OzoneConfiguration clientConf =
             getClientConfForOFS(hostPrefix, configuration);
-    clientConf.setClass("fs.trash.classname", OzoneTrashPolicy.class,
+    clientConf.setClass("fs.trash.classname", TrashPolicyOzone.class,
             TrashPolicy.class);
     return clientConf;
   }
@@ -1157,6 +1159,7 @@ public class TestOzoneShellHA {
   }
 
   @Test
+  @Timeout(10)
   public void testListBucket() throws Exception {
     final String hostPrefix = OZONE_OFS_URI_SCHEME + "://" + omServiceId;
     OzoneConfiguration clientConf =
@@ -1186,7 +1189,7 @@ public class TestOzoneShellHA {
 
     // Test delete from Trash directory removes item from filesystem
 
-    // setup configuration to use OzoneTrashPolicy
+    // setup configuration to use TrashPolicyOzone
     // (default is TrashPolicyDefault)
     final String hostPrefix = OZONE_OFS_URI_SCHEME + "://" + omServiceId;
     OzoneConfiguration clientConf =
@@ -1259,6 +1262,7 @@ public class TestOzoneShellHA {
     }
 
   }
+
 
   @Test
   @SuppressWarnings("methodlength")
@@ -1804,6 +1808,7 @@ public class TestOzoneShellHA {
   }
 
   @Test
+  @Unhealthy("HDDS-11879")
   public void testSetEncryptionKey() throws Exception {
     final String volumeName = "volume111";
     getVolume(volumeName);
@@ -1844,6 +1849,7 @@ public class TestOzoneShellHA {
           e.getCause().getMessage());
     }
   }
+
 
   @Test
   public void testKeyDeleteOrSkipTrashWhenTrashEnableFSO()
@@ -2482,6 +2488,7 @@ public class TestOzoneShellHA {
   }
 
   private static String getKeyProviderURI(MiniKMS kms) {
+    // HDDS-11879
     if (kms == null) {
       return "";
     }

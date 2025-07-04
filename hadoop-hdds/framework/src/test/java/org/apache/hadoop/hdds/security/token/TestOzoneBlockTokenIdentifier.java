@@ -65,7 +65,7 @@ public class TestOzoneBlockTokenIdentifier {
 
     // Verify an invalid signed OzoneMaster Token with Ozone Master.
     assertFalse(secretKey.isValidSignature(tokenId.getBytes(),
-        RandomUtils.secure().randomBytes(128)));
+        RandomUtils.nextBytes(128)));
   }
 
   @Test

@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  *  of TrashPolicy ozone-specific trash optimizations are/will be made such as
  *  having a multithreaded TrashEmptier.
  */
-class TrashPolicyOzone extends OzoneTrashPolicy {
+public class TrashPolicyOzone extends OzoneTrashPolicy {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(TrashPolicyOzone.class);
@@ -60,7 +60,10 @@ class TrashPolicyOzone extends OzoneTrashPolicy {
       new SimpleDateFormat("yyMMddHHmm");
   private long emptierInterval;
 
-  private final OzoneManager om;
+  private OzoneManager om;
+
+  public TrashPolicyOzone() {
+  }
 
   @Override
   public void initialize(Configuration conf, FileSystem fs) {
@@ -77,7 +80,7 @@ class TrashPolicyOzone extends OzoneTrashPolicy {
         * MSECS_PER_MINUTE);
     if (deletionInterval < 0) {
       LOG.warn("Invalid value {} for deletion interval,"
-          + " deletion interval can not be negative."
+          + " deletion interaval can not be negative."
           + "Changing to default value 0", deletionInterval);
       this.deletionInterval = 0;
     }
@@ -99,6 +102,7 @@ class TrashPolicyOzone extends OzoneTrashPolicy {
     private Configuration conf;
     // same as checkpoint interval
     private long emptierInterval;
+
 
     private ThreadPoolExecutor executor;
 
@@ -211,7 +215,6 @@ class TrashPolicyOzone extends OzoneTrashPolicy {
     private long ceiling(long time, long interval) {
       return floor(time, interval) + interval;
     }
-
     private long floor(long time, long interval) {
       return (time / interval) * interval;
     }

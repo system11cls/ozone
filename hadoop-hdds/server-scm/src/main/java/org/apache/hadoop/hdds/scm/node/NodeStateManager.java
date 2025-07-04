@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -84,8 +85,16 @@ import org.slf4j.LoggerFactory;
  */
 public class NodeStateManager implements Runnable, Closeable {
 
+  /**
+   * Node's life cycle events.
+   */
+  private enum NodeLifeCycleEvent {
+    TIMEOUT, RESTORE, RESURRECT, LAYOUT_MISMATCH, LAYOUT_MATCH
+  }
+
   private static final Logger LOG = LoggerFactory
       .getLogger(NodeStateManager.class);
+
 
   /**
    * StateMachine for node lifecycle.
@@ -299,18 +308,14 @@ public class NodeStateManager implements Runnable, Closeable {
    */
   public void addNode(DatanodeDetails datanodeDetails,
       LayoutVersionProto layoutInfo) throws NodeAlreadyExistsException {
-    nodeStateMap.addNode(newDatanodeInfo(datanodeDetails, layoutInfo));
+    NodeStatus newNodeStatus = newNodeStatus(datanodeDetails, layoutInfo);
+    nodeStateMap.addNode(datanodeDetails, newNodeStatus, layoutInfo);
     try {
       updateLastKnownLayoutVersion(datanodeDetails, layoutInfo);
     } catch (NodeNotFoundException ex) {
       throw new IllegalStateException("Inconsistent NodeStateMap! Datanode "
           + datanodeDetails.getID() + " was added but not found in map: " + nodeStateMap);
     }
-  }
-
-  private DatanodeInfo newDatanodeInfo(DatanodeDetails datanode, LayoutVersionProto layout) {
-    final NodeStatus status = newNodeStatus(datanode, layout);
-    return new DatanodeInfo(datanode, status, layout);
   }
 
   /**
@@ -333,9 +338,11 @@ public class NodeStateManager implements Runnable, Closeable {
       LOG.info("Updating nodeOperationalState on registration as the " +
               "datanode has a persisted state of {} and expiry of {}",
           dnOpState, dn.getPersistedOpStateExpiryEpochSec());
-      return NodeStatus.valueOf(dnOpState, state, dn.getPersistedOpStateExpiryEpochSec());
+      return new NodeStatus(dnOpState, state,
+          dn.getPersistedOpStateExpiryEpochSec());
     } else {
-      return NodeStatus.valueOf(NodeOperationalState.IN_SERVICE, state);
+      return new NodeStatus(
+          NodeOperationalState.IN_SERVICE, state);
     }
   }
 
@@ -353,7 +360,7 @@ public class NodeStateManager implements Runnable, Closeable {
    * @return number of pipelines associated with it
    */
   public int getPipelinesCount(DatanodeDetails datanodeDetails) {
-    return node2PipelineMap.getPipelinesCount(datanodeDetails.getID());
+    return node2PipelineMap.getPipelinesCount(datanodeDetails.getUuid());
   }
 
   /**
@@ -409,10 +416,14 @@ public class NodeStateManager implements Runnable, Closeable {
   public void updateNode(DatanodeDetails datanodeDetails,
                          LayoutVersionProto layoutInfo)
           throws NodeNotFoundException {
-    final DatanodeInfo newInfo = newDatanodeInfo(datanodeDetails, layoutInfo);
-    final DatanodeInfo oldInfo = nodeStateMap.updateNode(newInfo);
-    LOG.info("Updated datanode {} {} to {} {}",
-        oldInfo, oldInfo.getNodeStatus(), newInfo, newInfo.getNodeStatus());
+    final DatanodeInfo datanodeInfo = nodeStateMap.getNodeInfo(datanodeDetails.getID());
+    NodeStatus newNodeStatus = newNodeStatus(datanodeDetails, layoutInfo);
+    LOG.info("updating node {} from {} to {} with status {}",
+            datanodeDetails.getUuidString(),
+            datanodeInfo,
+            datanodeDetails,
+            newNodeStatus);
+    nodeStateMap.updateNode(datanodeDetails, newNodeStatus, layoutInfo);
     updateLastKnownLayoutVersion(datanodeDetails, layoutInfo);
   }
 
@@ -544,10 +555,6 @@ public class NodeStateManager implements Runnable, Closeable {
     return nodeStateMap.getAllDatanodeInfos();
   }
 
-  int getAllNodeCount() {
-    return nodeStateMap.getNodeCount();
-  }
-
   /**
    * Sets the operational state of the given node. Intended to be called when
    * a node is being decommissioned etc.
@@ -598,7 +605,7 @@ public class NodeStateManager implements Runnable, Closeable {
    * @param dnId - Datanode ID
    * @return Set of PipelineID
    */
-  public Set<PipelineID> getPipelineByDnID(DatanodeID dnId) {
+  public Set<PipelineID> getPipelineByDnID(UUID dnId) {
     return node2PipelineMap.getPipelines(dnId);
   }
 
@@ -692,13 +699,12 @@ public class NodeStateManager implements Runnable, Closeable {
   }
 
   /**
-   * Set the containers for the given datanode.
-   * This method is only used for testing.
+   * Update set of containers available on a datanode.
    * @throws NodeNotFoundException - if datanode is not known.
    */
-  void setContainersForTesting(DatanodeID datanodeID, Set<ContainerID> containerIds)
+  public void setContainers(DatanodeID datanodeID, Set<ContainerID> containerIds)
       throws NodeNotFoundException {
-    nodeStateMap.setContainersForTesting(datanodeID, containerIds);
+    nodeStateMap.setContainers(datanodeID, containerIds);
   }
 
   /**
@@ -1071,12 +1077,5 @@ public class NodeStateManager implements Runnable, Closeable {
 
   protected void removeNode(DatanodeID datanodeID) {
     nodeStateMap.removeNode(datanodeID);
-  }
-
-  /**
-   * Node's life cycle events.
-   */
-  private enum NodeLifeCycleEvent {
-    TIMEOUT, RESTORE, RESURRECT, LAYOUT_MISMATCH, LAYOUT_MATCH
   }
 }

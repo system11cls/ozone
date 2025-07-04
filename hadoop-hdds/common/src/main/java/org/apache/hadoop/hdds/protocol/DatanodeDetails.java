@@ -27,8 +27,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -36,7 +34,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.DatanodeVersion;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
@@ -67,15 +64,21 @@ import org.slf4j.LoggerFactory;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDetails> {
+public class DatanodeDetails extends NodeImpl implements
+    Comparable<DatanodeDetails> {
 
-  private static final Logger LOG = LoggerFactory.getLogger(DatanodeDetails.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(DatanodeDetails.class);
 
   private static final Codec<DatanodeDetails> CODEC = new DelegatedCodec<>(
       Proto2Codec.get(ExtendedDatanodeDetailsProto.getDefaultInstance()),
       DatanodeDetails::getFromProtoBuf,
       DatanodeDetails::getExtendedProtoBufMessage,
       DatanodeDetails.class);
+
+  public static Codec<DatanodeDetails> getCodec() {
+    return CODEC;
+  }
 
   /**
    * DataNode's unique identifier in the cluster.
@@ -139,10 +142,6 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
     this.currentVersion = datanodeDetails.getCurrentVersion();
   }
 
-  public static Codec<DatanodeDetails> getCodec() {
-    return CODEC;
-  }
-
   public DatanodeID getID() {
     return id;
   }
@@ -177,40 +176,12 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
   }
 
   /**
-   * Resolves and validates the IP address of the datanode based on its hostname.
-   * If the resolved IP address differs from the current IP address,
-   * it updates the IP address to the newly resolved value.
-   */
-  public void validateDatanodeIpAddress() {
-    final String oldIP = getIpAddress();
-    final String hostname = getHostName();
-    if (StringUtils.isBlank(hostname)) {
-      LOG.warn("Could not resolve IP address of datanode '{}'", this);
-      return;
-    }
-
-    try {
-      final String newIP = InetAddress.getByName(hostname).getHostAddress();
-      if (StringUtils.isBlank(newIP)) {
-        throw new UnknownHostException("New IP address is invalid: " + newIP);
-      }
-
-      if (!newIP.equals(oldIP)) {
-        LOG.info("Updating IP address of datanode {} to {}", this, newIP);
-        setIpAddress(newIP);
-      }
-    } catch (UnknownHostException e) {
-      LOG.warn("Could not resolve IP address of datanode '{}'", this, e);
-    }
-  }
-
-  /**
    * Returns IP address of DataNode.
    *
    * @return IP address
    */
   public String getIpAddress() {
-    return ipAddress == null ? null : ipAddress.getString();
+    return ipAddress.getString();
   }
 
   /**
@@ -237,7 +208,7 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
    * @return Hostname
    */
   public String getHostName() {
-    return hostName == null ? null : hostName.getString();
+    return hostName.getString();
   }
 
   /**
@@ -411,6 +382,7 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
   public Port getStandalonePort() {
     return getPort(Name.STANDALONE);
   }
+
 
   /**
    * Starts building a new DatanodeDetails from the protobuf input.
@@ -677,6 +649,7 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
     return obj instanceof DatanodeDetails &&
         id.equals(((DatanodeDetails) obj).id);
   }
+
 
   /**
    * Checks hostname, ipAddress and port of the 2 nodes are the same.
@@ -1014,8 +987,6 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
    * Container to hold DataNode Port details.
    */
   public static final class Port {
-    private final Name name;
-    private final Integer value;
 
     /**
      * Ports that are supported in DataNode.
@@ -1039,6 +1010,9 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
       public static final Set<Name> IO_PORTS = ImmutableSet.copyOf(
           EnumSet.of(STANDALONE, RATIS, RATIS_DATASTREAM));
     }
+
+    private final Name name;
+    private final Integer value;
 
     /**
      * Private constructor for constructing Port object. Use

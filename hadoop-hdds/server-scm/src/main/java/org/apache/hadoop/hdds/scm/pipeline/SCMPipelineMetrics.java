@@ -31,9 +31,7 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
-import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.util.Time;
 
 /**
  * This class maintains Pipeline related metrics.
@@ -56,7 +54,6 @@ public final class SCMPipelineMetrics implements MetricsSource {
   private @Metric MutableCounterLong numPipelineReportProcessed;
   private @Metric MutableCounterLong numPipelineReportProcessingFailed;
   private @Metric MutableCounterLong numPipelineContainSameDatanodes;
-  private @Metric MutableRate pipelineCreationLatencyNs;
   private final Map<PipelineID, MutableCounterLong> numBlocksAllocated;
   private final Map<PipelineID, MutableCounterLong> numBytesWritten;
 
@@ -103,7 +100,6 @@ public final class SCMPipelineMetrics implements MetricsSource {
     numPipelineReportProcessed.snapshot(recordBuilder, true);
     numPipelineReportProcessingFailed.snapshot(recordBuilder, true);
     numPipelineContainSameDatanodes.snapshot(recordBuilder, true);
-    pipelineCreationLatencyNs.snapshot(recordBuilder, true);
     numBytesWritten
         .forEach((pid, metric) -> metric.snapshot(recordBuilder, true));
     numBlocksAllocated
@@ -211,9 +207,5 @@ public final class SCMPipelineMetrics implements MetricsSource {
    */
   void incNumPipelineContainSameDatanodes() {
     numPipelineContainSameDatanodes.incr();
-  }
-
-  public void updatePipelineCreationLatencyNs(long startNanos) {
-    pipelineCreationLatencyNs.add(Time.monotonicNowNanos() - startNanos);
   }
 }

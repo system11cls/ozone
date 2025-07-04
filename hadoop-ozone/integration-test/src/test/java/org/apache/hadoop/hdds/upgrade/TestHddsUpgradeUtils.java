@@ -58,13 +58,14 @@ import org.slf4j.LoggerFactory;
  */
 public final class TestHddsUpgradeUtils {
 
-  private static final Logger LOG = LoggerFactory.getLogger(TestHddsUpgradeUtils.class);
+  private TestHddsUpgradeUtils() { }
+
+  private static final Logger LOG =
+      LoggerFactory.getLogger(TestHddsUpgradeUtils.class);
 
   private static final ReplicationConfig RATIS_THREE =
       ReplicationConfig.fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
           HddsProtos.ReplicationFactor.THREE);
-
-  private TestHddsUpgradeUtils() { }
 
   public static void waitForFinalizationFromClient(
       StorageContainerLocationProtocol scmClient, String clientID)

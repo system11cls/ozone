@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OmKeysDeleteRequestWithFSO extends OMKeysDeleteRequest {
 
-  private static final Logger LOG = LoggerFactory.getLogger(OmKeysDeleteRequestWithFSO.class);
+  public static final Logger LOG = LoggerFactory.getLogger(OmKeysDeleteRequestWithFSO.class);
 
   public OmKeysDeleteRequestWithFSO(
       OzoneManagerProtocolProtos.OMRequest omRequest,

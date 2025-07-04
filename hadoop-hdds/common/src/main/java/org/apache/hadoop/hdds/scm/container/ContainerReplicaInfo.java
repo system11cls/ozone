@@ -17,13 +17,6 @@
 
 package org.apache.hadoop.hdds.scm.container;
 
-import static org.apache.hadoop.hdds.HddsUtils.checksumToString;
-
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import java.io.IOException;
 import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -41,8 +34,6 @@ public final class ContainerReplicaInfo {
   private long keyCount;
   private long bytesUsed;
   private int replicaIndex = -1;
-  @JsonSerialize(using = LongToHexJsonSerializer.class)
-  private long dataChecksum;
 
   public static ContainerReplicaInfo fromProto(
       HddsProtos.SCMContainerReplicaProto proto) {
@@ -56,8 +47,7 @@ public final class ContainerReplicaInfo {
         .setKeyCount(proto.getKeyCount())
         .setBytesUsed(proto.getBytesUsed())
         .setReplicaIndex(
-            proto.hasReplicaIndex() ? (int)proto.getReplicaIndex() : -1)
-        .setDataChecksum(proto.getDataChecksum());
+            proto.hasReplicaIndex() ? (int)proto.getReplicaIndex() : -1);
     return builder.build();
   }
 
@@ -94,17 +84,6 @@ public final class ContainerReplicaInfo {
 
   public int getReplicaIndex() {
     return replicaIndex;
-  }
-
-  public long getDataChecksum() {
-    return dataChecksum;
-  }
-
-  private static class LongToHexJsonSerializer extends JsonSerializer<Long> {
-    @Override
-    public void serialize(Long value, JsonGenerator gen, SerializerProvider provider) throws IOException {
-      gen.writeString(checksumToString(value));
-    }
   }
 
   /**
@@ -151,11 +130,6 @@ public final class ContainerReplicaInfo {
 
     public Builder setReplicaIndex(int replicaIndex) {
       subject.replicaIndex = replicaIndex;
-      return this;
-    }
-
-    public Builder setDataChecksum(long dataChecksum) {
-      subject.dataChecksum = dataChecksum;
       return this;
     }
 

@@ -17,8 +17,8 @@
 
 package org.apache.hadoop.ozone.om.response.snapshot;
 
-import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.SNAPSHOT_INFO_TABLE;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.FlatResource.SNAPSHOT_DB_LOCK;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.SNAPSHOT_INFO_TABLE;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.SNAPSHOT_LOCK;
 
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Nonnull;
@@ -121,7 +121,8 @@ public class OMSnapshotPurgeResponse extends OMClientResponse {
     // inside the snapshot directory. Any operation apart which doesn't create/delete files under this snapshot
     // directory can run in parallel along with this operation.
     OMLockDetails omLockDetails = omMetadataManager.getLock()
-        .acquireWriteLock(SNAPSHOT_DB_LOCK, snapshotInfo.getSnapshotId().toString());
+        .acquireWriteLock(SNAPSHOT_LOCK, snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(),
+            snapshotInfo.getName());
     boolean acquiredSnapshotLock = omLockDetails.isLockAcquired();
     if (acquiredSnapshotLock) {
       Path snapshotDirPath = OmSnapshotManager.getSnapshotPath(omMetadataManager, snapshotInfo);
@@ -131,7 +132,8 @@ public class OMSnapshotPurgeResponse extends OMClientResponse {
         LOG.error("Failed to delete snapshot directory {} for snapshot {}",
             snapshotDirPath, snapshotInfo.getTableKey(), ex);
       } finally {
-        omMetadataManager.getLock().releaseWriteLock(SNAPSHOT_DB_LOCK, snapshotInfo.getSnapshotId().toString());
+        omMetadataManager.getLock().releaseWriteLock(SNAPSHOT_LOCK, snapshotInfo.getVolumeName(),
+            snapshotInfo.getBucketName(), snapshotInfo.getName());
       }
     }
   }

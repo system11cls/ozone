@@ -126,6 +126,7 @@ public class AbstractReconContainerManagerTest {
 
   @AfterEach
   public void tearDown() throws Exception {
+    containerManager.close();
     pipelineManager.close();
     store.close();
   }

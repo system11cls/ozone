@@ -72,7 +72,6 @@ import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.utils.FaultInjectorImpl;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.apache.ozone.test.OzoneTestBase;
 import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.AfterAll;
@@ -84,6 +83,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.event.Level;
@@ -91,6 +91,7 @@ import org.slf4j.event.Level;
 /**
  * Test cases for recoverLease() API.
  */
+@Timeout(300)
 @Flaky("HDDS-11323")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -105,7 +106,7 @@ public class TestLeaseRecovery extends OzoneTestBase {
   private final OzoneConfiguration conf = new OzoneConfiguration();
   private String dir;
   private Path file;
-  private LogCapturer xceiverClientLogs;
+  private GenericTestUtils.LogCapturer xceiverClientLogs;
   private RootedOzoneFileSystem fs;
 
   /**
@@ -165,14 +166,14 @@ public class TestLeaseRecovery extends OzoneTestBase {
     // create a volume and a bucket to be used by OzoneFileSystem
     bucket = TestDataUtil.createVolumeAndBucket(client, layout);
 
-    GenericTestUtils.setLogLevel(XceiverClientGrpc.class, Level.DEBUG);
+    GenericTestUtils.setLogLevel(XceiverClientGrpc.getLogger(), Level.DEBUG);
 
     // Set the fs.defaultFS
     final String rootPath = String.format("%s://%s/", OZONE_OFS_URI_SCHEME, conf.get(OZONE_OM_ADDRESS_KEY));
     conf.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, rootPath);
     dir = OZONE_ROOT + bucket.getVolumeName() + OZONE_URI_DELIMITER + bucket.getName();
 
-    xceiverClientLogs = LogCapturer.captureLogs(XceiverClientGrpc.class);
+    xceiverClientLogs = GenericTestUtils.LogCapturer.captureLogs(XceiverClientGrpc.getLogger());
   }
 
   @BeforeEach
@@ -294,8 +295,8 @@ public class TestLeaseRecovery extends OzoneTestBase {
           "Requested operation not allowed as ContainerState is CLOSED",
           ContainerProtos.Result.CLOSED_CONTAINER_IO);
       injector.setException(sce);
-      LogCapturer logs =
-          LogCapturer.captureLogs(BasicRootedOzoneClientAdapterImpl.class);
+      GenericTestUtils.LogCapturer logs =
+          GenericTestUtils.LogCapturer.captureLogs(BasicRootedOzoneClientAdapterImpl.LOG);
 
       fs.recoverLease(file);
       assertTrue(logs.getOutput().contains("Failed to execute finalizeBlock command"));

@@ -23,7 +23,6 @@ Test Timeout        10 minutes
 *** Variables ***
 ${SNAPSHOT_ONE}
 ${SNAPSHOT_TWO}
-${SNAPSHOT_THREE}
 ${KEY_ONE}
 ${KEY_TWO}
 ${KEY_THREE}
@@ -48,12 +47,11 @@ Snapshot Diff
     Set Suite Variable      ${KEY_THREE}        ${key_three}
     ${snapshot_two} =       Create snapshot     ${VOLUME}       ${BUCKET}
     Set Suite Variable      ${SNAPSHOT_TWO}     ${snapshot_two}
-    ${snapshot_three} =     Create snapshot     ${VOLUME}       ${BUCKET}
-    Set Suite Variable      ${SNAPSHOT_THREE}     ${snapshot_three}
     ${result} =     Execute             ozone sh snapshot diff /${VOLUME}/${BUCKET} ${SNAPSHOT_ONE} ${SNAPSHOT_TWO}
                     Should contain      ${result}       Snapshot diff job is IN_PROGRESS
-    ${result} =     Execute             ozone sh snapshot diff /${VOLUME}/${BUCKET} ${SNAPSHOT_ONE} ${SNAPSHOT_THREE}
-                    Should contain      ${result}       Snapshot diff job is IN_PROGRESS
+    ${result} =     Execute             ozone sh snapshot diff /${VOLUME}/${BUCKET} ${SNAPSHOT_ONE} ${SNAPSHOT_TWO}
+                    Should contain      ${result}       +    ${KEY_TWO}
+                    Should contain      ${result}       +    ${KEY_THREE}
 
 Snapshot Diff as JSON
     ${result} =     Execute             ozone sh snapshot diff --json /${VOLUME}/${BUCKET} ${SNAPSHOT_ONE} ${SNAPSHOT_TWO}
@@ -64,18 +62,13 @@ Snapshot Diff as JSON
                     Should contain      echo '${result}' | jq '.snapshotDiffReport.toSnapshot'    ${SNAPSHOT_TWO}
                     Should contain      echo '${result}' | jq '.snapshotDiffReport.diffList | .[].sourcePath'    ${KEY_TWO}
                     Should contain      echo '${result}' | jq '.snapshotDiffReport.diffList | .[].sourcePath'    ${KEY_THREE}
-    ${result} =     Execute             ozone sh snapshot diff --json /${VOLUME}/${BUCKET} ${SNAPSHOT_ONE} ${SNAPSHOT_TWO}
-                    Should contain      echo '${result}' | jq '.jobStatus'   DONE
 
 List Snapshot Diff Jobs
-    ${result} =     Execute             ozone sh snapshot listDiff /${VOLUME}/${BUCKET} --all-status
+    ${result} =     Execute             ozone sh snapshot listDiff /${VOLUME}/${BUCKET} --all
                     Should contain      ${result}        ${VOLUME}
                     Should contain      ${result}        ${BUCKET}
                     Should contain      ${result}        ${SNAPSHOT_ONE}
                     Should contain      ${result}        ${SNAPSHOT_TWO}
-                    Should contain      ${result}        ${SNAPSHOT_THREE}
-    ${result} =     Execute             ozone sh snapshot listDiff /${VOLUME}/${BUCKET} --all-status -l=1 | jq 'length'
-                    Should contain      ${result}        1
 
 Read Snapshot
     Key Should Match Local File         /${VOLUME}/${BUCKET}/${SNAPSHOT_INDICATOR}/${SNAPSHOT_ONE}/${KEY_ONE}       /etc/hosts

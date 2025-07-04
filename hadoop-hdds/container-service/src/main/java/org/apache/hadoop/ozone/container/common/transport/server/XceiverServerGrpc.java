@@ -26,18 +26,19 @@ import java.io.IOException;
 import java.net.BindException;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReport;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
 import org.apache.hadoop.hdds.tracing.GrpcServerInterceptor;
@@ -70,7 +71,7 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
   private static final Logger
       LOG = LoggerFactory.getLogger(XceiverServerGrpc.class);
   private int port;
-  private DatanodeID id;
+  private UUID id;
   private Server server;
   private final ContainerDispatcher storageContainer;
   private boolean isStarted;
@@ -89,7 +90,7 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
       ContainerDispatcher dispatcher, CertificateClient caClient) {
     Preconditions.checkNotNull(conf);
 
-    this.id = datanodeDetails.getID();
+    this.id = datanodeDetails.getUuid();
     this.datanodeDetails = datanodeDetails;
     this.port = conf.getInt(OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT,
         OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT_DEFAULT);
@@ -236,13 +237,14 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
 
   @Override
   public boolean isExist(HddsProtos.PipelineID pipelineId) {
-    return id.toPipelineID().getProtobuf().equals(pipelineId);
+    return PipelineID.valueOf(id).getProtobuf().equals(pipelineId);
   }
 
   @Override
   public List<PipelineReport> getPipelineReport() {
-    return Collections.singletonList(PipelineReport.newBuilder()
-        .setPipelineID(id.toPipelineID().getProtobuf())
-        .build());
+    return Collections.singletonList(
+            PipelineReport.newBuilder()
+                    .setPipelineID(PipelineID.valueOf(id).getProtobuf())
+                    .build());
   }
 }

@@ -25,13 +25,6 @@ import java.util.HashMap;
  */
 public class RadixNode<T> {
 
-  private HashMap<String, RadixNode> children;
-
-  private String name;
-
-  // TODO: k/v pairs for more metadata as needed
-  private T value;
-
   public RadixNode(String name) {
     this.name = name;
     this.children = new HashMap<>();
@@ -56,4 +49,11 @@ public class RadixNode<T> {
   public T getValue() {
     return value;
   }
+
+  private HashMap<String, RadixNode> children;
+
+  private String name;
+
+  // TODO: k/v pairs for more metadata as needed
+  private T value;
 }

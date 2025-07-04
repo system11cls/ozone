@@ -37,8 +37,6 @@ import org.apache.ratis.util.function.CheckedBiConsumer;
  * A Client for the storageContainer protocol.
  */
 public abstract class XceiverClientSpi implements Closeable {
-  private final AtomicInteger referenceCount;
-  private boolean isEvicted;
 
   /**
    * Validator for container command request/response.
@@ -48,6 +46,9 @@ public abstract class XceiverClientSpi implements Closeable {
           ContainerCommandResponseProto, IOException> {
     // just a shortcut to avoid having to repeat long list of generic parameters
   }
+
+  private final AtomicInteger referenceCount;
+  private boolean isEvicted;
 
   public XceiverClientSpi() {
     this.referenceCount = new AtomicInteger(0);
@@ -149,7 +150,6 @@ public abstract class XceiverClientSpi implements Closeable {
     return new IOException("Failed to execute command "
         + HddsUtils.processForDebug(request), e);
   }
-
   /**
    * Sends a given command to server gets a waitable future back.
    *

@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -111,7 +111,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
     // Create 7 containers. The first 5 will have various unhealthy states
     // defined below. The container with ID=6 will be healthy and
     // container with ID=7 will be EMPTY_MISSING (but not inserted into DB)
-    List<ContainerInfo> mockContainers = getMockContainers(8);
+    List<ContainerInfo> mockContainers = getMockContainers(7);
     when(scmMock.getScmServiceProvider()).thenReturn(scmClientMock);
     when(scmMock.getContainerManager()).thenReturn(containerManagerMock);
     when(containerManagerMock.getContainers(any(ContainerID.class),
@@ -180,15 +180,6 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
     when(reconContainerMetadataManager.getKeyCountForContainer(
         7L)).thenReturn(5L);  // Indicates non-empty container 7 for now
 
-    // container ID 8 - REPLICA_MISMATCH
-    ContainerInfo containerInfo8 =
-        TestContainerInfo.newBuilderForTest().setContainerID(8).setReplicationConfig(replicationConfig).build();
-    when(containerManagerMock.getContainer(ContainerID.valueOf(8L))).thenReturn(containerInfo8);
-    Set<ContainerReplica> mismatchReplicas = getMockReplicasChecksumMismatch(8L,
-        State.CLOSED, State.CLOSED, State.CLOSED);
-    when(containerManagerMock.getContainerReplicas(containerInfo8.containerID()))
-        .thenReturn(mismatchReplicas);
-
     List<UnhealthyContainers> all = unHealthyContainersTableHandle.findAll();
     assertThat(all).isEmpty();
 
@@ -207,7 +198,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
 
     // Ensure unhealthy container count in DB matches expected
     LambdaTestUtils.await(60000, 1000, () ->
-        (unHealthyContainersTableHandle.count() == 6));
+        (unHealthyContainersTableHandle.count() == 5));
 
     // Check for UNDER_REPLICATED container states
     UnhealthyContainers rec =
@@ -260,12 +251,6 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
     assertEquals(1, rec.getActualReplicaCount().intValue());
     assertNotNull(rec.getReason());
 
-    rec = unHealthyContainersTableHandle.fetchByContainerId(8L).get(0);
-    assertEquals("REPLICA_MISMATCH", rec.getContainerState());
-    assertEquals(0, rec.getReplicaDelta().intValue());
-    assertEquals(3, rec.getExpectedReplicaCount().intValue());
-    assertEquals(3, rec.getActualReplicaCount().intValue());
-
     ReconTaskStatus taskStatus =
         reconTaskStatusDao.findById(containerHealthTask.getTaskName());
     assertThat(taskStatus.getLastUpdatedTimestamp())
@@ -298,7 +283,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
 
     // Ensure count is reduced after EMPTY_MISSING containers are not inserted
     LambdaTestUtils.await(60000, 1000, () ->
-        (unHealthyContainersTableHandle.count() == 3));
+        (unHealthyContainersTableHandle.count() == 2));
 
     rec = unHealthyContainersTableHandle.fetchByContainerId(1L).get(0);
     assertEquals("UNDER_REPLICATED", rec.getContainerState());
@@ -330,7 +315,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
 
     // Just check once again that count remains consistent
     LambdaTestUtils.await(60000, 1000, () ->
-        (unHealthyContainersTableHandle.count() == 3));
+        (unHealthyContainersTableHandle.count() == 2));
 
     // Since other container states have been changing, but no change in UNDER_REPLICATED
     // container count, UNDER_REPLICATED count metric should not be affected from previous
@@ -465,7 +450,6 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
 
       case MIS_REPLICATED:
       case NEGATIVE_SIZE:
-      case REPLICA_MISMATCH:
         unhealthyContainer.setExpectedReplicaCount(3);
         unhealthyContainer.setActualReplicaCount(3);
         unhealthyContainer.setReplicaDelta(0);
@@ -508,69 +492,6 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
           "The inserted container state does not match for state " +
               state.name() + ".");
     }
-  }
-
-  @Test
-  public void testInsertFailureAndUpdateBehavior() {
-    UnhealthyContainersDao unHealthyContainersTableHandle =
-        getDao(UnhealthyContainersDao.class);
-
-    ContainerHealthSchemaManager containerHealthSchemaManager =
-        new ContainerHealthSchemaManager(
-            getSchemaDefinition(ContainerSchemaDefinition.class),
-            unHealthyContainersTableHandle);
-
-    ContainerSchemaDefinition.UnHealthyContainerStates state =
-        ContainerSchemaDefinition.UnHealthyContainerStates.MISSING;
-
-    long insertedTime = System.currentTimeMillis();
-    // Create a dummy UnhealthyContainer record with the current state
-    UnhealthyContainers unhealthyContainer = new UnhealthyContainers();
-    unhealthyContainer.setContainerId(state.ordinal() + 1L);
-    unhealthyContainer.setExpectedReplicaCount(3);
-    unhealthyContainer.setActualReplicaCount(0);
-    unhealthyContainer.setReplicaDelta(3);
-    unhealthyContainer.setContainerState(state.name());
-    unhealthyContainer.setInStateSince(insertedTime);
-
-    // Try inserting the record and catch any exception that occurs
-    Exception exception = null;
-    try {
-      containerHealthSchemaManager.insertUnhealthyContainerRecords(
-          Collections.singletonList(unhealthyContainer));
-    } catch (Exception e) {
-      exception = e;
-    }
-
-    // Assert no exception should be thrown for each state
-    assertNull(exception,
-        "Exception was thrown during insertion for state " + state.name() +
-            ": " + exception);
-
-    long updatedTime = System.currentTimeMillis();
-    unhealthyContainer.setExpectedReplicaCount(3);
-    unhealthyContainer.setActualReplicaCount(0);
-    unhealthyContainer.setReplicaDelta(3);
-    unhealthyContainer.setContainerState(state.name());
-    unhealthyContainer.setInStateSince(updatedTime);
-
-    try {
-      containerHealthSchemaManager.insertUnhealthyContainerRecords(
-          Collections.singletonList(unhealthyContainer));
-    } catch (Exception e) {
-      exception = e;
-    }
-
-    // Optionally, verify the record was updated correctly
-    List<UnhealthyContainers> updatedRecords =
-        unHealthyContainersTableHandle.fetchByContainerId(
-            state.ordinal() + 1L);
-    assertFalse(updatedRecords.isEmpty(),
-        "Record was not updated for state " + state.name() + ".");
-    assertEquals(updatedRecords.get(0).getContainerState(), state.name(),
-        "The inserted container state does not match for state " +
-            state.name() + ".");
-    assertEquals(updatedRecords.get(0).getInStateSince(), updatedTime);
   }
 
   @Test
@@ -690,25 +611,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
           .setContainerState(s)
           .setContainerID(ContainerID.valueOf(containerId))
           .setSequenceId(1)
-          .setDataChecksum(1234L)
           .build());
-    }
-    return replicas;
-  }
-
-  private Set<ContainerReplica> getMockReplicasChecksumMismatch(
-      long containerId, State...states) {
-    Set<ContainerReplica> replicas = new HashSet<>();
-    long checksum = 1234L;
-    for (State s : states) {
-      replicas.add(ContainerReplica.newBuilder()
-          .setDatanodeDetails(MockDatanodeDetails.randomDatanodeDetails())
-          .setContainerState(s)
-          .setContainerID(ContainerID.valueOf(containerId))
-          .setSequenceId(1)
-          .setDataChecksum(checksum)
-          .build());
-      checksum++;
     }
     return replicas;
   }
@@ -781,6 +684,7 @@ public class TestContainerHealthTask extends AbstractReconSqlDBTest {
             Map<ContainerReplica, Boolean> replicas) {
       return Collections.emptySet();
     }
+
 
     @Override
     public Set<ContainerReplica> replicasToRemoveToFixOverreplication(

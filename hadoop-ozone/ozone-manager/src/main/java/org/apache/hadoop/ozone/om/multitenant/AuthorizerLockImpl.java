@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 public class AuthorizerLockImpl implements AuthorizerLock {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(AuthorizerLockImpl.class);
 
   private final StampedLock authorizerStampedLock = new StampedLock();

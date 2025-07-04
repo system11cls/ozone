@@ -156,7 +156,8 @@ public abstract class SCMCommonPlacementPolicy implements
     }
     for (int i = 0; i < dns.size(); i++) {
       DatanodeDetails node = dns.get(i);
-      final DatanodeDetails datanodeDetails = nodeManager.getNode(node.getID());
+      DatanodeDetails datanodeDetails =
+          nodeManager.getNodeByUuid(node.getUuid());
       if (datanodeDetails != null) {
         dns.set(i, datanodeDetails);
       }
@@ -308,7 +309,9 @@ public abstract class SCMCommonPlacementPolicy implements
 
     if (dataSizeRequired > 0) {
       for (StorageReportProto reportProto : datanodeInfo.getStorageReports()) {
-        if (VolumeUsage.getUsableSpace(reportProto) > dataSizeRequired) {
+        if (VolumeUsage.hasVolumeEnoughSpace(reportProto.getRemaining(),
+              reportProto.getCommitted(), dataSizeRequired,
+              reportProto.getFreeSpaceToSpare())) {
           enoughForData = true;
           break;
         }
@@ -495,7 +498,7 @@ public abstract class SCMCommonPlacementPolicy implements
   public boolean isValidNode(DatanodeDetails datanodeDetails,
       long metadataSizeRequired, long dataSizeRequired) {
     DatanodeInfo datanodeInfo = (DatanodeInfo)getNodeManager()
-        .getNode(datanodeDetails.getID());
+        .getNodeByUuid(datanodeDetails.getUuid());
     if (datanodeInfo == null) {
       LOG.error("Failed to find the DatanodeInfo for datanode {}",
           datanodeDetails);

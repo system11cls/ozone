@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CloseContainerEventHandler implements EventHandler<ContainerID> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(CloseContainerEventHandler.class);
 
   private final PipelineManager pipelineManager;
@@ -158,7 +158,7 @@ public class CloseContainerEventHandler implements EventHandler<ContainerID> {
       throws ContainerNotFoundException {
     getNodes(container).forEach(node ->
         publisher.fireEvent(DATANODE_COMMAND,
-            new CommandForDatanode<>(node, command)));
+            new CommandForDatanode<>(node.getUuid(), command)));
     return null;
   }
 

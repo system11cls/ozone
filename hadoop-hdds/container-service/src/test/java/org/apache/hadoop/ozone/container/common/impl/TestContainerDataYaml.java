@@ -85,7 +85,6 @@ public class TestContainerDataYaml {
     keyValueContainerData.setSchemaVersion(
         VersionedDatanodeFeatures.SchemaV2.chooseSchemaVersion());
     keyValueContainerData.setReplicaIndex(replicaIndex);
-    keyValueContainerData.setDataChecksum(12345);
 
     File containerFile = new File(testRoot, containerPath);
 
@@ -201,6 +200,7 @@ public class TestContainerDataYaml {
     assertThat(exception).hasMessageContaining("No enum constant");
   }
 
+
   @ContainerLayoutTestInfo.ContainerTest
   void testCheckBackWardCompatibilityOfContainerFile(
       ContainerLayoutVersion layout) throws Exception {
@@ -216,7 +216,7 @@ public class TestContainerDataYaml {
     File file = new File(classLoader.getResource(containerFile).getFile());
     KeyValueContainerData kvData = (KeyValueContainerData) ContainerDataYaml
         .readContainerFile(file);
-    ContainerUtils.verifyContainerFileChecksum(kvData, conf);
+    ContainerUtils.verifyChecksum(kvData, conf);
 
     //Checking the Container file data is consistent or not
     assertEquals(ContainerProtos.ContainerDataProto.State.CLOSED, kvData
@@ -234,7 +234,7 @@ public class TestContainerDataYaml {
   }
 
   /**
-   * Test to verify {@link ContainerUtils#verifyContainerFileChecksum(ContainerData,ConfigurationSource)}.
+   * Test to verify {@link ContainerUtils#verifyChecksum(ContainerData,ConfigurationSource)}.
    */
   @ContainerLayoutTestInfo.ContainerTest
   public void testChecksumInContainerFile(ContainerLayoutVersion layout) throws IOException {
@@ -245,32 +245,13 @@ public class TestContainerDataYaml {
 
     // Read from .container file, and verify data.
     KeyValueContainerData kvData = (KeyValueContainerData) ContainerDataYaml.readContainerFile(containerFile);
-    ContainerUtils.verifyContainerFileChecksum(kvData, conf);
+    ContainerUtils.verifyChecksum(kvData, conf);
 
     cleanup();
   }
 
   /**
-   * The container's data checksum is stored in a separate file with its Merkle hash tree. It should not be persisted
-   * to the .container file.
-   */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testDataChecksumNotInContainerFile(ContainerLayoutVersion layout) throws IOException {
-    setLayoutVersion(layout);
-    long containerID = testContainerID++;
-
-    File containerFile = createContainerFile(containerID, 0);
-
-    // Read from .container file. The kvData object should not have a data hash because it was not persisted in this
-    // file.
-    KeyValueContainerData kvData = (KeyValueContainerData) ContainerDataYaml.readContainerFile(containerFile);
-    assertEquals(0, kvData.getDataChecksum());
-
-    cleanup();
-  }
-
-  /**
-   * Test to verify {@link ContainerUtils#verifyContainerFileChecksum(ContainerData,ConfigurationSource)}.
+   * Test to verify {@link ContainerUtils#verifyChecksum(ContainerData,ConfigurationSource)}.
    */
   @ContainerLayoutTestInfo.ContainerTest
   public void testChecksumInContainerFileWithReplicaIndex(
@@ -283,7 +264,7 @@ public class TestContainerDataYaml {
     // Read from .container file, and verify data.
     KeyValueContainerData kvData = (KeyValueContainerData) ContainerDataYaml
         .readContainerFile(containerFile);
-    ContainerUtils.verifyContainerFileChecksum(kvData, conf);
+    ContainerUtils.verifyChecksum(kvData, conf);
 
     cleanup();
   }
@@ -304,7 +285,7 @@ public class TestContainerDataYaml {
     setLayoutVersion(layout);
     Exception ex = assertThrows(Exception.class, () -> {
       KeyValueContainerData kvData = getKeyValueContainerData();
-      ContainerUtils.verifyContainerFileChecksum(kvData, conf);
+      ContainerUtils.verifyChecksum(kvData, conf);
     });
 
     assertThat(ex).hasMessageStartingWith("Container checksum error for ContainerID:");
@@ -320,6 +301,6 @@ public class TestContainerDataYaml {
     KeyValueContainerData kvData = getKeyValueContainerData();
     conf.setBoolean(HddsConfigKeys.
         HDDS_CONTAINER_CHECKSUM_VERIFICATION_ENABLED, false);
-    ContainerUtils.verifyContainerFileChecksum(kvData, conf);
+    ContainerUtils.verifyChecksum(kvData, conf);
   }
 }

@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Stream;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.CompactionFileInfoProto;
@@ -47,12 +46,6 @@ public class TestCompactionFileInfo {
             null,
             null,
             null
-        ),
-        Arguments.of("Only fileName is present.",
-            "fileName",
-            null,
-            null,
-            null
         )
     );
   }
@@ -65,15 +58,10 @@ public class TestCompactionFileInfo {
                                                   String endRange,
                                                   String columnFamily) {
 
-    CompactionFileInfo.Builder builder = new CompactionFileInfo.Builder(fileName).setStartRange(startRange)
-        .setEndRange(endRange).setColumnFamily(columnFamily);
-    CompactionFileInfo compactionFileInfo = builder.build();
+    CompactionFileInfo compactionFileInfo =
+        new CompactionFileInfo.Builder(fileName).setStartRange(startRange)
+            .setEndRange(endRange).setColumnFamily(columnFamily).build();
     assertNotNull(compactionFileInfo);
-    CompactionFileInfo prunedCompactionFileInfo = builder.setPruned().build();
-    assertFalse(compactionFileInfo.isPruned());
-    compactionFileInfo.setPruned();
-    assertTrue(compactionFileInfo.isPruned());
-    assertTrue(prunedCompactionFileInfo.isPruned());
   }
 
   private static Stream<Arguments> compactionFileInfoInvalidScenarios() {
@@ -227,16 +215,5 @@ public class TestCompactionFileInfo {
     assertEquals(startRange, compactionFileInfo.getStartKey());
     assertEquals(endRange, compactionFileInfo.getEndKey());
     assertEquals(columnFamily, compactionFileInfo.getColumnFamily());
-    assertFalse(compactionFileInfo.isPruned());
-
-    CompactionFileInfoProto unPrunedProtobuf = builder.setPruned(false).build();
-    CompactionFileInfo unPrunedCompactionFileInfo =
-        CompactionFileInfo.getFromProtobuf(unPrunedProtobuf);
-    assertFalse(unPrunedCompactionFileInfo.isPruned());
-
-    CompactionFileInfoProto prunedProtobuf = builder.setPruned(true).build();
-    CompactionFileInfo prunedCompactionFileInfo =
-        CompactionFileInfo.getFromProtobuf(prunedProtobuf);
-    assertTrue(prunedCompactionFileInfo.isPruned());
   }
 }

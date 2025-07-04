@@ -99,6 +99,7 @@ public class S3MultipartUploadCompleteRequestWithFSO
 
   }
 
+
   @Override
   protected OmKeyInfo getOmKeyInfoFromKeyTable(String dbOzoneFileKey,
       String keyName, OMMetadataManager omMetadataManager) throws IOException {

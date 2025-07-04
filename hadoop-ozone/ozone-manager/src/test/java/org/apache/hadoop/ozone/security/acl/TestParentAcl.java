@@ -119,7 +119,7 @@ public class TestParentAcl {
   public void testKeyAcl()
       throws IOException {
     OzoneObj keyObj;
-    int randomInt = RandomUtils.secure().randomInt();
+    int randomInt = RandomUtils.nextInt();
     String vol = "vol" + randomInt;
     String buck = "bucket" + randomInt;
     String key = "key" + randomInt;
@@ -165,7 +165,7 @@ public class TestParentAcl {
   public void testBucketAcl()
       throws IOException {
     OzoneObj bucketObj;
-    int randomInt = RandomUtils.secure().randomInt();
+    int randomInt = RandomUtils.nextInt();
     String vol = "vol" + randomInt;
     String buck = "bucket" + randomInt;
 
@@ -220,10 +220,10 @@ public class TestParentAcl {
         .setAclType(USER)
         .setAclRights(childAclType).build();
 
-    OzoneAcl childAcl = OzoneAcl.of(USER,
+    OzoneAcl childAcl = new OzoneAcl(USER,
         testUgi1.getUserName(), ACCESS, childAclType);
 
-    OzoneAcl parentAcl = OzoneAcl.of(USER,
+    OzoneAcl parentAcl = new OzoneAcl(USER,
         testUgi1.getUserName(), ACCESS, parentAclType);
 
     assertFalse(nativeAuthorizer.checkAccess(child, requestContext));
@@ -251,7 +251,7 @@ public class TestParentAcl {
           child, requestContext));
 
       // add the volume acl (grand-parent), now key access is allowed.
-      OzoneAcl parentVolumeAcl = OzoneAcl.of(USER,
+      OzoneAcl parentVolumeAcl = new OzoneAcl(USER,
           testUgi1.getUserName(), ACCESS, READ);
       addVolumeAcl(child.getVolumeName(), parentVolumeAcl);
       assertTrue(nativeAuthorizer.checkAccess(

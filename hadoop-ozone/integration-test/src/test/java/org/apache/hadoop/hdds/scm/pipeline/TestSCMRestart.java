@@ -36,10 +36,12 @@ import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test SCM restart and recovery wrt pipelines.
  */
+@Timeout(300)
 public class TestSCMRestart {
 
   private static MiniOzoneCluster cluster;

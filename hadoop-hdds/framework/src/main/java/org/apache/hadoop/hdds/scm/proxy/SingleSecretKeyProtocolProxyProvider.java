@@ -31,7 +31,7 @@ public class SingleSecretKeyProtocolProxyProvider
     <T extends SCMSecretKeyProtocolService.BlockingInterface>
     extends SecretKeyProtocolFailoverProxyProvider<T> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SingleSecretKeyProtocolProxyProvider.class);
 
   private final String scmNodeId;

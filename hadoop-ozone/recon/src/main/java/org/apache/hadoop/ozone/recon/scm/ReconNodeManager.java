@@ -23,15 +23,15 @@ import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProt
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
@@ -68,10 +68,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ReconNodeManager extends SCMNodeManager {
 
-  private static final Logger LOG = LoggerFactory
+  public static final Logger LOG = LoggerFactory
       .getLogger(ReconNodeManager.class);
 
-  private Table<DatanodeID, DatanodeDetails> nodeDB;
+  private Table<UUID, DatanodeDetails> nodeDB;
   private ReconContext reconContext;
   private static final Set<Type> ALLOWED_COMMANDS =
       ImmutableSet.of(reregisterCommand);
@@ -80,26 +80,30 @@ public class ReconNodeManager extends SCMNodeManager {
    * Map that contains mapping between datanodes
    * and their last heartbeat time.
    */
-  private Map<DatanodeID, Long> datanodeHeartbeatMap = new HashMap<>();
+  private Map<UUID, Long> datanodeHeartbeatMap = new HashMap<>();
+  private Map<UUID, DatanodeDetails> inMemDatanodeDetails = new HashMap<>();
 
-  private final long reconDatanodeOutdatedTime;
+  private long reconDatanodeOutdatedTime;
+  private static int reconStaleDatanodeMultiplier = 3;
+
+  private static final DatanodeDetails EMPTY_DATANODE_DETAILS =
+      DatanodeDetails.newBuilder().setUuid(UUID.randomUUID()).build();
 
   public ReconNodeManager(OzoneConfiguration conf,
                           SCMStorageConfig scmStorageConfig,
                           EventPublisher eventPublisher,
                           NetworkTopology networkTopology,
-                          Table<DatanodeID, DatanodeDetails> nodeDB,
+                          Table<UUID, DatanodeDetails> nodeDB,
                           HDDSLayoutVersionManager scmLayoutVersionManager) {
     super(conf, scmStorageConfig, eventPublisher, networkTopology,
         SCMContext.emptyContext(), scmLayoutVersionManager);
-    final int reconStaleDatanodeMultiplier = 3;
     this.reconDatanodeOutdatedTime = reconStaleDatanodeMultiplier *
         HddsServerUtil.getReconHeartbeatInterval(conf);
     this.nodeDB = nodeDB;
   }
 
   public ReconNodeManager(OzoneConfiguration conf, SCMStorageConfig scmStorageConfig, EventQueue eventQueue,
-                          NetworkTopology clusterMap, Table<DatanodeID, DatanodeDetails> table,
+                          NetworkTopology clusterMap, Table<UUID, DatanodeDetails> table,
                           HDDSLayoutVersionManager scmLayoutVersionManager, ReconContext reconContext) {
     this(conf, scmStorageConfig, eventQueue, clusterMap, table, scmLayoutVersionManager);
     this.reconContext = reconContext;
@@ -107,7 +111,7 @@ public class ReconNodeManager extends SCMNodeManager {
   }
 
   private void loadExistingNodes() {
-    try (TableIterator<DatanodeID, ? extends Table.KeyValue<DatanodeID, DatanodeDetails>>
+    try (TableIterator<UUID, ? extends Table.KeyValue<UUID, DatanodeDetails>>
              iterator = nodeDB.iterator()) {
       int nodeCount = 0;
       while (iterator.hasNext()) {
@@ -139,8 +143,8 @@ public class ReconNodeManager extends SCMNodeManager {
    * @param datanodeDetails Datanode details.
    */
   public void addNodeToDB(DatanodeDetails datanodeDetails) throws IOException {
-    nodeDB.put(datanodeDetails.getID(), datanodeDetails);
-    LOG.info("Added a new node to db: {}", datanodeDetails);
+    nodeDB.put(datanodeDetails.getUuid(), datanodeDetails);
+    LOG.info("Adding new node {} to Node DB.", datanodeDetails.getUuid());
   }
 
   /**
@@ -151,7 +155,51 @@ public class ReconNodeManager extends SCMNodeManager {
    */
   @Override
   public long getLastHeartbeat(DatanodeDetails datanodeDetails) {
-    return datanodeHeartbeatMap.getOrDefault(datanodeDetails.getID(), 0L);
+    return datanodeHeartbeatMap.getOrDefault(datanodeDetails.getUuid(), 0L);
+  }
+
+  /**
+   * Returns the hostname of the given node.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @return hostname
+   */
+  public String getHostName(DatanodeDetails datanodeDetails) {
+    return inMemDatanodeDetails.getOrDefault(datanodeDetails.getUuid(),
+        EMPTY_DATANODE_DETAILS).getHostName();
+  }
+
+  /**
+   * Returns the version of the given node.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @return setTime
+   */
+  public String getVersion(DatanodeDetails datanodeDetails) {
+    return inMemDatanodeDetails.getOrDefault(datanodeDetails.getUuid(),
+        EMPTY_DATANODE_DETAILS).getVersion();
+  }
+
+  /**
+   * Returns the setupTime of the given node.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @return setupTime
+   */
+  public long getSetupTime(DatanodeDetails datanodeDetails) {
+    return inMemDatanodeDetails.getOrDefault(datanodeDetails.getUuid(),
+        EMPTY_DATANODE_DETAILS).getSetupTime();
+  }
+
+  /**
+   * Returns the revision of the given node.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @return revision
+   */
+  public String getRevision(DatanodeDetails datanodeDetails) {
+    return inMemDatanodeDetails.getOrDefault(datanodeDetails.getUuid(),
+        EMPTY_DATANODE_DETAILS).getRevision();
   }
 
   @Override
@@ -163,7 +211,7 @@ public class ReconNodeManager extends SCMNodeManager {
     } else {
       LOG.debug("Ignoring unsupported command {} for Datanode {}.",
           commandForDatanode.getCommand().getType(),
-          commandForDatanode);
+          commandForDatanode.getDatanodeId());
     }
   }
 
@@ -176,15 +224,19 @@ public class ReconNodeManager extends SCMNodeManager {
   @Override
   public List<SCMCommand<?>> processHeartbeat(DatanodeDetails datanodeDetails,
       CommandQueueReportProto queueReport) {
+    List<SCMCommand<?>> cmds = new ArrayList<>();
     long currentTime = Time.now();
-    final Long lastHeartbeat = datanodeHeartbeatMap.put(datanodeDetails.getID(), currentTime);
-    final boolean needUpdate = lastHeartbeat == null
-        || currentTime - lastHeartbeat >= reconDatanodeOutdatedTime;
-    if (needUpdate) {
-      LOG.info("Sending ReregisterCommand() for {}", datanodeDetails);
-      return Collections.singletonList(new ReregisterCommand());
+    if (needUpdate(datanodeDetails, currentTime)) {
+      cmds.add(new ReregisterCommand());
+      LOG.info("Sending ReregisterCommand() for " +
+          datanodeDetails.getHostName());
+      datanodeHeartbeatMap.put(datanodeDetails.getUuid(), Time.now());
+      return cmds;
     }
-    return super.processHeartbeat(datanodeDetails, queueReport).stream()
+    // Update heartbeat map with current time
+    datanodeHeartbeatMap.put(datanodeDetails.getUuid(), Time.now());
+    cmds.addAll(super.processHeartbeat(datanodeDetails, queueReport));
+    return cmds.stream()
         .filter(c -> ALLOWED_COMMANDS.contains(c.getType()))
         .collect(toList());
   }
@@ -213,12 +265,14 @@ public class ReconNodeManager extends SCMNodeManager {
       DatanodeDetails datanodeDetails, NodeReportProto nodeReport,
       PipelineReportsProto pipelineReportsProto,
       LayoutVersionProto layoutInfo) {
+    inMemDatanodeDetails.put(datanodeDetails.getUuid(), datanodeDetails);
     if (isNodeRegistered(datanodeDetails)) {
       try {
-        nodeDB.put(datanodeDetails.getID(), datanodeDetails);
-        LOG.info("Updated {} db table for {}", nodeDB.getName(), datanodeDetails);
+        nodeDB.put(datanodeDetails.getUuid(), datanodeDetails);
+        LOG.info("Updating nodeDB for " + datanodeDetails.getHostName());
       } catch (IOException e) {
-        LOG.error("Failed to update {} db table for {}", nodeDB.getName(), datanodeDetails, e);
+        LOG.error("Can not update node {} to Node DB.",
+            datanodeDetails.getUuid());
       }
     }
     try {
@@ -253,12 +307,18 @@ public class ReconNodeManager extends SCMNodeManager {
           nodeStatus.getOperationalState());
 
       setNodeOperationalState(dnDetails, nodeOperationalStateFromScm);
-      DatanodeDetails scmDnd = getNode(dnDetails.getID());
+      DatanodeDetails scmDnd = getNodeByUuid(dnDetails.getUuid());
       scmDnd.setPersistedOpState(nodeOperationalStateFromScm);
     }
   }
 
-  public void reinitialize(Table<DatanodeID, DatanodeDetails> nodeTable) {
+  private boolean needUpdate(DatanodeDetails datanodeDetails,
+      long currentTime) {
+    return currentTime - getLastHeartbeat(datanodeDetails) >=
+        reconDatanodeOutdatedTime;
+  }
+
+  public void reinitialize(Table<UUID, DatanodeDetails> nodeTable) {
     this.nodeDB = nodeTable;
     loadExistingNodes();
   }
@@ -266,7 +326,7 @@ public class ReconNodeManager extends SCMNodeManager {
   @VisibleForTesting
   public long getNodeDBKeyCount() throws IOException {
     long nodeCount = 0;
-    try (TableIterator<DatanodeID, ? extends Table.KeyValue<DatanodeID, DatanodeDetails>>
+    try (TableIterator<UUID, ? extends Table.KeyValue<UUID, DatanodeDetails>>
         iterator = nodeDB.iterator()) {
       while (iterator.hasNext()) {
         iterator.next();
@@ -287,13 +347,20 @@ public class ReconNodeManager extends SCMNodeManager {
   public void removeNode(DatanodeDetails datanodeDetails) throws NodeNotFoundException, IOException {
     try {
       super.removeNode(datanodeDetails);
-      nodeDB.delete(datanodeDetails.getID());
-    } catch (IOException e) {
-      throw new IOException("Failed to delete from nodeDB for " + datanodeDetails, e);
+      nodeDB.delete(datanodeDetails.getUuid());
+    } catch (IOException ioException) {
+      LOG.error("Node {} deletion fails from Node DB.", datanodeDetails.getUuid());
+      throw ioException;
     }
-    datanodeHeartbeatMap.remove(datanodeDetails.getID());
+    datanodeHeartbeatMap.remove(datanodeDetails.getUuid());
+    inMemDatanodeDetails.remove(datanodeDetails.getUuid());
     LOG.info("Removed existing node {} from Node DB and NodeManager data structures in memory ",
-        datanodeDetails);
+        datanodeDetails.getUuid());
+  }
+
+  @VisibleForTesting
+  public ReconContext getReconContext() {
+    return reconContext;
   }
 
   @Override

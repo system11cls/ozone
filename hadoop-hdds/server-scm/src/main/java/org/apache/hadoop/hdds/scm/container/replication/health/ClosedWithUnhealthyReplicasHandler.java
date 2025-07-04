@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ClosedWithUnhealthyReplicasHandler extends AbstractCheck {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(ClosedWithUnhealthyReplicasHandler.class);
   private final ReplicationManager replicationManager;
 

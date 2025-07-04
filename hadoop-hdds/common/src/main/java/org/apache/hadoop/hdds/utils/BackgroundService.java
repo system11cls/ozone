@@ -37,20 +37,18 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class BackgroundService {
 
-  protected static final Logger LOG =
+  @VisibleForTesting
+  public static final Logger LOG =
       LoggerFactory.getLogger(BackgroundService.class);
 
   // Executor to launch child tasks
-  private ScheduledThreadPoolExecutor exec;
-  private ThreadGroup threadGroup;
+  private final ScheduledThreadPoolExecutor exec;
+  private final ThreadGroup threadGroup;
   private final String serviceName;
-  private long interval;
-  private volatile long serviceTimeoutInNanos;
-  private TimeUnit unit;
-  private final int threadPoolSize;
-  private final String threadNamePrefix;
+  private final long interval;
+  private final long serviceTimeoutInNanos;
+  private final TimeUnit unit;
   private final PeriodicalTask service;
-  private CompletableFuture<Void> future;
 
   public BackgroundService(String serviceName, long interval,
       TimeUnit unit, int threadPoolSize, long serviceTimeout) {
@@ -65,15 +63,15 @@ public abstract class BackgroundService {
     this.serviceName = serviceName;
     this.serviceTimeoutInNanos = TimeDuration.valueOf(serviceTimeout, unit)
             .toLong(TimeUnit.NANOSECONDS);
-    this.threadPoolSize = threadPoolSize;
-    this.threadNamePrefix = threadNamePrefix;
-    initExecutorAndThreadGroup();
+    threadGroup = new ThreadGroup(serviceName);
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setThreadFactory(r -> new Thread(threadGroup, r))
+        .setDaemon(true)
+        .setNameFormat(threadNamePrefix + serviceName + "#%d")
+        .build();
+    exec = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(
+        threadPoolSize, threadFactory);
     service = new PeriodicalTask();
-    this.future = CompletableFuture.completedFuture(null);
-  }
-
-  protected CompletableFuture<Void> getFuture() {
-    return future;
   }
 
   @VisibleForTesting
@@ -92,11 +90,6 @@ public abstract class BackgroundService {
     exec.setCorePoolSize(size);
   }
 
-  public synchronized void setServiceTimeoutInNanos(long newTimeout) {
-    LOG.info("{} timeout is set to {} {}", serviceName, newTimeout, TimeUnit.NANOSECONDS.name().toLowerCase());
-    this.serviceTimeoutInNanos = newTimeout;
-  }
-
   @VisibleForTesting
   public int getThreadCount() {
     return threadGroup.activeCount();
@@ -110,19 +103,10 @@ public abstract class BackgroundService {
     }
   }
 
-  // start service
-  public synchronized void start() {
-    if (exec == null || exec.isShutdown() || exec.isTerminated()) {
-      initExecutorAndThreadGroup();
-    }
-    LOG.info("Starting service {} with interval {} {}", serviceName,
-        interval, unit.name().toLowerCase());
-    exec.scheduleWithFixedDelay(service, 0, interval, unit);
-  }
 
-  protected synchronized void setInterval(long newInterval, TimeUnit newUnit) {
-    this.interval = newInterval;
-    this.unit = newUnit;
+  // start service
+  public void start() {
+    exec.scheduleWithFixedDelay(service, 0, interval, unit);
   }
 
   public abstract BackgroundTaskQueue getTasks();
@@ -149,7 +133,7 @@ public abstract class BackgroundService {
 
       while (!tasks.isEmpty()) {
         BackgroundTask task = tasks.poll();
-        future = future.thenCombine(CompletableFuture.runAsync(() -> {
+        CompletableFuture.runAsync(() -> {
           long startTime = System.nanoTime();
           try {
             BackgroundTaskResult result = task.call();
@@ -168,7 +152,7 @@ public abstract class BackgroundService {
                   serviceName, endTime - startTime, serviceTimeoutInNanos);
             }
           }
-        }, exec), (Void1, Void) -> null);
+        }, exec);
       }
     }
   }
@@ -189,15 +173,5 @@ public abstract class BackgroundService {
     if (threadGroup.activeCount() == 0 && !threadGroup.isDestroyed()) {
       threadGroup.destroy();
     }
-  }
-
-  private void initExecutorAndThreadGroup() {
-    threadGroup = new ThreadGroup(serviceName);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setThreadFactory(r -> new Thread(threadGroup, r))
-        .setDaemon(true)
-        .setNameFormat(threadNamePrefix + serviceName + "#%d")
-        .build();
-    exec = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(threadPoolSize, threadFactory);
   }
 }

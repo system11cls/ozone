@@ -31,8 +31,6 @@ import org.apache.hadoop.ozone.om.helpers.OMNodeDetails;
 import org.apache.hadoop.ozone.om.protocolPB.OMAdminProtocolPB;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.CompactRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.CompactResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.DecommissionOMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.DecommissionOMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.OMConfigurationRequest;
@@ -109,23 +107,5 @@ public class OMAdminProtocolServerSideImpl implements OMAdminProtocolPB {
     return DecommissionOMResponse.newBuilder()
         .setSuccess(true)
         .build();
-  }
-
-  @Override
-  public CompactResponse compactDB(RpcController controller, CompactRequest compactRequest)
-      throws ServiceException {
-    try {
-      // check if table exists. IOException is thrown if table is not found.
-      ozoneManager.getMetadataManager().getStore().getTable(compactRequest.getColumnFamily());
-      ozoneManager.compactOMDB(compactRequest.getColumnFamily());
-    } catch (Exception ex) {
-      return CompactResponse.newBuilder()
-          .setSuccess(false)
-          .setErrorMsg(ex.getMessage())
-          .build();
-    }
-
-    return CompactResponse.newBuilder()
-        .setSuccess(true).build();
   }
 }

@@ -39,6 +39,10 @@ import org.apache.hadoop.ozone.OzoneConsts;
  * golang clients.
  */
 public final class RFC1123Util {
+
+  private RFC1123Util() {
+  }
+
   /**
    * An RFC-1123 compatible file format which always use two digits for the
    * days.
@@ -90,8 +94,5 @@ public final class RFC1123Util {
         .appendLiteral(' ')
         .appendOffset("+HHMM", OzoneConsts.OZONE_TIME_ZONE)
         .toFormatter();
-  }
-
-  private RFC1123Util() {
   }
 }

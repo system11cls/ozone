@@ -55,10 +55,10 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineProvider;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher;
 import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.apache.ozone.test.TestClock;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class tests OneReplicaPipelineSafeModeRule.
@@ -77,6 +77,8 @@ public class TestOneReplicaPipelineSafeModeRule {
   private void setup(int nodes, int pipelineFactorThreeCount,
       int pipelineFactorOneCount) throws Exception {
     OzoneConfiguration ozoneConfiguration = new OzoneConfiguration();
+    ozoneConfiguration.setBoolean(
+        HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK, true);
     ozoneConfiguration.set(HddsConfigKeys.OZONE_METADATA_DIRS,
         tempDir.toString());
     ozoneConfiguration.setBoolean(
@@ -115,11 +117,11 @@ public class TestOneReplicaPipelineSafeModeRule {
     createPipelines(pipelineFactorOneCount,
         HddsProtos.ReplicationFactor.ONE);
 
-    SCMSafeModeManager scmSafeModeManager = new SCMSafeModeManager(ozoneConfiguration,
-        mockNodeManager, pipelineManager, containerManager, serviceManager, eventQueue, scmContext);
-    scmSafeModeManager.start();
+    SCMSafeModeManager scmSafeModeManager =
+        new SCMSafeModeManager(ozoneConfiguration, containerManager,
+            pipelineManager, eventQueue, serviceManager, scmContext);
 
-    rule = SafeModeRuleFactory.getInstance().getSafeModeRule(OneReplicaPipelineSafeModeRule.class);
+    rule = scmSafeModeManager.getOneReplicaPipelineSafeModeRule();
   }
 
   @Test
@@ -133,7 +135,9 @@ public class TestOneReplicaPipelineSafeModeRule {
     int pipelineCountOne = 0;
     setup(nodes, pipelineFactorThreeCount, pipelineCountOne);
 
-    LogCapturer logCapturer = LogCapturer.captureLogs(SCMSafeModeManager.class);
+    GenericTestUtils.LogCapturer logCapturer =
+        GenericTestUtils.LogCapturer.captureLogs(
+            LoggerFactory.getLogger(SCMSafeModeManager.class));
 
     List<Pipeline> pipelines = pipelineManager.getPipelines();
     firePipelineEvent(pipelines.subList(0, pipelineFactorThreeCount - 1));
@@ -153,6 +157,7 @@ public class TestOneReplicaPipelineSafeModeRule {
     GenericTestUtils.waitFor(() -> rule.validate(), 1000, 5000);
   }
 
+
   @Test
   public void testOneReplicaPipelineRuleMixedPipelines() throws Exception {
 
@@ -165,7 +170,9 @@ public class TestOneReplicaPipelineSafeModeRule {
 
     setup(nodes, pipelineCountThree, pipelineCountOne);
 
-    LogCapturer logCapturer = LogCapturer.captureLogs(SCMSafeModeManager.class);
+    GenericTestUtils.LogCapturer logCapturer =
+        GenericTestUtils.LogCapturer.captureLogs(
+            LoggerFactory.getLogger(SCMSafeModeManager.class));
 
     List<Pipeline> pipelines =
         pipelineManager.getPipelines(RatisReplicationConfig.getInstance(
@@ -214,7 +221,7 @@ public class TestOneReplicaPipelineSafeModeRule {
     for (DatanodeDetails dn : reportMap.keySet()) {
       List<PipelineReport> reports = new ArrayList<>();
       for (PipelineID pipeline : mockNodeManager.
-              getNode2PipelineMap().getPipelines(dn.getID())) {
+              getNode2PipelineMap().getPipelines(dn.getUuid())) {
         try {
           if (!pipelines.contains(pipelineManager.getPipeline(pipeline))) {
             continue;

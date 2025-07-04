@@ -39,16 +39,14 @@ public class ContainerReplicaHistory {
 
   private long bcsId;
   private String state;
-  private long dataChecksum;
 
   public ContainerReplicaHistory(UUID id, Long firstSeenTime,
-      Long lastSeenTime, long bcsId, String state, long dataChecksum) {
+      Long lastSeenTime, long bcsId, String state) {
     this.uuid = id;
     this.firstSeenTime = firstSeenTime;
     this.lastSeenTime = lastSeenTime;
     this.bcsId = bcsId;
     this.state = state;
-    this.dataChecksum = dataChecksum;
   }
 
   public long getBcsId() {
@@ -83,24 +81,16 @@ public class ContainerReplicaHistory {
     this.state = state;
   }
 
-  public long getDataChecksum() {
-    return dataChecksum;
-  }
-
-  public void setDataChecksum(long dataChecksum) {
-    this.dataChecksum = dataChecksum;
-  }
-
   public static ContainerReplicaHistory fromProto(
       ContainerReplicaHistoryProto proto) {
     return new ContainerReplicaHistory(UUID.fromString(proto.getUuid()),
         proto.getFirstSeenTime(), proto.getLastSeenTime(), proto.getBcsId(),
-        proto.getState(), proto.getDataChecksum());
+        proto.getState());
   }
 
   public ContainerReplicaHistoryProto toProto() {
     return ContainerReplicaHistoryProto.newBuilder().setUuid(uuid.toString())
         .setFirstSeenTime(firstSeenTime).setLastSeenTime(lastSeenTime)
-        .setBcsId(bcsId).setState(state).setDataChecksum(dataChecksum).build();
+        .setBcsId(bcsId).setState(state).build();
   }
 }

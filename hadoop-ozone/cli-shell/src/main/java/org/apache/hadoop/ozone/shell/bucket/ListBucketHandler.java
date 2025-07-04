@@ -25,9 +25,8 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
-import org.apache.hadoop.ozone.shell.ListPaginationOptions;
+import org.apache.hadoop.ozone.shell.ListOptions;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
-import org.apache.hadoop.ozone.shell.PrefixFilterOption;
 import org.apache.hadoop.ozone.shell.volume.VolumeHandler;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -41,10 +40,7 @@ import picocli.CommandLine.Command;
 public class ListBucketHandler extends VolumeHandler {
 
   @CommandLine.Mixin
-  private ListPaginationOptions listOptions;
-
-  @CommandLine.Mixin
-  private PrefixFilterOption prefixFilter;
+  private ListOptions listOptions;
 
   @CommandLine.Option(names = {"--has-snapshot"},
       description = "Only show buckets that have at least one active snapshot.")
@@ -58,7 +54,7 @@ public class ListBucketHandler extends VolumeHandler {
     ObjectStore objectStore = client.getObjectStore();
     OzoneVolume vol = objectStore.getVolume(volumeName);
     Iterator<? extends OzoneBucket> bucketIterator =
-        vol.listBuckets(prefixFilter.getPrefix(),
+        vol.listBuckets(listOptions.getPrefix(),
             listOptions.getStartItem(), filterByHasSnapshot);
     List<Object> bucketList = new ArrayList<>();
     int counter = 0;

@@ -48,7 +48,6 @@ import org.apache.hadoop.ozone.audit.AuditMessage;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
-import org.apache.hadoop.ozone.om.OmSnapshotInternalMetrics;
 import org.apache.hadoop.ozone.om.OmSnapshotManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.ResolvedBucket;
@@ -77,7 +76,6 @@ public class TestSnapshotRequestAndResponse {
 
   private OzoneManager ozoneManager;
   private OMMetrics omMetrics;
-  private OmSnapshotInternalMetrics omSnapshotIntMetrics;
   private OmMetadataManagerImpl omMetadataManager;
   private BatchOperation batchOperation;
   private OmSnapshotManager omSnapshotManager;
@@ -104,10 +102,6 @@ public class TestSnapshotRequestAndResponse {
 
   public OMMetrics getOmMetrics() {
     return omMetrics;
-  }
-
-  public OmSnapshotInternalMetrics getOmSnapshotIntMetrics() {
-    return omSnapshotIntMetrics;
   }
 
   public OmSnapshotManager getOmSnapshotManager() {
@@ -138,7 +132,6 @@ public class TestSnapshotRequestAndResponse {
   public void baseSetup() throws Exception {
     ozoneManager = mock(OzoneManager.class);
     omMetrics = OMMetrics.create();
-    omSnapshotIntMetrics = OmSnapshotInternalMetrics.create();
     OzoneConfiguration ozoneConfiguration = new OzoneConfiguration();
     ozoneConfiguration.set(OMConfigKeys.OZONE_OM_DB_DIRS,
         testDir.getAbsolutePath());
@@ -151,7 +144,6 @@ public class TestSnapshotRequestAndResponse {
         .thenAnswer(i -> new ResolvedBucket(i.getArgument(0),
             i.getArgument(0), "dummyBucketOwner", BucketLayout.FILE_SYSTEM_OPTIMIZED));
     when(ozoneManager.getMetrics()).thenReturn(omMetrics);
-    when(ozoneManager.getOmSnapshotIntMetrics()).thenReturn(omSnapshotIntMetrics);
     when(ozoneManager.getMetadataManager()).thenReturn(omMetadataManager);
     when(ozoneManager.isFilesystemSnapshotEnabled()).thenReturn(true);
     when(ozoneManager.isAdmin(any())).thenReturn(isAdmin);
@@ -180,7 +172,6 @@ public class TestSnapshotRequestAndResponse {
   @AfterEach
   public void stop() {
     omMetrics.unRegister();
-    omSnapshotIntMetrics.unregister();
     framework().clearInlineMocks();
     if (batchOperation != null) {
       batchOperation.close();

@@ -15,12 +15,13 @@
 
 *** Settings ***
 Documentation       Test datanode compatibility
-Resource            lib.resource
+Library             BuiltIn
+Resource            ../lib/os.robot
 Test Timeout        5 minutes
 
 *** Test Cases ***
 Picks up command line options
     Pass Execution If    '%{HDDS_DN_OPTS}' == ''    Command-line option required for process check
-    ${processes} =    Wait for server command-line options
+    ${processes} =    List All Processes
     Should Contain    ${processes}   %{HDDS_DN_OPTS}
-    Check client command-line options
+    Should Contain    ${processes}   %{HADOOP_OPTS}

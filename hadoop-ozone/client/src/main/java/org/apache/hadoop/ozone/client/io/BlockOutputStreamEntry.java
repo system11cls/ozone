@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * but there can be other implementations that are using a different way.
  */
 public class BlockOutputStreamEntry extends OutputStream {
-  private static final Logger LOG = LoggerFactory.getLogger(BlockOutputStreamEntry.class);
+  public static final Logger LOG = LoggerFactory.getLogger(BlockOutputStreamEntry.class);
   private final OzoneClientConfig config;
   private BlockOutputStream outputStream;
   private BlockID blockID;
@@ -81,6 +81,7 @@ public class BlockOutputStreamEntry extends OutputStream {
    * To record how many calls(write, flush) are being handled by this block.
    */
   private AtomicInteger inflightCalls = new AtomicInteger();
+
 
   BlockOutputStreamEntry(Builder b) {
     this.config = b.config;

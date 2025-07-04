@@ -85,6 +85,7 @@ public class TestContainerSizeCountTask extends AbstractReconSqlDBTest {
     dslContext.truncate(CONTAINER_COUNT_BY_SIZE);
   }
 
+
   @Test
   public void testProcess() {
     // mock a container with invalid used bytes

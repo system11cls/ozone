@@ -19,6 +19,7 @@ package org.apache.hadoop.hdds.utils.db;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,12 +97,15 @@ public class TestDBStoreBuilder {
         .build();
     // Building should succeed without error.
 
-    final Table<byte[], byte[]> firstTable = dbStore.getTable("FIRST");
-    byte[] key = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-    byte[] value = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-    firstTable.put(key, value);
-    byte[] temp = firstTable.get(key);
-    assertArrayEquals(value, temp);
+    try (Table<byte[], byte[]> firstTable = dbStore.getTable("FIRST")) {
+      byte[] key =
+          RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+      byte[] value =
+          RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+      firstTable.put(key, value);
+      byte[] temp = firstTable.get(key);
+      assertArrayEquals(value, temp);
+    }
 
     dbStore.close();
   }
@@ -115,16 +119,19 @@ public class TestDBStoreBuilder {
         .addTable("First")
         .addTable("Second")
         .build()) {
-      final Table<byte[], byte[]> firstTable = dbStore.getTable("First");
-      byte[] key = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-      byte[] value = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-      firstTable.put(key, value);
-      byte[] temp = firstTable.get(key);
-      assertArrayEquals(value, temp);
+      try (Table<byte[], byte[]> firstTable = dbStore.getTable("First")) {
+        byte[] key =
+            RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+        byte[] value =
+            RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+        firstTable.put(key, value);
+        byte[] temp = firstTable.get(key);
+        assertArrayEquals(value, temp);
+      }
 
-
-      final Table<byte[], byte[]> secondTable = dbStore.getTable("Second");
-      assertTrue(secondTable.isEmpty());
+      try (Table secondTable = dbStore.getTable("Second")) {
+        assertTrue(secondTable.isEmpty());
+      }
     }
   }
 
@@ -139,15 +146,19 @@ public class TestDBStoreBuilder {
         .addTable("Second")
         .setProfile(DBProfile.DISK)
         .build()) {
-      Table<byte[], byte[]> firstTable = dbStore.getTable("First");
-      byte[] key = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-      byte[] value = RandomStringUtils.secure().next(9).getBytes(StandardCharsets.UTF_8);
-      firstTable.put(key, value);
-      byte[] temp = firstTable.get(key);
-      assertArrayEquals(value, temp);
+      try (Table<byte[], byte[]> firstTable = dbStore.getTable("First")) {
+        byte[] key =
+            RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+        byte[] value =
+            RandomStringUtils.random(9).getBytes(StandardCharsets.UTF_8);
+        firstTable.put(key, value);
+        byte[] temp = firstTable.get(key);
+        assertArrayEquals(value, temp);
+      }
 
-      Table<byte[], byte[]> secondTable = dbStore.getTable("Second");
-      assertTrue(secondTable.isEmpty());
+      try (Table secondTable = dbStore.getTable("Second")) {
+        assertTrue(secondTable.isEmpty());
+      }
     }
   }
 
@@ -192,7 +203,11 @@ public class TestDBStoreBuilder {
       }
     };
 
-    try (RDBStore rdbStore = DBStoreBuilder.newBuilder(conf, sampleDB, "SampleStore", newFolder.toPath()).build()) {
+    try (DBStore dbStore = DBStoreBuilder.newBuilder(conf, sampleDB)
+        .setName("SampleStore").setPath(newFolder.toPath()).build()) {
+      assertInstanceOf(RDBStore.class, dbStore);
+
+      RDBStore rdbStore = (RDBStore) dbStore;
       Collection<RocksDatabase.ColumnFamily> cfFamilies =
           rdbStore.getColumnFamilies();
 
@@ -252,9 +267,13 @@ public class TestDBStoreBuilder {
       }
     };
 
-    try (RDBStore rdbStore = DBStoreBuilder.newBuilder(conf, sampleDB, "SampleStore", newFolder.toPath())
-        .disableDefaultCFAutoCompaction(disableAutoCompaction)
-        .build()) {
+    try (DBStore dbStore = DBStoreBuilder.newBuilder(conf, sampleDB)
+            .setName("SampleStore")
+            .disableDefaultCFAutoCompaction(disableAutoCompaction)
+            .setPath(newFolder.toPath()).build()) {
+      assertInstanceOf(RDBStore.class, dbStore);
+
+      RDBStore rdbStore = (RDBStore) dbStore;
       Collection<RocksDatabase.ColumnFamily> cfFamilies =
               rdbStore.getColumnFamilies();
 

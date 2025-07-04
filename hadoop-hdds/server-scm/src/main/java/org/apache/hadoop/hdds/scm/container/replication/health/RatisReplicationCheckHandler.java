@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 public class RatisReplicationCheckHandler extends AbstractCheck {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(RatisReplicationCheckHandler.class);
 
   /**

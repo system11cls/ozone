@@ -26,7 +26,6 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import org.apache.hadoop.ozone.s3.commontypes.IsoDateAdapter;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 import org.apache.hadoop.ozone.s3.util.S3StorageType;
 
 /**
@@ -34,7 +33,7 @@ import org.apache.hadoop.ozone.s3.util.S3StorageType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "ListMultipartUploadsResult", namespace =
-    S3Consts.S3_XML_NAMESPACE)
+    "http://s3.amazonaws.com/doc/2006-03-01/")
 public class ListMultipartUploadsResult {
 
   @XmlElement(name = "Bucket")
@@ -155,10 +154,10 @@ public class ListMultipartUploadsResult {
     private String uploadId;
 
     @XmlElement(name = "Owner")
-    private S3Owner owner = S3Owner.DEFAULT_S3_OWNER;
+    private S3Owner owner = S3Owner.NOT_SUPPORTED_OWNER;
 
     @XmlElement(name = "Initiator")
-    private S3Owner initiator = S3Owner.DEFAULT_S3_OWNER;
+    private S3Owner initiator = S3Owner.NOT_SUPPORTED_OWNER;
 
     @XmlElement(name = "StorageClass")
     private String storageClass = "STANDARD";

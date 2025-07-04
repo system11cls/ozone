@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
@@ -51,7 +50,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
@@ -143,7 +141,6 @@ public class TestOzoneManagerServiceProviderImpl {
       assertNull(reconOMMetadataManager.getKeyTable(getBucketLayout())
           .get("/sampleVol/bucketOne/key_two"));
 
-      ozoneManagerServiceProvider.getTarExtractor().start();
       assertTrue(ozoneManagerServiceProvider.updateReconOmDBWithNewSnapshot());
 
       assertNotNull(reconOMMetadataManager.getKeyTable(getBucketLayout())
@@ -181,11 +178,7 @@ public class TestOzoneManagerServiceProviderImpl {
             reconOMMetadataManager, reconTaskController, reconUtilsMock, ozoneManagerProtocol,
             reconContext, getMockTaskStatusUpdaterManager());
 
-    Exception exception = assertThrows(RuntimeException.class, () -> {
-      ozoneManagerServiceProvider.updateReconOmDBWithNewSnapshot();
-    });
-
-    assertTrue(exception.getCause() instanceof IOException);
+    assertFalse(ozoneManagerServiceProvider.updateReconOmDBWithNewSnapshot());
 
     // Verifying if context error GET_OM_DB_SNAPSHOT_FAILED is added
     assertTrue(reconContext.getErrors().contains(ReconContext.ErrorCode.GET_OM_DB_SNAPSHOT_FAILED));
@@ -223,7 +216,6 @@ public class TestOzoneManagerServiceProviderImpl {
               reconContext, getMockTaskStatusUpdaterManager());
 
       assertTrue(reconContext.getErrors().contains(ReconContext.ErrorCode.GET_OM_DB_SNAPSHOT_FAILED));
-      ozoneManagerServiceProvider.getTarExtractor().start();
       assertTrue(ozoneManagerServiceProvider.updateReconOmDBWithNewSnapshot());
       assertFalse(reconContext.getErrors().contains(ReconContext.ErrorCode.GET_OM_DB_SNAPSHOT_FAILED));
 
@@ -265,7 +257,6 @@ public class TestOzoneManagerServiceProviderImpl {
           new OzoneManagerServiceProviderImpl(configuration,
               reconOMMetadataManager, reconTaskController, reconUtilsMock, ozoneManagerProtocol,
               reconContext, getMockTaskStatusUpdaterManager());
-      ozoneManagerServiceProvider1.getTarExtractor().start();
       assertTrue(ozoneManagerServiceProvider1.updateReconOmDBWithNewSnapshot());
     }
 
@@ -278,7 +269,6 @@ public class TestOzoneManagerServiceProviderImpl {
           new OzoneManagerServiceProviderImpl(configuration,
               reconOMMetadataManager, reconTaskController, reconUtilsMock, ozoneManagerProtocol,
               reconContext, getMockTaskStatusUpdaterManager());
-      ozoneManagerServiceProvider2.getTarExtractor().start();
       assertTrue(ozoneManagerServiceProvider2.updateReconOmDBWithNewSnapshot());
     }
   }
@@ -318,7 +308,6 @@ public class TestOzoneManagerServiceProviderImpl {
               reconOMMetadataManager, reconTaskController, reconUtilsMock, ozoneManagerProtocol,
               reconContext, getMockTaskStatusUpdaterManager());
 
-      ozoneManagerServiceProvider.getTarExtractor().start();
       DBCheckpoint checkpoint = ozoneManagerServiceProvider
           .getOzoneManagerDBSnapshot();
       assertNotNull(checkpoint);
@@ -329,6 +318,7 @@ public class TestOzoneManagerServiceProviderImpl {
       assertEquals(2, files.length);
     }
   }
+
 
   static RocksDatabase getRocksDatabase(OMMetadataManager om) {
     return ((RDBStore)om.getStore()).getDb();
@@ -501,10 +491,8 @@ public class TestOzoneManagerServiceProviderImpl {
     ozoneManagerServiceProvider.syncDataFromOM();
 
     ArgumentCaptor<String> taskNameCaptor = ArgumentCaptor.forClass(String.class);
-    verify(reconTaskStatusUpdaterManager, times(2)).getTaskStatusUpdater(taskNameCaptor.capture());
-    List<String> capturedValues = taskNameCaptor.getAllValues();
-    assertTrue(capturedValues.contains(OmSnapshotRequest.name()));
-    assertTrue(capturedValues.contains(OmDeltaRequest.name()));
+    verify(reconTaskStatusUpdaterManager).getTaskStatusUpdater(taskNameCaptor.capture());
+    assertEquals(OmSnapshotRequest.name(), taskNameCaptor.getValue());
     verify(reconTaskControllerMock, times(1))
         .reInitializeTasks(omMetadataManager, null);
     assertEquals(1, metrics.getNumSnapshotRequests());
@@ -536,10 +524,8 @@ public class TestOzoneManagerServiceProviderImpl {
 
     ArgumentCaptor<String> captor =
         ArgumentCaptor.forClass(String.class);
-    verify(reconTaskStatusUpdaterManager, times(2)).getTaskStatusUpdater(captor.capture());
-    List<String> capturedValues = captor.getAllValues();
-    assertTrue(capturedValues.contains(OmSnapshotRequest.name()));
-    assertTrue(capturedValues.contains(OmDeltaRequest.name()));
+    verify(reconTaskStatusUpdaterManager).getTaskStatusUpdater(captor.capture());
+    assertEquals(OmDeltaRequest.name(), captor.getValue());
 
     verify(reconTaskControllerMock, times(1))
         .consumeOMEvents(any(OMUpdateEventBatch.class),
@@ -573,10 +559,8 @@ public class TestOzoneManagerServiceProviderImpl {
 
     ArgumentCaptor<String> captor =
         ArgumentCaptor.forClass(String.class);
-    verify(reconTaskStatusUpdaterManager, times(2)).getTaskStatusUpdater(captor.capture());
-    List<String> capturedValues = captor.getAllValues();
-    assertTrue(capturedValues.contains(OmSnapshotRequest.name()));
-    assertTrue(capturedValues.contains(OmDeltaRequest.name()));
+    verify(reconTaskStatusUpdaterManager).getTaskStatusUpdater(captor.capture());
+    assertEquals(OmSnapshotRequest.name(), captor.getValue());
     verify(reconTaskControllerMock, times(1))
         .reInitializeTasks(omMetadataManager, null);
     assertEquals(1, metrics.getNumSnapshotRequests());

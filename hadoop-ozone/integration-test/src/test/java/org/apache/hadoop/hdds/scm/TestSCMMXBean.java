@@ -43,6 +43,7 @@ import org.apache.ozone.test.NonHATests;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,9 +52,10 @@ import org.slf4j.LoggerFactory;
  * This class is to test JMX management interface for scm information.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(300)
 public abstract class TestSCMMXBean implements NonHATests.TestCase {
 
-  private static final Logger LOG = LoggerFactory.getLogger(TestSCMMXBean.class);
+  public static final Logger LOG = LoggerFactory.getLogger(TestSCMMXBean.class);
   private StorageContainerManager scm;
   private MBeanServer mbs;
 
@@ -143,6 +145,7 @@ public abstract class TestSCMMXBean implements NonHATests.TestCase {
         bean, "ContainerStateCount");
     verifyEquals(data, containerStateCount);
   }
+
 
   /**
    * An internal function used to compare a TabularData returned

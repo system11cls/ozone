@@ -94,6 +94,7 @@ import org.apache.ratis.util.ExitUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -103,6 +104,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Test class to for security enabled Ozone cluster.
  */
+@Timeout(80)
 public final class TestDelegationToken {
 
   private static final String TEST_USER = "testUgiUser@EXAMPLE.COM";
@@ -273,8 +275,9 @@ public final class TestDelegationToken {
 
     // Capture logs for assertions
     LogCapturer logs = LogCapturer.captureLogs(Server.AUDITLOG);
-    LogCapturer omLogs = LogCapturer.captureLogs(OzoneManager.class);
-    GenericTestUtils.setLogLevel(Server.class, INFO);
+    LogCapturer omLogs = LogCapturer.captureLogs(OzoneManager.getLogger());
+    GenericTestUtils
+        .setLogLevel(LoggerFactory.getLogger(Server.class.getName()), INFO);
     SecurityUtil.setTokenServiceUseIp(useIp);
 
     // Setup secure OM for start
@@ -315,7 +318,7 @@ public final class TestDelegationToken {
       // Get first OM client which will authenticate via Kerberos
       omClient = new OzoneManagerProtocolClientSideTranslatorPB(
           OmTransportFactory.create(conf, ugi, null),
-          RandomStringUtils.secure().nextAscii(5));
+          RandomStringUtils.randomAscii(5));
 
       // Assert if auth was successful via Kerberos
       assertThat(logs.getOutput()).doesNotContain(
@@ -348,7 +351,7 @@ public final class TestDelegationToken {
       testUser.doAs((PrivilegedExceptionAction<Void>) () -> {
         omClient = new OzoneManagerProtocolClientSideTranslatorPB(
             OmTransportFactory.create(conf, testUser, null),
-            RandomStringUtils.secure().nextAscii(5));
+            RandomStringUtils.randomAscii(5));
         return null;
       });
 
@@ -376,7 +379,7 @@ public final class TestDelegationToken {
       UserGroupInformation.setLoginUser(ugi);
       omClient = new OzoneManagerProtocolClientSideTranslatorPB(
           OmTransportFactory.create(conf, ugi, null),
-          RandomStringUtils.secure().nextAscii(5));
+          RandomStringUtils.randomAscii(5));
 
       // Case 5: Test success of token cancellation.
       omClient.cancelDelegationToken(token);
@@ -392,7 +395,7 @@ public final class TestDelegationToken {
       // token is not in cache anymore.
       omClient = new OzoneManagerProtocolClientSideTranslatorPB(
           OmTransportFactory.create(conf, testUser, null),
-          RandomStringUtils.secure().nextAscii(5));
+          RandomStringUtils.randomAscii(5));
       ex = assertThrows(OMException.class,
           () -> omClient.cancelDelegationToken(token));
       assertEquals(TOKEN_ERROR_OTHER, ex.getResult());

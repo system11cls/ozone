@@ -788,6 +788,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     }
   }
 
+
   /**
    * Recover the state if needed.
    * */

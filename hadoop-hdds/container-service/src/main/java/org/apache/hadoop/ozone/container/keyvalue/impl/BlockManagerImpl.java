@@ -33,7 +33,6 @@ import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
-import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
@@ -50,7 +49,7 @@ import org.slf4j.LoggerFactory;
  */
 public class BlockManagerImpl implements BlockManager {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(BlockManagerImpl.class);
 
   private ConfigurationSource config;
@@ -97,78 +96,6 @@ public class BlockManagerImpl implements BlockManager {
     return persistPutBlock(
         (KeyValueContainer) container,
         data, endOfBlock);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public long putBlockForClosedContainer(Container container, BlockData data, boolean overwriteBcsId)
-          throws IOException {
-    Preconditions.checkNotNull(data, "BlockData cannot be null for put operation.");
-    Preconditions.checkState(data.getContainerID() >= 0, "Container Id cannot be negative");
-
-    KeyValueContainerData containerData = (KeyValueContainerData) container.getContainerData();
-
-    // We are not locking the key manager since RocksDB serializes all actions
-    // against a single DB. We rely on DB level locking to avoid conflicts.
-    try (DBHandle db = BlockUtils.getDB(containerData, config)) {
-      Preconditions.checkNotNull(db, DB_NULL_ERR_MSG);
-
-      long blockBcsID = data.getBlockCommitSequenceId();
-      long containerBcsID = containerData.getBlockCommitSequenceId();
-
-      // Check if the block is already present in the DB of the container to determine whether
-      // the blockCount is already incremented for this block in the DB or not.
-      long localID = data.getLocalID();
-      boolean incrBlockCount = false;
-
-      // update the blockData as well as BlockCommitSequenceId here
-      try (BatchOperation batch = db.getStore().getBatchHandler()
-          .initBatchOperation()) {
-        // If block already exists in the DB, blockCount should not be incremented.
-        if (db.getStore().getBlockDataTable().get(containerData.getBlockKey(localID)) == null) {
-          incrBlockCount = true;
-        }
-
-        db.getStore().getBlockDataTable().putWithBatch(batch, containerData.getBlockKey(localID), data);
-        if (overwriteBcsId && blockBcsID > containerBcsID) {
-          db.getStore().getMetadataTable().putWithBatch(batch, containerData.getBcsIdKey(), blockBcsID);
-        }
-
-        // Set Bytes used, this bytes used will be updated for every write and
-        // only get committed for every put block. In this way, when datanode
-        // is up, for computation of disk space by container only committed
-        // block length is used, And also on restart the blocks committed to DB
-        // is only used to compute the bytes used. This is done to keep the
-        // current behavior and avoid DB write during write chunk operation.
-        db.getStore().getMetadataTable().putWithBatch(batch, containerData.getBytesUsedKey(),
-            containerData.getBytesUsed());
-
-        // Set Block Count for a container.
-        if (incrBlockCount) {
-          db.getStore().getMetadataTable().putWithBatch(batch, containerData.getBlockCountKey(),
-              containerData.getBlockCount() + 1);
-        }
-
-        db.getStore().getBatchHandler().commitBatchOperation(batch);
-      }
-
-      if (overwriteBcsId && blockBcsID > containerBcsID) {
-        container.updateBlockCommitSequenceId(blockBcsID);
-      }
-
-      // Increment block count in-memory after the DB update.
-      if (incrBlockCount) {
-        containerData.getStatistics().incrementBlockCount();
-      }
-
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Block {} successfully persisted for closed container {} with bcsId {} chunk size {}",
-            data.getBlockID(), containerData.getContainerID(), blockBcsID, data.getChunks().size());
-      }
-      return data.getSize();
-    }
   }
 
   public long persistPutBlock(KeyValueContainer container,
@@ -249,12 +176,15 @@ public class BlockManagerImpl implements BlockManager {
         // block length is used, And also on restart the blocks committed to DB
         // is only used to compute the bytes used. This is done to keep the
         // current behavior and avoid DB write during write chunk operation.
-        final ContainerData.BlockByteAndCounts b = containerData.getStatistics().getBlockByteAndCounts();
-        db.getStore().getMetadataTable().putWithBatch(batch, containerData.getBytesUsedKey(), b.getBytes());
+        db.getStore().getMetadataTable().putWithBatch(
+            batch, containerData.getBytesUsedKey(),
+            containerData.getBytesUsed());
 
         // Set Block Count for a container.
         if (incrBlockCount) {
-          db.getStore().getMetadataTable().putWithBatch(batch, containerData.getBlockCountKey(), b.getCount() + 1);
+          db.getStore().getMetadataTable().putWithBatch(
+              batch, containerData.getBlockCountKey(),
+              containerData.getBlockCount() + 1);
         }
 
         db.getStore().getBatchHandler().commitBatchOperation(batch);
@@ -267,7 +197,7 @@ public class BlockManagerImpl implements BlockManager {
       // Increment block count and add block to pendingPutBlockCache
       // in-memory after the DB update.
       if (incrBlockCount) {
-        containerData.getStatistics().incrementBlockCount();
+        containerData.incrBlockCount();
       }
 
       // If the Block is not in PendingPutBlockCache (and it is not endOfBlock),
@@ -423,8 +353,10 @@ public class BlockManagerImpl implements BlockManager {
         result = new ArrayList<>();
         String startKey = (startLocalID == -1) ? cData.startKeyEmpty()
             : cData.getBlockKey(startLocalID);
-        final List<Table.KeyValue<String, BlockData>> range = db.getStore().getBlockDataTable().getRangeKVs(
-            startKey, count, cData.containerPrefix(), cData.getUnprefixedKeyFilter(), true);
+        List<? extends Table.KeyValue<String, BlockData>> range =
+            db.getStore().getBlockDataTable()
+                .getSequentialRangeKVs(startKey, count,
+                    cData.containerPrefix(), cData.getUnprefixedKeyFilter());
         for (Table.KeyValue<String, BlockData> entry : range) {
           result.add(db.getStore().getCompleteBlockData(entry.getValue(), null, entry.getKey()));
         }
@@ -432,19 +364,6 @@ public class BlockManagerImpl implements BlockManager {
       }
     } finally {
       container.readUnlock();
-    }
-  }
-
-  @Override
-  public boolean blockExists(Container container, BlockID blockID) throws IOException {
-    KeyValueContainerData containerData = (KeyValueContainerData) container
-        .getContainerData();
-    try (DBHandle db = BlockUtils.getDB(containerData, config)) {
-      // This is a post condition that acts as a hint to the user.
-      // Should never fail.
-      Preconditions.checkNotNull(db, DB_NULL_ERR_MSG);
-      String blockKey = containerData.getBlockKey(blockID.getLocalID());
-      return db.getStore().getBlockDataTable().isExist(blockKey);
     }
   }
 

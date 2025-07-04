@@ -77,6 +77,7 @@ import org.apache.hadoop.ozone.protocol.commands.CommandStatus;
 import org.apache.hadoop.ozone.protocol.commands.DeleteBlocksCommand;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -84,6 +85,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Test cases for TestDeleteBlocksCommandHandler.
  */
+@Timeout(300)
 public class TestDeleteBlocksCommandHandler {
   @TempDir
   private Path folder;

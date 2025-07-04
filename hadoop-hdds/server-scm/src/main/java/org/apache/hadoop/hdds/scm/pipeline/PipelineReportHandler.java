@@ -20,6 +20,7 @@ package org.apache.hadoop.hdds.scm.pipeline;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
+import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -51,6 +52,7 @@ public class PipelineReportHandler implements
   private final PipelineManager pipelineManager;
   private final SafeModeManager scmSafeModeManager;
   private final SCMContext scmContext;
+  private final boolean pipelineAvailabilityCheck;
   private final SCMPipelineMetrics metrics;
 
   public PipelineReportHandler(SafeModeManager scmSafeModeManager,
@@ -62,6 +64,9 @@ public class PipelineReportHandler implements
     this.pipelineManager = pipelineManager;
     this.scmContext = scmContext;
     this.metrics = SCMPipelineMetrics.create();
+    this.pipelineAvailabilityCheck = conf.getBoolean(
+        HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
+        HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK_DEFAULT);
   }
 
   @Override
@@ -101,7 +106,7 @@ public class PipelineReportHandler implements
         final SCMCommand<?> command = new ClosePipelineCommand(pipelineID);
         command.setTerm(scmContext.getTermOfLeader());
         publisher.fireEvent(SCMEvents.DATANODE_COMMAND,
-            new CommandForDatanode<>(dn, command));
+            new CommandForDatanode<>(dn.getUuid(), command));
       } catch (NotLeaderException ex) {
         // Do nothing if the leader has changed.
       }
@@ -135,11 +140,12 @@ public class PipelineReportHandler implements
       }
     }
     if (pipeline.isHealthy()) {
-      if (scmSafeModeManager.getInSafeMode()) {
+      if (pipelineAvailabilityCheck && scmSafeModeManager.getInSafeMode()) {
         publisher.fireEvent(SCMEvents.OPEN_PIPELINE, pipeline);
       }
     }
   }
+
 
   protected void setReportedDatanode(Pipeline pipeline, DatanodeDetails dn)
       throws IOException {
@@ -153,7 +159,7 @@ public class PipelineReportHandler implements
     if (report.getIsLeader() ||
         RatisReplicationConfig.hasFactor(pipeline.getReplicationConfig(),
             ReplicationFactor.ONE)) {
-      pipeline.setLeaderId(dn.getID());
+      pipeline.setLeaderId(dn.getUuid());
       metrics.incNumPipelineBytesWritten(pipeline, report.getBytesWritten());
     }
   }

@@ -40,8 +40,6 @@ import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFailoverProxyProvider;
 import org.apache.hadoop.ozone.om.helpers.OMNodeDetails;
 import org.apache.hadoop.ozone.om.protocol.OMAdminProtocol;
 import org.apache.hadoop.ozone.om.protocol.OMConfiguration;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.CompactRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.CompactResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.DecommissionOMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.DecommissionOMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerAdminProtocolProtos.OMConfigurationRequest;
@@ -214,27 +212,9 @@ public final class OMAdminProtocolClientSideImpl implements OMAdminProtocol {
     }
   }
 
-  @Override
-  public void compactOMDB(String columnFamily) throws IOException {
-    CompactRequest compactRequest = CompactRequest.newBuilder()
-        .setColumnFamily(columnFamily)
-        .build();
-    CompactResponse response;
-    try {
-      response = rpcProxy.compactDB(NULL_RPC_CONTROLLER, compactRequest);
-    } catch (ServiceException e) {
-      throw ProtobufHelper.getRemoteException(e);
-    }
-    if (!response.getSuccess()) {
-      throwException("Request to compact \'" + columnFamily +
-          "\', sent to " + omPrintInfo + " failed with error: " +
-          response.getErrorMsg());
-    }
-  }
-
   private void throwException(String errorMsg)
       throws IOException {
-    throw new IOException("Request Failed. Error: " + errorMsg);
+    throw new IOException("Failed to Decommission OM. Error: " + errorMsg);
   }
 
   @Override

@@ -29,7 +29,7 @@ export const breadcrumbNameMap: IBreadcrumbNameMap = {
   '/MissingContainers': 'Missing Containers',
   '/Containers': 'Containers',
   '/Insights': 'Insights',
-  '/NamespaceUsage': 'Namespace Usage',
+  '/DiskUsage': 'Disk Usage',
   '/Heatmap': 'Heatmap',
   '/Om': 'Om'
 };

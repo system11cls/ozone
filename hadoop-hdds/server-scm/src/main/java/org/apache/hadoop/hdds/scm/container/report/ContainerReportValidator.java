@@ -35,7 +35,6 @@ public final class ContainerReportValidator {
 
   private Map<ReplicationType, ReplicaValidator> replicaValidators;
   private static final ContainerReportValidator CONTAINER_REPORT_VALIDATOR;
-
   private ContainerReportValidator() {
     this.replicaValidators = ImmutableMap.of(ReplicationType.EC,
             new ECReplicaValidator());
@@ -51,7 +50,6 @@ public final class ContainerReportValidator {
 
     private static final Logger LOG =
             LoggerFactory.getLogger(ECReplicaValidator.class);
-
     @Override
     public boolean validate(ReplicationConfig replicationConfig,
                             DatanodeDetails datanodeDetails,
@@ -83,7 +81,6 @@ public final class ContainerReportValidator {
   static {
     CONTAINER_REPORT_VALIDATOR = new ContainerReportValidator();
   }
-
   private static boolean validateReplica(ReplicationConfig replicationConfig,
                                          DatanodeDetails datanodeDetails,
                                          ContainerReplicaProto replicaProto) {
@@ -94,11 +91,12 @@ public final class ContainerReportValidator {
                             datanodeDetails, replicaProto))
             .orElse(true);
   }
-
   public static boolean validate(ContainerInfo containerInfo,
                                  DatanodeDetails datanodeDetails,
                                  ContainerReplicaProto replicaProto) {
     return validateReplica(containerInfo.getReplicationConfig(),
             datanodeDetails, replicaProto);
   }
+
+
 }

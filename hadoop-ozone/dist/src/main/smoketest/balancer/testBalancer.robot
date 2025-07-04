@@ -21,11 +21,10 @@ Library             Collections
 Resource            ../commonlib.robot
 Resource            ../ozone-lib/shell.robot
 
-Suite Setup         Get Security Enabled From Config
-
 Test Timeout        20 minutes
 
 *** Variables ***
+${SECURITY_ENABLED}                 false
 ${HOST}                             datanode1
 ${VOLUME}                           volume1
 ${BUCKET}                           bucket1
@@ -99,13 +98,13 @@ Run Balancer Status
                      Should Contain                  ${result}             ContainerBalancer is Running.
 
 Run Balancer Verbose Status
-    ${result} =      Execute                         ozone admin containerbalancer status --verbose
+    ${result} =      Execute                         ozone admin containerbalancer status -v
                      Verify Balancer Iteration       ${result}             1
                      Should Contain                  ${result}             Iteration result -    collapse_spaces=True
 
 
 Run Balancer Verbose History Status
-    ${result} =    Execute                         ozone admin containerbalancer status --verbose --history
+    ${result} =    Execute                         ozone admin containerbalancer status -v --history
                    Verify Balancer Iteration            ${result}             1
                    Verify Balancer Iteration History    ${result}
 
@@ -135,7 +134,7 @@ Get Uuid
 
 Close All Containers
     FOR     ${INDEX}    IN RANGE    15
-        ${container} =      Execute          ozone admin container list --state OPEN | jq -r '.[] | select(.replicationConfig.data == 3) | .containerID' | head -1
+        ${container} =      Execute          ozone admin container list --state OPEN | jq -r 'select(.replicationConfig.data == 3) | .containerID' | head -1
         EXIT FOR LOOP IF    "${container}" == "${EMPTY}"
                             ${message} =    Execute And Ignore Error    ozone admin container close "${container}"
                             Run Keyword If    '${message}' != '${EMPTY}'      Should Contain   ${message}   is in closing state
@@ -146,7 +145,7 @@ Close All Containers
 
 All container is closed
     ${output} =         Execute           ozone admin container list --state OPEN
-                        Should Be Equal   ${output}   [ ]
+                        Should Be Empty   ${output}
 
 Get Datanode Ozone Used Bytes Info
     [arguments]             ${uuid}

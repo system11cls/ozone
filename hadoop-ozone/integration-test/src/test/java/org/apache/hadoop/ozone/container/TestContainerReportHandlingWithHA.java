@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.container;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyMap;
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEADNODE_INTERVAL;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -44,7 +46,6 @@ import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
-import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
@@ -155,8 +156,10 @@ public class TestContainerReportHandlingWithHA {
 
     OzoneBucket bucket = volume.getBucket(BUCKET);
 
-    TestDataUtil.createKey(bucket, KEY,
-        RatisReplicationConfig.getInstance(THREE), "Hello".getBytes(UTF_8));
+    try (OutputStream out = bucket.createKey(KEY, 0,
+        RatisReplicationConfig.getInstance(THREE), emptyMap())) {
+      out.write("Hello".getBytes(UTF_8));
+    }
   }
 
   private static void waitForContainerStateInAllSCMs(MiniOzoneHAClusterImpl cluster, ContainerID containerID,

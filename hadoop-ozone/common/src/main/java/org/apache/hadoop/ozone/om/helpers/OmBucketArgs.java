@@ -140,6 +140,7 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     return quotaInNamespaceSet;
   }
 
+
   /**
    * Returns Bucket default replication config.
    */
@@ -222,7 +223,6 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     private BucketEncryptionKeyInfo bekInfo;
     private DefaultReplicationConfig defaultReplicationConfig;
     private String ownerName;
-
     /**
      * Constructs a builder.
      */

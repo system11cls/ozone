@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.om.response;
 
 import com.google.common.base.Preconditions;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -32,6 +33,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
 public abstract class OMClientResponse {
 
   private final OMResponse omResponse;
+  /** Used only for non-Ratis. */
+  private CompletableFuture<Void> flushFuture = null;
   private OMLockDetails omLockDetails;
 
   public OMClientResponse(OMResponse omResponse) {
@@ -76,6 +79,15 @@ public abstract class OMClientResponse {
   public OMResponse getOMResponse() {
     return omResponse;
   }
+
+  public void setFlushFuture(CompletableFuture<Void> flushFuture) {
+    this.flushFuture = flushFuture;
+  }
+
+  public CompletableFuture<Void> getFlushFuture() {
+    return flushFuture;
+  }
+
 
   public OMLockDetails getOmLockDetails() {
     return omLockDetails;

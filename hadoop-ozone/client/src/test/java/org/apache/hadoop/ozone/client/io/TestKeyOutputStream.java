@@ -46,7 +46,7 @@ public class TestKeyOutputStream {
 
   @BeforeAll
   static void init() {
-    GenericTestUtils.setLogLevel(KeyOutputStreamSemaphore.class, Level.DEBUG);
+    GenericTestUtils.setLogLevel(KeyOutputStreamSemaphore.LOG, Level.DEBUG);
   }
 
   @Test

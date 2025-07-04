@@ -19,7 +19,6 @@ package org.apache.hadoop.hdds.scm.node;
 
 import java.util.Comparator;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DatanodeUsageInfoProto;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
 
@@ -127,10 +126,6 @@ public class DatanodeUsageInfo {
    */
   public DatanodeDetails getDatanodeDetails() {
     return datanodeDetails;
-  }
-
-  public DatanodeID getDatanodeID() {
-    return datanodeDetails.getID();
   }
 
   /**

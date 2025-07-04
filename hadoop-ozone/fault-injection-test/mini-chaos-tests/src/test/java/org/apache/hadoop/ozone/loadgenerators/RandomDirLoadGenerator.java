@@ -31,7 +31,7 @@ public class RandomDirLoadGenerator extends LoadGenerator {
 
   @Override
   public void generateLoad() throws Exception {
-    int index = RandomUtils.secure().randomInt();
+    int index = RandomUtils.nextInt();
     String keyName = getKeyName(index);
     fsBucket.createDirectory(keyName);
     fsBucket.readDirectory(keyName);

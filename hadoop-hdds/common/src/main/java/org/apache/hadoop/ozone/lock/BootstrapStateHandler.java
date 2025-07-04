@@ -31,7 +31,6 @@ public interface BootstrapStateHandler {
       semaphore.acquire();
       return this;
     }
-
     public void unlock() {
       semaphore.release();
     }

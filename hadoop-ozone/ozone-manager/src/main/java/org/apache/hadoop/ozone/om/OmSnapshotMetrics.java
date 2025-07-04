@@ -35,6 +35,9 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
   private static final String SOURCE_NAME =
       OmSnapshotMetrics.class.getSimpleName();
 
+  private OmSnapshotMetrics() {
+  }
+
   private static final Supplier<OmSnapshotMetrics> SUPPLIER =
       MemoizedSupplier.valueOf(() -> {
         MetricsSystem ms = DefaultMetricsSystem.instance();
@@ -43,30 +46,14 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
             new OmSnapshotMetrics());
       });
 
-  private @Metric MutableCounterLong numKeyLookup;
-  private @Metric MutableCounterLong numKeyLookupFails;
-  private @Metric MutableCounterLong numGetKeyInfo;
-  private @Metric MutableCounterLong numGetKeyInfoFails;
-  private @Metric MutableCounterLong numListStatus;
-  private @Metric MutableCounterLong numListStatusFails;
-  private @Metric MutableCounterLong numGetFileStatus;
-  private @Metric MutableCounterLong numGetFileStatusFails;
-  private @Metric MutableCounterLong numLookupFile;
-  private @Metric MutableCounterLong numLookupFileFails;
-  private @Metric MutableCounterLong numKeyLists;
-  private @Metric MutableCounterLong numKeyListFails;
-  private @Metric MutableCounterLong numGetAcl;
-  private @Metric MutableCounterLong numKeyOps;
-  private @Metric MutableCounterLong numFSOps;
-  private @Metric MutableCounterLong numGetObjectTagging;
-  private @Metric MutableCounterLong numGetObjectTaggingFails;
-
-  private OmSnapshotMetrics() {
-  }
-
   public static OmSnapshotMetrics getInstance() {
     return SUPPLIER.get();
   }
+
+  private @Metric
+      MutableCounterLong numKeyLookup;
+  private @Metric
+      MutableCounterLong numKeyLookupFails;
 
   @Override
   public void incNumKeyLookups() {
@@ -79,6 +66,11 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
     numKeyLookupFails.incr();
   }
 
+  private @Metric
+      MutableCounterLong numGetKeyInfo;
+  private @Metric
+      MutableCounterLong numGetKeyInfoFails;
+
   @Override
   public void incNumGetKeyInfo() {
     numKeyOps.incr();
@@ -89,6 +81,11 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
   public void incNumGetKeyInfoFails() {
     numGetKeyInfoFails.incr();
   }
+
+  private @Metric
+      MutableCounterLong numListStatus;
+  private @Metric
+      MutableCounterLong numListStatusFails;
 
   @Override
   public void incNumListStatus() {
@@ -102,6 +99,11 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
     numListStatusFails.incr();
   }
 
+  private @Metric
+      MutableCounterLong numGetFileStatus;
+  private @Metric
+      MutableCounterLong numGetFileStatusFails;
+
   @Override
   public void incNumGetFileStatus() {
     numKeyOps.incr();
@@ -113,6 +115,11 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
   public void incNumGetFileStatusFails() {
     numGetFileStatusFails.incr();
   }
+
+  private @Metric
+      MutableCounterLong numLookupFile;
+  private @Metric
+      MutableCounterLong numLookupFileFails;
 
   @Override
   public void incNumLookupFile() {
@@ -126,6 +133,12 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
     numLookupFileFails.incr();
   }
 
+  private @Metric
+      MutableCounterLong numKeyLists;
+
+  private @Metric
+      MutableCounterLong numKeyListFails;
+
   @Override
   public void incNumKeyLists() {
     numKeyLists.incr();
@@ -136,10 +149,24 @@ public final class OmSnapshotMetrics implements OmMetadataReaderMetrics {
     numKeyListFails.incr();
   }
 
+  private @Metric
+      MutableCounterLong numGetAcl;
+
   @Override
   public void incNumGetAcl() {
     numGetAcl.incr();
   }
+
+  private @Metric
+      MutableCounterLong numKeyOps;
+  private @Metric
+      MutableCounterLong numFSOps;
+
+
+  private @Metric
+      MutableCounterLong numGetObjectTagging;
+  private @Metric
+      MutableCounterLong numGetObjectTaggingFails;
 
   @Override
   public void incNumGetObjectTagging() {

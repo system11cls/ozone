@@ -18,25 +18,20 @@
 package org.apache.hadoop.hdds.utils.db;
 
 import java.io.File;
-import java.util.Collections;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.hadoop.hdds.utils.MetadataKeyFilters.KeyPrefixFilter;
+import org.apache.hadoop.hdds.utils.MetadataKeyFilters;
 
 /**
  * InMemory Table implementation for tests.
  */
 public final class InMemoryTestTable<KEY, VALUE> implements Table<KEY, VALUE> {
-  private final Map<KEY, VALUE> map;
+  private final Map<KEY, VALUE> map = new ConcurrentHashMap<>();
 
-  public InMemoryTestTable() {
-    this(Collections.emptyMap());
-  }
-
-  public InMemoryTestTable(Map<KEY, VALUE> map) {
-    this.map = new ConcurrentHashMap<>();
-    this.map.putAll(map);
+  @Override
+  public void close() {
   }
 
   @Override
@@ -85,7 +80,12 @@ public final class InMemoryTestTable<KEY, VALUE> implements Table<KEY, VALUE> {
   }
 
   @Override
-  public KeyValueIterator<KEY, VALUE> iterator(KEY prefix, KeyValueIterator.Type type) {
+  public TableIterator<KEY, ? extends KeyValue<KEY, VALUE>> iterator() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public TableIterator<KEY, ? extends KeyValue<KEY, VALUE>> iterator(KEY prefix) {
     throw new UnsupportedOperationException();
   }
 
@@ -100,8 +100,15 @@ public final class InMemoryTestTable<KEY, VALUE> implements Table<KEY, VALUE> {
   }
 
   @Override
-  public List<KeyValue<KEY, VALUE>> getRangeKVs(
-      KEY startKey, int count, KEY prefix, KeyPrefixFilter filter, boolean isSequential) {
+  public List<? extends KeyValue<KEY, VALUE>> getRangeKVs(KEY startKey, int count, KEY prefix,
+                                                          MetadataKeyFilters.MetadataKeyFilter... filters)
+      throws IOException, IllegalArgumentException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public List<? extends KeyValue<KEY, VALUE>> getSequentialRangeKVs(KEY startKey, int count, KEY prefix,
+                                                                    MetadataKeyFilters.MetadataKeyFilter... filters) {
     throw new UnsupportedOperationException();
   }
 

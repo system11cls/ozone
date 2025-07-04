@@ -230,6 +230,7 @@ public final class ContainerTestHelper {
     return request.build();
   }
 
+
   public static ContainerCommandRequestProto getReadSmallFileRequest(
       Pipeline pipeline, ContainerProtos.PutBlockRequestProto putKey)
       throws Exception {
@@ -291,6 +292,7 @@ public final class ContainerTestHelper {
       long containerID, Pipeline pipeline) throws IOException {
     return getCreateContainerRequest(containerID, pipeline, ContainerProtos.ContainerDataProto.State.OPEN);
   }
+
 
   /**
    * Returns a create container command for test purposes. There are a bunch of

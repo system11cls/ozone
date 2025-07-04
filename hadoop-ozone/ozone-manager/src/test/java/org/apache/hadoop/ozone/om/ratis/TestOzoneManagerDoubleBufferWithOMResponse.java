@@ -47,7 +47,6 @@ import org.apache.hadoop.ozone.audit.AuditMessage;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
-import org.apache.hadoop.ozone.om.OmConfig;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
@@ -105,7 +104,6 @@ public class TestOzoneManagerDoubleBufferWithOMResponse {
     auditLogger = mock(AuditLogger.class);
     when(ozoneManager.getAuditLogger()).thenReturn(auditLogger);
     when(ozoneManager.getConfiguration()).thenReturn(ozoneConfiguration);
-    when(ozoneManager.getConfig()).thenReturn(ozoneConfiguration.getObject(OmConfig.class));
     doNothing().when(auditLogger).logWrite(any(AuditMessage.class));
     doubleBuffer = OzoneManagerDoubleBuffer.newBuilder()
         .setOmMetadataManager(omMetadataManager)

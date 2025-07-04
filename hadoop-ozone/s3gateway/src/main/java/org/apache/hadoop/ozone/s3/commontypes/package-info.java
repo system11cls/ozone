@@ -19,10 +19,10 @@
  * Common classes required for S3 rest API's.
  */
 @javax.xml.bind.annotation.XmlSchema(
-    namespace = S3Consts.S3_XML_NAMESPACE, elementFormDefault =
+    namespace = "http://s3.amazonaws"
+        + ".com/doc/2006-03-01/", elementFormDefault =
     javax.xml.bind.annotation.XmlNsForm.QUALIFIED,
     xmlns = {
-        @javax.xml.bind.annotation.XmlNs(namespaceURI = S3Consts.S3_XML_NAMESPACE, prefix = "")})
+        @javax.xml.bind.annotation.XmlNs(namespaceURI = "http://s3.amazonaws"
+            + ".com/doc/2006-03-01/", prefix = "")})
 package org.apache.hadoop.ozone.s3.commontypes;
-
-import org.apache.hadoop.ozone.s3.util.S3Consts;

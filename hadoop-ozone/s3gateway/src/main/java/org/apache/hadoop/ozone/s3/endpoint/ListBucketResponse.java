@@ -26,22 +26,18 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.hadoop.ozone.s3.commontypes.BucketMetadata;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 
 /**
  * Response from the ListBucket RPC Call.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "ListAllMyBucketsResult",
-    namespace = S3Consts.S3_XML_NAMESPACE)
+    namespace = "http://s3.amazonaws.com/doc/2006-03-01/")
 public class ListBucketResponse {
   @XmlElementWrapper(name = "Buckets")
   @XmlElement(name = "Bucket")
   private List<BucketMetadata> buckets = new ArrayList<>();
 
-  @XmlElement(name = "Owner")
-  private S3Owner owner;
-  
   public List<BucketMetadata> getBuckets() {
     return buckets;
   }
@@ -57,13 +53,5 @@ public class ListBucketResponse {
 
   public void addBucket(BucketMetadata bucket) {
     buckets.add(bucket);
-  }
-
-  public S3Owner getOwner() {
-    return owner;
-  }
-
-  public void setOwner(S3Owner owner) {
-    this.owner = owner;
   }
 }

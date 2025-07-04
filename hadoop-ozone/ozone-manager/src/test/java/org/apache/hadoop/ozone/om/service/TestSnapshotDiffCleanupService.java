@@ -288,17 +288,16 @@ public class TestSnapshotDiffCleanupService {
                                           long noOfEntries)
       throws IOException, RocksDBException {
 
-    String jobId = "jobId-" + RandomStringUtils.secure().nextAlphanumeric(10);
-    String volume = "volume-" + RandomStringUtils.secure().nextAlphanumeric(10);
-    String bucket = "bucket-" + RandomStringUtils.secure().nextAlphanumeric(10);
+    String jobId = "jobId-" + RandomStringUtils.randomAlphanumeric(10);
+    String volume = "volume-" + RandomStringUtils.randomAlphanumeric(10);
+    String bucket = "bucket-" + RandomStringUtils.randomAlphanumeric(10);
     String fromSnapshot = "fromSnap-" +
-        RandomStringUtils.secure().nextAlphanumeric(10);
-    String toSnapshot = "toSnap-" + RandomStringUtils.secure().nextAlphanumeric(10);
+        RandomStringUtils.randomAlphanumeric(10);
+    String toSnapshot = "toSnap-" + RandomStringUtils.randomAlphanumeric(10);
     String jobKey = fromSnapshot + DELIMITER + toSnapshot;
 
     SnapshotDiffJob job = new SnapshotDiffJob(creationTime, jobId, jobStatus,
-        volume, bucket, fromSnapshot, toSnapshot, false, false, noOfEntries,
-        null, 0.0);
+        volume, bucket, fromSnapshot, toSnapshot, false, false, noOfEntries);
 
     db.get().put(jobTableCfh, codecRegistry.asRawData(jobKey),
         codecRegistry.asRawData(job));
@@ -363,6 +362,7 @@ public class TestSnapshotDiffCleanupService {
     long actualEntriesCount = codecRegistry.asObject(bytes, Long.class);
     assertEquals(expectedEntriesCount, actualEntriesCount);
   }
+
 
   private void assertNumberOfEntriesInTable(ColumnFamilyHandle table,
                                             long expectedCount) {

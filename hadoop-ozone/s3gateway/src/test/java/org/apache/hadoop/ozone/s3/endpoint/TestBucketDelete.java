@@ -55,6 +55,8 @@ public class TestBucketDelete {
     bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
         .setClient(clientStub)
         .build();
+
+
   }
 
   @Test
@@ -76,6 +78,7 @@ public class TestBucketDelete {
     }
     fail("testDeleteWithNoSuchBucket failed");
   }
+
 
   @Test
   public void testDeleteWithBucketNotEmpty() throws Exception {

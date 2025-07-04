@@ -38,7 +38,7 @@ public class FilesystemLoadGenerator extends LoadGenerator {
 
   @Override
   public void generateLoad() throws Exception {
-    int index = RandomUtils.secure().randomInt();
+    int index = RandomUtils.nextInt();
     ByteBuffer buffer = dataBuffer.getBuffer(index);
     String keyName = getKeyName(index);
     fsBucket.writeKey(true, buffer, keyName);

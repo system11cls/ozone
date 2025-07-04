@@ -117,9 +117,6 @@ public class ECBlockInputStreamProxy extends BlockExtendedInputStream {
     int expected = expectedDataLocations(repConfig, getLength());
     int available = availableDataLocations(blockInfo.getPipeline(), expected);
     reconstructionReader = available < expected;
-    if (reconstructionReader) {
-      LOG.info("Data locations available: {} < expected: {}, using reconstruction read", available, expected);
-    }
   }
 
   private void createBlockReader() {

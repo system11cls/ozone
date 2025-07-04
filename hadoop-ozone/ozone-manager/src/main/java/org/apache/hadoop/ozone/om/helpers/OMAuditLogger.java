@@ -37,16 +37,14 @@ import org.slf4j.LoggerFactory;
  * This class is used for OM Audit logs.
  */
 public final class OMAuditLogger {
-
-  private static final Logger LOG = LoggerFactory.getLogger(OMAuditLogger.class);
+  private OMAuditLogger() {
+  }
 
   private static final Map<Type, OMAction> CMD_AUDIT_ACTION_MAP = new HashMap<>();
+  private static final Logger LOG = LoggerFactory.getLogger(OMAuditLogger.class);
 
   static {
     init();
-  }
-
-  private OMAuditLogger() {
   }
 
   private static void init() {

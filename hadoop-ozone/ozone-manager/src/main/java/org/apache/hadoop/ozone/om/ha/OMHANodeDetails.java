@@ -61,7 +61,7 @@ public class OMHANodeDetails {
       OMConfigKeys.OZONE_OM_ADDRESS_KEY,
   };
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(OMHANodeDetails.class);
   private final OMNodeDetails localNodeDetails;
   private final List<OMNodeDetails> peerNodeDetails;
@@ -83,6 +83,7 @@ public class OMHANodeDetails {
     }
     return peerNodesMap;
   }
+
 
   /**
    * Inspects and loads OM node configurations.

@@ -42,6 +42,10 @@ public class OmDirectoryInfo extends WithParentObjectId
       OmDirectoryInfo::getProtobuf,
       OmDirectoryInfo.class);
 
+  public static Codec<OmDirectoryInfo> getCodec() {
+    return CODEC;
+  }
+
   private final String name; // directory name
   private String owner;
 
@@ -57,10 +61,6 @@ public class OmDirectoryInfo extends WithParentObjectId
     this.acls = builder.acls;
     this.creationTime = builder.creationTime;
     this.modificationTime = builder.modificationTime;
-  }
-
-  public static Codec<OmDirectoryInfo> getCodec() {
-    return CODEC;
   }
 
   /**

@@ -205,6 +205,7 @@ public class OmSnapshot implements IOmMetadataReader, Closeable {
 
   }
 
+
   // Remove snapshot indicator from keyname
   private String normalizeKeyName(String keyname) {
     if (keyname == null) {

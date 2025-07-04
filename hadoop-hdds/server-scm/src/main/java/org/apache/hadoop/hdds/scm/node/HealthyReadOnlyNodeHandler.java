@@ -88,7 +88,7 @@ public class HealthyReadOnlyNodeHandler
                 "containers.",
             pipelineID, pipeline.getPipelineState(),
             HddsProtos.NodeState.HEALTHY_READONLY,
-            datanodeDetails);
+            datanodeDetails.getUuidString());
         pipelineManager.closePipeline(pipelineID);
       } catch (IOException ex) {
         LOG.error("Failed to close pipeline {} which uses HEALTHY READONLY " +
@@ -103,7 +103,7 @@ public class HealthyReadOnlyNodeHandler
       // make sure after DN is added back into topology, DatanodeDetails
       // instance returned from nodeStateManager has parent correctly set.
       Preconditions.checkNotNull(
-          nodeManager.getNode(datanodeDetails.getID())
+          nodeManager.getNodeByUuid(datanodeDetails.getUuid())
               .getParent());
     }
   }

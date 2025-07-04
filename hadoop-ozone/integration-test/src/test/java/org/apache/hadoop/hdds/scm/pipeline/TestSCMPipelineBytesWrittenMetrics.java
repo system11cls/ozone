@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -47,10 +48,12 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test cases to verify the SCM pipeline bytesWritten metrics.
  */
+@Timeout(300)
 public class TestSCMPipelineBytesWrittenMetrics {
 
   private MiniOzoneCluster cluster;
@@ -60,6 +63,8 @@ public class TestSCMPipelineBytesWrittenMetrics {
   @BeforeEach
   public void setup() throws Exception {
     conf = new OzoneConfiguration();
+    conf.set(HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
+        Boolean.TRUE.toString());
     conf.setBoolean(OZONE_SCM_PIPELINE_AUTO_CREATE_FACTOR_ONE, false);
     conf.setInt(OZONE_DATANODE_PIPELINE_LIMIT, 1);
     conf.setTimeDuration(HDDS_PIPELINE_REPORT_INTERVAL, 10, TimeUnit.SECONDS);
@@ -77,7 +82,7 @@ public class TestSCMPipelineBytesWrittenMetrics {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
-    String value = RandomStringUtils.secure().nextAlphabetic(numBytes);
+    String value = RandomStringUtils.randomAlphabetic(numBytes);
     store.createVolume(volumeName);
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);

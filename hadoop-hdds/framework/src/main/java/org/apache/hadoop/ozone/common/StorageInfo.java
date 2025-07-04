@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Private
 public class StorageInfo {
 
-  private static final Logger LOG = LoggerFactory.getLogger(StorageInfo.class);
+  public static final Logger LOG = LoggerFactory.getLogger(StorageInfo.class);
 
   private Properties properties = new Properties();
 
@@ -186,6 +186,7 @@ public class StorageInfo {
     Long creationTime = getCreationTime();
     Preconditions.checkNotNull(creationTime);
   }
+
 
   public void writeTo(File to)
       throws IOException {

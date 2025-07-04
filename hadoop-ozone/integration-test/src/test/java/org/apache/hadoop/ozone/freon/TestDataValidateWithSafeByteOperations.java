@@ -17,15 +17,18 @@
 
 package org.apache.hadoop.ozone.freon;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests Freon, with MiniOzoneCluster and validate data.
  */
 
+@Timeout(value = 300, unit = TimeUnit.SECONDS)
 public class TestDataValidateWithSafeByteOperations extends TestDataValidate {
 
   /**

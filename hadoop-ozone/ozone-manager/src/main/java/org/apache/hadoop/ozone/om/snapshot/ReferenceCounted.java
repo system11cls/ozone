@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Add reference counter to an object instance.
  */
-class ReferenceCounted<T> {
+public class ReferenceCounted<T>
+    implements AutoCloseable {
 
   /**
    * Object that is being reference counted. e.g. OmSnapshot
@@ -51,7 +52,7 @@ class ReferenceCounted<T> {
    */
   private final ReferenceCountedCallback parentWithCallback;
 
-  ReferenceCounted(T obj, boolean disableCounter,
+  public ReferenceCounted(T obj, boolean disableCounter,
       ReferenceCountedCallback parentWithCallback) {
     // A param to allow disabling ref counting to reduce active DB
     //  access penalties due to AtomicLong operations.
@@ -151,5 +152,12 @@ class ReferenceCounted<T> {
 
     long tid = Thread.currentThread().getId();
     return threadMap.getOrDefault(tid, 0L);
+  }
+
+  @Override
+  public void close() {
+    // Decrease ref count by 1 when close() is called on this object
+    // so it is eligible to be used with try-with-resources.
+    decrementRefCount();
   }
 }

@@ -44,7 +44,8 @@ public class ReconNewNodeHandler implements EventHandler<DatanodeDetails> {
     try {
       nodeManager.addNodeToDB(datanodeDetails);
     } catch (IOException e) {
-      LOG.error("Unable to add new node {} to Node DB.", datanodeDetails);
+      LOG.error("Unable to add new node {} to Node DB.",
+          datanodeDetails.getUuidString());
     }
   }
 }

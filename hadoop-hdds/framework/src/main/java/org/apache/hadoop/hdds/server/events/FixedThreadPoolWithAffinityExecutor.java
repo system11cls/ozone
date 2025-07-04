@@ -30,7 +30,11 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.hadoop.hdds.utils.MetricsUtil;
+import org.apache.hadoop.metrics2.annotation.Metric;
+import org.apache.hadoop.metrics2.annotation.Metrics;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +45,7 @@ import org.slf4j.LoggerFactory;
  *
  * @param <P> the payload type of events
  */
+@Metrics(context = "EventQueue")
 public class FixedThreadPoolWithAffinityExecutor<P, Q>
     implements EventExecutor<P> {
 
@@ -61,7 +66,27 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
 
   private final List<ThreadPoolExecutor> executors;
 
-  private final EventExecutorMetrics metrics;
+  // MutableCounterLong is thread safe.
+  @Metric
+  private MutableCounterLong queued;
+
+  @Metric
+  private MutableCounterLong done;
+
+  @Metric
+  private MutableCounterLong failed;
+
+  @Metric
+  private MutableCounterLong scheduled;
+
+  @Metric
+  private MutableCounterLong dropped;
+  
+  @Metric
+  private MutableCounterLong longWaitInQueue;
+  
+  @Metric
+  private MutableCounterLong longTimeExecution;
 
   private final AtomicBoolean isRunning = new AtomicBoolean(true);
   private long queueWaitThreshold
@@ -87,7 +112,6 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
     this.eventPublisher = eventPublisher;
     this.executors = executors;
     this.executorMap = executorMap;
-    this.metrics = new EventExecutorMetrics(EVENT_QUEUE + name, "Event Executor metrics");
     executorMap.put(clazz.getName(), this);
 
     // Add runnable which will wait for task over another queue
@@ -101,6 +125,9 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
       }
       ++i;
     }
+
+    MetricsUtil.registerDynamic(this, EVENT_QUEUE + name,
+        "Event Executor metrics ", "EventQueue");
   }
   
   public void setQueueWaitThreshold(long queueWaitThreshold) {
@@ -141,7 +168,7 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
   @Override
   public void onMessage(EventHandler<P> handler, P message, EventPublisher
       publisher) {
-    metrics.incrementQueued();
+    queued.incr();
     // For messages that need to be routed to the same thread need to
     // implement hashCode to match the messages. This should be safe for
     // other messages that implement the native hash.
@@ -149,44 +176,44 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
     BlockingQueue<Q> queue = workQueues.get(index);
     queue.add((Q) message);
     if (queue instanceof IQueueMetrics) {
-      metrics.incrementDropped(((IQueueMetrics) queue).getAndResetDropCount(
+      dropped.incr(((IQueueMetrics) queue).getAndResetDropCount(
           message.getClass().getSimpleName()));
     }
   }
 
   @Override
   public long failedEvents() {
-    return metrics.getFailed();
+    return failed.value();
   }
 
   @Override
   public long successfulEvents() {
-    return metrics.getDone();
+    return done.value();
   }
 
   @Override
   public long queuedEvents() {
-    return metrics.getQueued();
+    return queued.value();
   }
 
   @Override
   public long scheduledEvents() {
-    return metrics.getScheduled();
+    return scheduled.value();
   }
 
   @Override
   public long droppedEvents() {
-    return metrics.getDropped();
+    return dropped.value();
   }
 
   @Override
   public long longWaitInQueueEvents() {
-    return metrics.getLongWaitInQueue();
+    return longWaitInQueue.value();
   }
   
   @Override
   public long longTimeExecutionEvents() {
-    return metrics.getLongExecution();
+    return longTimeExecution.value();
   }
 
   @Override
@@ -196,7 +223,6 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
       executor.shutdown();
     }
     executorMap.clear();
-    metrics.unregister();
     DefaultMetricsSystem.instance().unregisterSource(EVENT_QUEUE + name);
   }
 
@@ -247,26 +273,26 @@ public class FixedThreadPoolWithAffinityExecutor<P, Q>
           long curTime = Time.monotonicNow();
           if (createTime != 0
               && ((curTime - createTime) > executor.queueWaitThreshold)) {
-            executor.metrics.incrementLongWaitInQueue();
+            executor.longWaitInQueue.incr();
             LOG.warn("Event remained in queue for long time {} millisec, {}",
                 (curTime - createTime), eventId);
           }
 
-          executor.metrics.incrementScheduled();
+          executor.scheduled.incr();
           try {
             executor.eventHandler.onMessage(report,
                 executor.eventPublisher);
-            executor.metrics.incrementDone();
+            executor.done.incr();
             curTime = Time.monotonicNow();
             if (createTime != 0
                 && (curTime - createTime) > executor.execWaitThreshold) {
-              executor.metrics.incrementLongExecution();
+              executor.longTimeExecution.incr();
               LOG.warn("Event taken long execution time {} millisec, {}",
                   (curTime - createTime), eventId);
             }
           } catch (Exception ex) {
             LOG.error("Error on execution message {}", report, ex);
-            executor.metrics.incrementFailed();
+            executor.failed.incr();
           }
           if (Thread.currentThread().isInterrupted()) {
             LOG.warn("Interrupt of execution of Reports");

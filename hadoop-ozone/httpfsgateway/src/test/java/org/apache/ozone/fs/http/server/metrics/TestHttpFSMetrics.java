@@ -52,6 +52,21 @@ public class TestHttpFSMetrics {
   private static FileSystem mockFs = mock(FileSystem.class);
   private static FSDataOutputStream fsDataOutputStream = mock(FSDataOutputStream.class);
 
+  /**
+   * Mock FileSystemAccessService.
+   */
+  public static class MockFileSystemAccessService extends FileSystemAccessService {
+    @Override
+    protected FileSystem createFileSystem(Configuration namenodeConf) throws IOException {
+      return mockFs;
+    }
+
+    @Override
+    protected void closeFileSystem(FileSystem fs) throws IOException {
+      // do nothing
+    }
+  }
+
   private HttpFSServerWebApp webApp;
   private HttpFSServerMetrics metrics;
   private Configuration conf;
@@ -127,20 +142,5 @@ public class TestHttpFSMetrics {
 
     assertEquals(initialAppendOps + 1, metrics.getOpsAppend());
     assertEquals(initialBytesWritten + 4, metrics.getBytesWritten());
-  }
-
-  /**
-   * Mock FileSystemAccessService.
-   */
-  public static class MockFileSystemAccessService extends FileSystemAccessService {
-    @Override
-    protected FileSystem createFileSystem(Configuration namenodeConf) throws IOException {
-      return mockFs;
-    }
-
-    @Override
-    protected void closeFileSystem(FileSystem fs) throws IOException {
-      // do nothing
-    }
   }
 }

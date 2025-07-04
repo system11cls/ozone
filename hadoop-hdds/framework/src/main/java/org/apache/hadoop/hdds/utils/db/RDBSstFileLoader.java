@@ -17,18 +17,28 @@
 
 package org.apache.hadoop.hdds.utils.db;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 import org.apache.hadoop.hdds.utils.db.RocksDatabase.ColumnFamily;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedIngestExternalFileOptions;
 
 /**
- * Load rocksdb sst files.
+ * DumpFileLoader using rocksdb sst files.
  */
-final class RDBSstFileLoader {
-  private RDBSstFileLoader() { }
+public class RDBSstFileLoader implements DumpFileLoader, Closeable {
 
-  static void load(RocksDatabase db, ColumnFamily family, File externalFile) throws RocksDatabaseException {
+  private final RocksDatabase db;
+  private final ColumnFamily family;
+
+  public RDBSstFileLoader(RocksDatabase db, ColumnFamily cf) {
+    this.db = db;
+    this.family = cf;
+  }
+
+  @Override
+  public void load(File externalFile) throws IOException {
     // Ingest an empty sst file results in exception.
     if (externalFile.length() == 0) {
       return;
@@ -40,5 +50,9 @@ final class RDBSstFileLoader {
           Collections.singletonList(externalFile.getAbsolutePath()),
           ingestOptions);
     }
+  }
+
+  @Override
+  public void close() {
   }
 }

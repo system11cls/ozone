@@ -75,10 +75,17 @@ import org.slf4j.LoggerFactory;
 public class KeyOutputStream extends OutputStream
     implements Syncable, KeyMetadataAware {
 
-  private static final Logger LOG =
-      LoggerFactory.getLogger(KeyOutputStream.class);
-
   private final ReplicationConfig replication;
+
+  /**
+   * Defines stream action while calling handleFlushOrClose.
+   */
+  enum StreamAction {
+    FLUSH, HSYNC, CLOSE, FULL
+  }
+
+  public static final Logger LOG =
+      LoggerFactory.getLogger(KeyOutputStream.class);
 
   private boolean closed;
   private final Map<Class<? extends Throwable>, RetryPolicy> retryPolicyMap;
@@ -842,12 +849,5 @@ public class KeyOutputStream extends OutputStream
           ": " + FSExceptionMessages.STREAM_IS_CLOSED + " Key: "
               + blockOutputStreamEntryPool.getKeyName());
     }
-  }
-
-  /**
-   * Defines stream action while calling handleFlushOrClose.
-   */
-  enum StreamAction {
-    FLUSH, HSYNC, CLOSE, FULL
   }
 }

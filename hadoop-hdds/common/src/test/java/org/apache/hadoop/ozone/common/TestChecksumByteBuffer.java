@@ -79,8 +79,7 @@ public class TestChecksumByteBuffer {
 
       final int len = 1 << 10;
       for (int i = 0; i < 1000; i++) {
-        checkBytes(RandomUtils.secure().randomBytes(len),
-            RandomUtils.secure().randomInt(0, len));
+        checkBytes(RandomUtils.nextBytes(len), RandomUtils.nextInt(0, len));
       }
     }
 

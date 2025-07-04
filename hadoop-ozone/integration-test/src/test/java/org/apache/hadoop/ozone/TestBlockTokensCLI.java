@@ -51,6 +51,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -69,6 +70,7 @@ import org.apache.ratis.util.ExitUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +80,7 @@ import org.slf4j.LoggerFactory;
  * secure cluster.
  */
 @InterfaceAudience.Private
+@Timeout(value = 180, unit = TimeUnit.SECONDS)
 public final class TestBlockTokensCLI {
   private static final Logger LOG = LoggerFactory
       .getLogger(TestBlockTokensCLI.class);

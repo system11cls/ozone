@@ -208,6 +208,7 @@ public class MockOmTransport implements OmTransport {
     return "commit";
   }
 
+
   private CommitKeyResponse commitKey(CommitKeyRequest commitKeyRequest) {
     final KeyArgs keyArgs = commitKeyRequest.getKeyArgs();
     final KeyInfo openKey =

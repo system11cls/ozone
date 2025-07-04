@@ -231,6 +231,7 @@ public class ContainerBalancerSelectionCriteria {
     this.excludeContainersDueToFailure.add(container);
   }
 
+
   private NavigableSet<ContainerID> getCandidateContainers(DatanodeDetails node) {
     NavigableSet<ContainerID> newSet =
         new TreeSet<>(orderContainersByUsedBytes().reversed());

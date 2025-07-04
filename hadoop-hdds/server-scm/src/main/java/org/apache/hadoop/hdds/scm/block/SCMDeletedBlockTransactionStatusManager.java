@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,10 +35,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandStatus;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerBlocksDeletionACKProto.DeleteBlockTransactionResult;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
@@ -54,10 +55,10 @@ import org.slf4j.LoggerFactory;
  * DeletedBlockTransaction sent to the DN.
  */
 public class SCMDeletedBlockTransactionStatusManager {
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(SCMDeletedBlockTransactionStatusManager.class);
   // Maps txId to set of DNs which are successful in committing the transaction
-  private final Map<Long, Set<DatanodeID>> transactionToDNsCommitMap;
+  private final Map<Long, Set<UUID>> transactionToDNsCommitMap;
   // Maps txId to its retry counts;
   private final Map<Long, Integer> transactionToRetryCountMap;
   // The access to DeletedBlocksTXTable is protected by
@@ -89,7 +90,7 @@ public class SCMDeletedBlockTransactionStatusManager {
     this.transactionToDNsCommitMap = new ConcurrentHashMap<>();
     this.transactionToRetryCountMap = new ConcurrentHashMap<>();
     this.scmDeleteBlocksCommandStatusManager =
-        new SCMDeleteBlocksCommandStatusManager(metrics);
+        new SCMDeleteBlocksCommandStatusManager();
   }
 
   /**
@@ -97,18 +98,16 @@ public class SCMDeletedBlockTransactionStatusManager {
    * on DeleteBlocksCommand.
    */
   protected static class SCMDeleteBlocksCommandStatusManager {
-    private static final Logger LOG =
+    public static final Logger LOG =
         LoggerFactory.getLogger(SCMDeleteBlocksCommandStatusManager.class);
-    private final Map<DatanodeID, Map<Long, CmdStatusData>> scmCmdStatusRecord;
+    private final Map<UUID, Map<Long, CmdStatusData>> scmCmdStatusRecord;
 
     private static final CmdStatus DEFAULT_STATUS = TO_BE_SENT;
-    private static final Set<CmdStatus> STATUSES_REQUIRING_TIMEOUT = Collections.singleton(SENT);
+    private static final Set<CmdStatus> STATUSES_REQUIRING_TIMEOUT =
+        new HashSet<>(Arrays.asList(SENT));
 
-    private ScmBlockDeletingServiceMetrics metrics;
-
-    public SCMDeleteBlocksCommandStatusManager(ScmBlockDeletingServiceMetrics metrics) {
+    public SCMDeleteBlocksCommandStatusManager() {
       this.scmCmdStatusRecord = new ConcurrentHashMap<>();
-      this.metrics = metrics;
     }
 
     /**
@@ -129,13 +128,14 @@ public class SCMDeletedBlockTransactionStatusManager {
     }
 
     protected static final class CmdStatusData {
-      private final DatanodeID dnId;
+      private final UUID dnId;
       private final long scmCmdId;
       private final Set<Long> deletedBlocksTxIds;
       private Instant updateTime;
       private CmdStatus status;
 
-      private CmdStatusData(DatanodeID dnId, long scmTxID, Set<Long> deletedBlocksTxIds) {
+      private CmdStatusData(
+          UUID dnId, long scmTxID, Set<Long> deletedBlocksTxIds) {
         this.dnId = dnId;
         this.scmCmdId = scmTxID;
         this.deletedBlocksTxIds = deletedBlocksTxIds;
@@ -146,7 +146,7 @@ public class SCMDeletedBlockTransactionStatusManager {
         return Collections.unmodifiableSet(deletedBlocksTxIds);
       }
 
-      DatanodeID getDnId() {
+      public UUID getDnId() {
         return dnId;
       }
 
@@ -180,7 +180,7 @@ public class SCMDeletedBlockTransactionStatusManager {
     }
 
     protected static CmdStatusData createScmCmdStatusData(
-        DatanodeID dnId, long scmCmdId, Set<Long> deletedBlocksTxIds) {
+        UUID dnId, long scmCmdId, Set<Long> deletedBlocksTxIds) {
       return new CmdStatusData(dnId, scmCmdId, deletedBlocksTxIds);
     }
 
@@ -190,22 +190,22 @@ public class SCMDeletedBlockTransactionStatusManager {
           new ConcurrentHashMap<>()).put(statusData.getScmCmdId(), statusData);
     }
 
-    void onSent(DatanodeID dnId, long scmCmdId) {
+    protected void onSent(UUID dnId, long scmCmdId) {
       updateStatus(dnId, scmCmdId, CommandStatus.Status.PENDING);
     }
 
-    void onDatanodeDead(DatanodeID dnId) {
+    protected void onDatanodeDead(UUID dnId) {
       LOG.info("Clean SCMCommand record for Datanode: {}", dnId);
       scmCmdStatusRecord.remove(dnId);
     }
 
-    void updateStatusByDNCommandStatus(DatanodeID dnId, long scmCmdId,
+    protected void updateStatusByDNCommandStatus(UUID dnId, long scmCmdId,
         CommandStatus.Status newState) {
       updateStatus(dnId, scmCmdId, newState);
     }
 
     protected void cleanAllTimeoutSCMCommand(long timeoutMs) {
-      for (DatanodeID dnId : scmCmdStatusRecord.keySet()) {
+      for (UUID dnId : scmCmdStatusRecord.keySet()) {
         for (CmdStatus status : STATUSES_REQUIRING_TIMEOUT) {
           removeTimeoutScmCommand(
               dnId, getScmCommandIds(dnId, status), timeoutMs);
@@ -213,14 +213,14 @@ public class SCMDeletedBlockTransactionStatusManager {
       }
     }
 
-    void cleanTimeoutSCMCommand(DatanodeID dnId, long timeoutMs) {
+    public void cleanTimeoutSCMCommand(UUID dnId, long timeoutMs) {
       for (CmdStatus status : STATUSES_REQUIRING_TIMEOUT) {
         removeTimeoutScmCommand(
             dnId, getScmCommandIds(dnId, status), timeoutMs);
       }
     }
 
-    private Set<Long> getScmCommandIds(DatanodeID dnId, CmdStatus status) {
+    private Set<Long> getScmCommandIds(UUID dnId, CmdStatus status) {
       Set<Long> scmCmdIds = new HashSet<>();
       Map<Long, CmdStatusData> record = scmCmdStatusRecord.get(dnId);
       if (record == null) {
@@ -234,7 +234,7 @@ public class SCMDeletedBlockTransactionStatusManager {
       return scmCmdIds;
     }
 
-    private Instant getUpdateTime(DatanodeID dnId, long scmCmdId) {
+    private Instant getUpdateTime(UUID dnId, long scmCmdId) {
       Map<Long, CmdStatusData> record = scmCmdStatusRecord.get(dnId);
       if (record == null || record.get(scmCmdId) == null) {
         return null;
@@ -242,7 +242,7 @@ public class SCMDeletedBlockTransactionStatusManager {
       return record.get(scmCmdId).getUpdateTime();
     }
 
-    private void updateStatus(DatanodeID dnId, long scmCmdId,
+    private void updateStatus(UUID dnId, long scmCmdId,
         CommandStatus.Status newStatus) {
       Map<Long, CmdStatusData> recordForDn = scmCmdStatusRecord.get(dnId);
       if (recordForDn == null) {
@@ -309,7 +309,7 @@ public class SCMDeletedBlockTransactionStatusManager {
       }
     }
 
-    private void removeTimeoutScmCommand(DatanodeID dnId,
+    private void removeTimeoutScmCommand(UUID dnId,
         Set<Long> scmCmdIds, long timeoutMs) {
       Instant now = Instant.now();
       for (Long scmCmdId : scmCmdIds) {
@@ -317,14 +317,13 @@ public class SCMDeletedBlockTransactionStatusManager {
         if (updateTime != null &&
             Duration.between(updateTime, now).toMillis() > timeoutMs) {
           CmdStatusData state = removeScmCommand(dnId, scmCmdId);
-          metrics.incrDNCommandsTimeout(dnId, 1);
           LOG.warn("SCM BlockDeletionCommand {} for Datanode: {} was removed after {}ms without update",
               state, dnId, timeoutMs);
         }
       }
     }
 
-    private CmdStatusData removeScmCommand(DatanodeID dnId, long scmCmdId) {
+    private CmdStatusData removeScmCommand(UUID dnId, long scmCmdId) {
       Map<Long, CmdStatusData> record = scmCmdStatusRecord.get(dnId);
       if (record == null || record.get(scmCmdId) == null) {
         return null;
@@ -334,10 +333,12 @@ public class SCMDeletedBlockTransactionStatusManager {
       return statusData;
     }
 
-    Map<DatanodeID, Map<Long, CmdStatus>> getCommandStatusByTxId(Set<DatanodeID> dnIds) {
-      final Map<DatanodeID, Map<Long, CmdStatus>> result = new HashMap<>(scmCmdStatusRecord.size());
+    public Map<UUID, Map<Long, CmdStatus>> getCommandStatusByTxId(
+        Set<UUID> dnIds) {
+      Map<UUID, Map<Long, CmdStatus>> result =
+          new HashMap<>(scmCmdStatusRecord.size());
 
-      for (DatanodeID dnId : dnIds) {
+      for (UUID dnId : dnIds) {
         Map<Long, CmdStatusData> record = scmCmdStatusRecord.get(dnId);
         if (record == null) {
           continue;
@@ -360,7 +361,7 @@ public class SCMDeletedBlockTransactionStatusManager {
     }
 
     @VisibleForTesting
-    Map<DatanodeID, Map<Long, CmdStatusData>> getScmCmdStatusRecord() {
+    Map<UUID, Map<Long, CmdStatusData>> getScmCmdStatusRecord() {
       return scmCmdStatusRecord;
     }
   }
@@ -394,19 +395,22 @@ public class SCMDeletedBlockTransactionStatusManager {
     }
   }
 
-  int getRetryCount(long txID) {
-    return transactionToRetryCountMap.getOrDefault(txID, 0);
+  public int getOrDefaultRetryCount(long txID, int defaultValue) {
+    return transactionToRetryCountMap.getOrDefault(txID, defaultValue);
   }
 
   public void onSent(DatanodeDetails dnId, SCMCommand<?> scmCommand) {
-    scmDeleteBlocksCommandStatusManager.onSent(dnId.getID(), scmCommand.getId());
+    scmDeleteBlocksCommandStatusManager.onSent(
+        dnId.getUuid(), scmCommand.getId());
   }
 
-  Map<DatanodeID, Map<Long, CmdStatus>> getCommandStatusByTxId(Set<DatanodeID> dnIds) {
+  public Map<UUID, Map<Long, CmdStatus>> getCommandStatusByTxId(
+      Set<UUID> dnIds) {
     return scmDeleteBlocksCommandStatusManager.getCommandStatusByTxId(dnIds);
   }
 
-  void recordTransactionCreated(DatanodeID dnId, long scmCmdId, Set<Long> dnTxSet) {
+  public void recordTransactionCreated(
+      UUID dnId, long scmCmdId, Set<Long> dnTxSet) {
     scmDeleteBlocksCommandStatusManager.recordScmCommand(
         SCMDeleteBlocksCommandStatusManager
             .createScmCmdStatusData(dnId, scmCmdId, dnTxSet));
@@ -424,19 +428,21 @@ public class SCMDeletedBlockTransactionStatusManager {
     scmDeleteBlocksCommandStatusManager.cleanAllTimeoutSCMCommand(timeoutMs);
   }
 
-  void onDatanodeDead(DatanodeID dnId) {
+  public void onDatanodeDead(UUID dnId) {
     scmDeleteBlocksCommandStatusManager.onDatanodeDead(dnId);
   }
 
-  boolean isDuplication(DatanodeID datanodeID, long tx, Map<DatanodeID, Map<Long, CmdStatus>> commandStatus) {
-    if (alreadyExecuted(datanodeID, tx)) {
+  public boolean isDuplication(DatanodeDetails dnDetail, long tx,
+      Map<UUID, Map<Long, CmdStatus>> commandStatus) {
+    if (alreadyExecuted(dnDetail.getUuid(), tx)) {
       return true;
     }
-    return inProcessing(datanodeID, tx, commandStatus);
+    return inProcessing(dnDetail.getUuid(), tx, commandStatus);
   }
 
-  private boolean alreadyExecuted(DatanodeID dnId, long txId) {
-    final Set<DatanodeID> dnsWithTransactionCommitted = transactionToDNsCommitMap.get(txId);
+  public boolean alreadyExecuted(UUID dnId, long txId) {
+    Set<UUID> dnsWithTransactionCommitted =
+        transactionToDNsCommitMap.get(txId);
     return dnsWithTransactionCommitted != null && dnsWithTransactionCommitted
         .contains(dnId);
   }
@@ -449,20 +455,22 @@ public class SCMDeletedBlockTransactionStatusManager {
    * @param dnId - ID of datanode which acknowledges the delete block command.
    */
   @VisibleForTesting
-  public void commitTransactions(List<DeleteBlockTransactionResult> transactionResults, DatanodeID dnId) {
+  public void commitTransactions(
+      List<DeleteBlockTransactionResult> transactionResults, UUID dnId) {
 
     ArrayList<Long> txIDsToBeDeleted = new ArrayList<>();
+    Set<UUID> dnsWithCommittedTxn;
     for (DeleteBlockTransactionResult transactionResult :
         transactionResults) {
       if (isTransactionFailed(transactionResult)) {
-        metrics.incrBlockDeletionTransactionFailureOnDatanodes();
+        metrics.incrBlockDeletionTransactionFailure();
         continue;
       }
       try {
-        metrics.incrBlockDeletionTransactionSuccessOnDatanodes();
+        metrics.incrBlockDeletionTransactionSuccess();
         long txID = transactionResult.getTxID();
         // set of dns which have successfully committed transaction txId.
-        final Set<DatanodeID> dnsWithCommittedTxn = transactionToDNsCommitMap.get(txID);
+        dnsWithCommittedTxn = transactionToDNsCommitMap.get(txID);
         final ContainerID containerId = ContainerID.valueOf(
             transactionResult.getContainerID());
         if (dnsWithCommittedTxn == null) {
@@ -486,9 +494,9 @@ public class SCMDeletedBlockTransactionStatusManager {
         // the nodes returned in the pipeline match the replication factor.
         if (min(replicas.size(), dnsWithCommittedTxn.size())
             >= container.getReplicationConfig().getRequiredNodes()) {
-          final List<DatanodeID> containerDns = replicas.stream()
+          List<UUID> containerDns = replicas.stream()
               .map(ContainerReplica::getDatanodeDetails)
-              .map(DatanodeDetails::getID)
+              .map(DatanodeDetails::getUuid)
               .collect(Collectors.toList());
           if (dnsWithCommittedTxn.containsAll(containerDns)) {
             transactionToDNsCommitMap.remove(txID);
@@ -518,29 +526,34 @@ public class SCMDeletedBlockTransactionStatusManager {
   }
 
   @VisibleForTesting
-  void commitSCMCommandStatus(List<CommandStatus> deleteBlockStatus, DatanodeID dnId) {
+  public void commitSCMCommandStatus(List<CommandStatus> deleteBlockStatus,
+      UUID dnId) {
     processSCMCommandStatus(deleteBlockStatus, dnId);
     scmDeleteBlocksCommandStatusManager.
         cleanTimeoutSCMCommand(dnId, scmCommandTimeoutMs);
   }
 
-  static boolean inProcessing(DatanodeID dnId, long deletedBlocksTxId,
-      Map<DatanodeID, Map<Long, CmdStatus>> commandStatus) {
+  private boolean inProcessing(UUID dnId, long deletedBlocksTxId,
+      Map<UUID, Map<Long, CmdStatus>> commandStatus) {
     Map<Long, CmdStatus> deletedBlocksTxStatus = commandStatus.get(dnId);
     return deletedBlocksTxStatus != null &&
         deletedBlocksTxStatus.get(deletedBlocksTxId) != null;
   }
 
-  private void processSCMCommandStatus(List<CommandStatus> deleteBlockStatus, DatanodeID dnID) {
+  private void processSCMCommandStatus(List<CommandStatus> deleteBlockStatus,
+      UUID dnID) {
+    Map<Long, CommandStatus> lastStatus = new HashMap<>();
     Map<Long, CommandStatus.Status> summary = new HashMap<>();
+
     // The CommandStatus is ordered in the report. So we can focus only on the
     // last status in the command report.
     deleteBlockStatus.forEach(cmdStatus -> {
+      lastStatus.put(cmdStatus.getCmdId(), cmdStatus);
       summary.put(cmdStatus.getCmdId(), cmdStatus.getStatus());
     });
     LOG.debug("CommandStatus {} from Datanode: {} ", summary, dnID);
-    for (Map.Entry<Long, CommandStatus.Status> entry : summary.entrySet()) {
-      final CommandStatus.Status status = entry.getValue();
+    for (Map.Entry<Long, CommandStatus> entry : lastStatus.entrySet()) {
+      CommandStatus.Status status = entry.getValue().getStatus();
       scmDeleteBlocksCommandStatusManager.updateStatusByDNCommandStatus(
           dnID, entry.getKey(), status);
     }
@@ -558,9 +571,5 @@ public class SCMDeletedBlockTransactionStatusManager {
       return true;
     }
     return false;
-  }
-
-  public int getTransactionToDNsCommitMapSize() {
-    return transactionToDNsCommitMap.size();
   }
 }

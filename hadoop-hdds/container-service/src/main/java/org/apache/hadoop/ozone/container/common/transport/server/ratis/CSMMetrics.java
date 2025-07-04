@@ -223,6 +223,7 @@ public class CSMMetrics {
     writeStateMachineDataNs.add(latencyNanos);
   }
 
+
   public void recordWriteStateMachineQueueingLatencyNs(long latencyNanos) {
     writeStateMachineQueueingLatencyNs.add(latencyNanos);
   }
@@ -242,7 +243,6 @@ public class CSMMetrics {
   public void incNumDataCacheHit() {
     numDataCacheHit.incr();
   }
-
   public void incNumEvictedCacheCount() {
     numEvictedCacheCount.incr();
   }

@@ -30,13 +30,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.container.ContainerNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
@@ -236,8 +235,8 @@ public class TestCloseContainerCommandHandler {
     initLayoutVersion(layout);
     long containerID = 1L;
 
-    Exception e = assertThrows(ContainerNotFoundException.class, () -> controller.markContainerForClose(containerID));
-    assertThat(e).hasMessageContaining(" " + ContainerID.valueOf(containerID) + " ");
+    IOException ioe = assertThrows(IOException.class, () -> controller.markContainerForClose(containerID));
+    assertThat(ioe).hasMessage("The Container is not found. ContainerID: " + containerID);
   }
 
   @ContainerLayoutTestInfo.ContainerTest
@@ -247,8 +246,9 @@ public class TestCloseContainerCommandHandler {
     long containerID = 2L;
     containerSet.getMissingContainerSet().add(containerID);
 
-    Exception e = assertThrows(ContainerNotFoundException.class, () -> controller.markContainerForClose(containerID));
-    assertThat(e).hasMessageContaining(" " + ContainerID.valueOf(containerID) + " ");
+    IOException ioe = assertThrows(IOException.class, () -> controller.markContainerForClose(containerID));
+    assertThat(ioe)
+        .hasMessage("The Container is in the MissingContainerSet hence we can't close it. ContainerID: " + containerID);
   }
 
   private CloseContainerCommand closeWithKnownPipeline() {

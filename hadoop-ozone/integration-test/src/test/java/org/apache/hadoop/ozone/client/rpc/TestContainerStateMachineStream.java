@@ -17,90 +17,200 @@
 
 package org.apache.hadoop.ozone.client.rpc;
 
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CHUNK_SIZE_KEY;
-import static org.apache.hadoop.ozone.container.TestHelper.createStreamKey;
-import static org.apache.hadoop.ozone.container.TestHelper.getDatanodeService;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_PIPELINE_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_DESTROY_TIMEOUT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
-import org.apache.hadoop.conf.StorageUnit;
+import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.conf.DatanodeRatisServerConfig;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.conf.StorageUnit;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.ratis.conf.RatisClientConfig;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.ozone.ClientConfigForTesting;
+import org.apache.hadoop.ozone.HddsDatanodeService;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.io.KeyDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
+import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.apache.ozone.test.NonHATests;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Tests the containerStateMachine stream handling.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class TestContainerStateMachineStream implements NonHATests.TestCase {
+@Timeout(300)
+public class TestContainerStateMachineStream {
+  private MiniOzoneCluster cluster;
+  private OzoneConfiguration conf = new OzoneConfiguration();
   private OzoneClient client;
   private ObjectStore objectStore;
   private String volumeName;
   private String bucketName;
-  private int chunkSize;
 
-  @BeforeAll
-  void setup() throws Exception {
-    chunkSize = (int) cluster().getConf().getStorageSize(OZONE_SCM_CHUNK_SIZE_KEY, 1024 * 1024, StorageUnit.BYTES);
+  private static final int CHUNK_SIZE = 100;
+  private static final int FLUSH_SIZE = 2 * CHUNK_SIZE;
+  private static final int MAX_FLUSH_SIZE = 2 * FLUSH_SIZE;
+  private static final int BLOCK_SIZE = 2 * MAX_FLUSH_SIZE;
 
-    client = cluster().newClient();
+  /**
+   * Create a MiniDFSCluster for testing.
+   *
+   * @throws IOException
+   */
+  @BeforeEach
+  public void setup() throws Exception {
+    conf = new OzoneConfiguration();
+
+    OzoneClientConfig clientConfig = conf.getObject(OzoneClientConfig.class);
+    clientConfig.setStreamBufferFlushDelay(false);
+    conf.setFromObject(clientConfig);
+
+    conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200,
+        TimeUnit.MILLISECONDS);
+    conf.setTimeDuration(HDDS_COMMAND_STATUS_REPORT_INTERVAL, 200,
+        TimeUnit.MILLISECONDS);
+    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 200, TimeUnit.MILLISECONDS);
+    conf.setTimeDuration(HDDS_PIPELINE_REPORT_INTERVAL, 200,
+        TimeUnit.MILLISECONDS);
+    conf.setTimeDuration(OZONE_SCM_STALENODE_INTERVAL, 30, TimeUnit.SECONDS);
+    conf.setTimeDuration(OZONE_SCM_PIPELINE_DESTROY_TIMEOUT, 1,
+        TimeUnit.SECONDS);
+
+    RatisClientConfig ratisClientConfig =
+        conf.getObject(RatisClientConfig.class);
+    ratisClientConfig.setWriteRequestTimeout(Duration.ofSeconds(10));
+    ratisClientConfig.setWatchRequestTimeout(Duration.ofSeconds(10));
+    conf.setFromObject(ratisClientConfig);
+
+    DatanodeRatisServerConfig ratisServerConfig =
+        conf.getObject(DatanodeRatisServerConfig.class);
+    ratisServerConfig.setRequestTimeOut(Duration.ofSeconds(3));
+    ratisServerConfig.setWatchTimeOut(Duration.ofSeconds(10));
+    conf.setFromObject(ratisServerConfig);
+
+    RatisClientConfig.RaftConfig raftClientConfig =
+        conf.getObject(RatisClientConfig.RaftConfig.class);
+    raftClientConfig.setRpcRequestTimeout(Duration.ofSeconds(3));
+    raftClientConfig.setRpcWatchRequestTimeout(Duration.ofSeconds(10));
+    conf.setFromObject(raftClientConfig);
+
+    ClientConfigForTesting.newBuilder(StorageUnit.BYTES)
+        .setDataStreamMinPacketSize(1024)
+        .setBlockSize(BLOCK_SIZE)
+        .setChunkSize(CHUNK_SIZE)
+        .setStreamBufferFlushSize(FLUSH_SIZE)
+        .setStreamBufferMaxSize(MAX_FLUSH_SIZE)
+        .applyTo(conf);
+
+    conf.setLong(OzoneConfigKeys.HDDS_RATIS_SNAPSHOT_THRESHOLD_KEY, 1);
+    conf.setQuietMode(false);
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(3)
+        .build();
+    cluster.waitForClusterToBeReady();
+    cluster.waitForPipelineTobeReady(HddsProtos.ReplicationFactor.ONE, 60000);
+    //the easiest way to create an open container is creating a key
+    client = OzoneClientFactory.getRpcClient(conf);
     objectStore = client.getObjectStore();
 
-    volumeName = "vol-" + UUID.randomUUID();
+    volumeName = "testcontainerstatemachinestream";
     bucketName = "teststreambucket";
     objectStore.createVolume(volumeName);
     objectStore.getVolume(volumeName).createBucket(bucketName);
+
   }
 
-  @AfterAll
-  void shutdown() {
+  /**
+   * Shutdown MiniDFSCluster.
+   */
+  @AfterEach
+  public void shutdown() {
     IOUtils.closeQuietly(client);
+    if (cluster != null) {
+      cluster.shutdown();
+    }
   }
 
-  @ParameterizedTest
-  @ValueSource(ints = {-1, +1})
-  void testContainerStateMachineForStreaming(int offset) throws Exception {
-    final int size = chunkSize + offset;
+  @Test
+  public void testContainerStateMachineForStreaming() throws Exception {
+    long size = CHUNK_SIZE + 1;
 
-    final List<OmKeyLocationInfo> locationInfoList;
-    try (OzoneDataStreamOutput key = createStreamKey("key" + offset, ReplicationType.RATIS, size,
-        objectStore, volumeName, bucketName)) {
+    OzoneDataStreamOutput key = TestHelper.createStreamKey(
+        "ozone-stream-test.txt", ReplicationType.RATIS, size, objectStore,
+        volumeName, bucketName);
 
-      byte[] data = ContainerTestHelper.generateData(size, true);
-      key.write(ByteBuffer.wrap(data));
-      key.flush();
+    byte[] data = ContainerTestHelper.generateData((int) size, true);
+    key.write(ByteBuffer.wrap(data));
+    key.flush();
 
-      locationInfoList = assertInstanceOf(KeyDataStreamOutput.class, key.getByteBufStreamOutput())
-          .getLocationInfoList();
-    }
+    KeyDataStreamOutput streamOutput =
+        (KeyDataStreamOutput) key.getByteBufStreamOutput();
+    List<OmKeyLocationInfo> locationInfoList =
+        streamOutput.getLocationInfoList();
+
+    key.close();
 
     OmKeyLocationInfo omKeyLocationInfo = locationInfoList.get(0);
+    HddsDatanodeService dn = TestHelper.getDatanodeService(omKeyLocationInfo,
+        cluster);
 
-    long bytesUsed = getDatanodeService(omKeyLocationInfo, cluster())
-        .getDatanodeStateMachine()
-        .getContainer()
-        .getContainerSet()
-        .getContainer(omKeyLocationInfo.getContainerID())
-        .getContainerData()
-        .getBytesUsed();
+    long bytesUsed = dn.getDatanodeStateMachine()
+        .getContainer().getContainerSet()
+        .getContainer(omKeyLocationInfo.getContainerID()).
+        getContainerData().getBytesUsed();
 
-    assertThat(bytesUsed)
-        // container may have previous data
-        .isGreaterThanOrEqualTo(size);
+    assertEquals(bytesUsed, size);
+  }
+
+
+  @Test
+  public void testContainerStateMachineForStreamingSmallFile()
+      throws Exception {
+    long size = CHUNK_SIZE - 1;
+
+    OzoneDataStreamOutput key = TestHelper.createStreamKey(
+        "ozone-stream-test-small-file.txt", ReplicationType.RATIS, size,
+        objectStore, volumeName, bucketName);
+
+    byte[] data = ContainerTestHelper.generateData((int) size, true);
+    key.write(ByteBuffer.wrap(data));
+    key.flush();
+
+    KeyDataStreamOutput streamOutput =
+        (KeyDataStreamOutput) key.getByteBufStreamOutput();
+    List<OmKeyLocationInfo> locationInfoList =
+        streamOutput.getLocationInfoList();
+    key.close();
+    OmKeyLocationInfo omKeyLocationInfo = locationInfoList.get(0);
+    HddsDatanodeService dn = TestHelper.getDatanodeService(omKeyLocationInfo,
+        cluster);
+
+    long bytesUsed = dn.getDatanodeStateMachine()
+        .getContainer().getContainerSet()
+        .getContainer(omKeyLocationInfo.getContainerID()).
+        getContainerData().getBytesUsed();
+
+    assertEquals(bytesUsed, size);
   }
 
 }

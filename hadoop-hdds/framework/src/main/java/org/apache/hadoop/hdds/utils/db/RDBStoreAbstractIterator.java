@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.hdds.utils.db;
 
+import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator;
@@ -24,12 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An abstract {@link Table.KeyValueIterator} to iterate raw {@link Table.KeyValue}s.
+ * An abstract {@link TableIterator} to iterate raw {@link Table.KeyValue}s.
  *
  * @param <RAW> the raw type.
  */
 abstract class RDBStoreAbstractIterator<RAW>
-    implements Table.KeyValueIterator<RAW, RAW> {
+    implements TableIterator<RAW, Table.KeyValue<RAW, RAW>> {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(RDBStoreAbstractIterator.class);
@@ -41,17 +42,11 @@ abstract class RDBStoreAbstractIterator<RAW>
   // prefix for each key.
   private final RAW prefix;
 
-  private final Type type;
-
-  RDBStoreAbstractIterator(ManagedRocksIterator iterator, RDBTable table, RAW prefix, Type type) {
+  RDBStoreAbstractIterator(ManagedRocksIterator iterator, RDBTable table,
+      RAW prefix) {
     this.rocksDBIterator = iterator;
     this.rocksDBTable = table;
     this.prefix = prefix;
-    this.type = type;
-  }
-
-  Type getType() {
-    return type;
   }
 
   /** @return the key for the current entry. */
@@ -64,7 +59,7 @@ abstract class RDBStoreAbstractIterator<RAW>
   abstract void seek0(RAW key);
 
   /** Delete the given key. */
-  abstract void delete(RAW key) throws RocksDatabaseException;
+  abstract void delete(RAW key) throws IOException;
 
   /** Does the given key start with the prefix? */
   abstract boolean startsWithPrefix(RAW key);
@@ -141,7 +136,7 @@ abstract class RDBStoreAbstractIterator<RAW>
   }
 
   @Override
-  public final void removeFromDB() throws RocksDatabaseException, CodecException {
+  public final void removeFromDB() throws IOException {
     if (rocksDBTable == null) {
       throw new UnsupportedOperationException("remove");
     }

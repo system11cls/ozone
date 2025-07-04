@@ -39,12 +39,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.apache.hadoop.hdds.client.ReplicationFactor;
+import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
-import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
+import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse.PrepareStatus;
@@ -388,8 +391,11 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
     String keyString = UUID.randomUUID().toString();
     byte[] data = ContainerTestHelper.getFixedLengthString(
         keyString, 100).getBytes(UTF_8);
-    TestDataUtil.createKey(store.getVolume(volumeName).
-        getBucket(bucketName), keyName, data);
+    OzoneOutputStream keyStream = TestHelper.createKey(
+        keyName, ReplicationType.RATIS, ReplicationFactor.ONE,
+        100, store, volumeName, bucketName);
+    keyStream.write(data);
+    keyStream.close();
   }
 
   private void assertKeysWritten(String volumeName,

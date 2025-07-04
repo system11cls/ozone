@@ -72,6 +72,7 @@ public class TestContainerStateManagerIntegration {
   private ContainerStateManager containerStateManager;
   private int numContainerPerOwnerInPipeline;
 
+
   @BeforeEach
   public void setup() throws Exception {
     conf = new OzoneConfiguration();
@@ -314,6 +315,7 @@ public class TestContainerStateManagerIntegration {
     assertContainerCount(LifeCycleState.CLOSED, 1);
   }
 
+
   @Test
   public void testReplicaMap() throws Exception {
     DatanodeDetails dn1 = DatanodeDetails.newBuilder().setHostName("host1")
@@ -324,7 +326,7 @@ public class TestContainerStateManagerIntegration {
         .setUuid(UUID.randomUUID()).build();
 
     // Test 1: no replica's exist
-    ContainerID containerID = ContainerID.valueOf(RandomUtils.secure().randomLong());
+    ContainerID containerID = ContainerID.valueOf(RandomUtils.nextLong());
     Set<ContainerReplica> replicaSet =
         containerStateManager.getContainerReplicas(containerID);
     assertNull(replicaSet);

@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,62 +42,41 @@ import com.google.protobuf.Proto2Utils;
 import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.AbstractExecutorService;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.commons.compress.archivers.ArchiveOutputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority;
-import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.security.symmetric.SecretKeySignerClient;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
 import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
-import org.apache.hadoop.ozone.container.checksum.DNContainerOperationClient;
-import org.apache.hadoop.ozone.container.checksum.ReconcileContainerTask;
-import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
-import org.apache.hadoop.ozone.container.common.impl.ContainerData;
-import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
-import org.apache.hadoop.ozone.container.common.interfaces.VolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
-import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
-import org.apache.hadoop.ozone.container.common.volume.VolumeChoosingPolicyFactory;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCommandInfo;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCoordinator;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCoordinatorTask;
@@ -107,11 +85,9 @@ import org.apache.hadoop.ozone.container.keyvalue.ContainerLayoutTestInfo;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
-import org.apache.hadoop.ozone.protocol.commands.ReconcileContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.apache.ozone.test.TestClock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,9 +99,6 @@ import org.junit.jupiter.api.io.TempDir;
 public class TestReplicationSupervisor {
 
   private static final long CURRENT_TERM = 1;
-
-  @TempDir
-  private File tempDir;
 
   private final ContainerReplicator noopReplicator = task -> { };
   private final ContainerReplicator throwingReplicator = task -> {
@@ -149,10 +122,6 @@ public class TestReplicationSupervisor {
   private StateContext context;
   private TestClock clock;
   private DatanodeDetails datanode;
-  private DNContainerOperationClient mockClient;
-  private ContainerController mockController;
-
-  private VolumeChoosingPolicy volumeChoosingPolicy;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -165,10 +134,7 @@ public class TestReplicationSupervisor {
         stateMachine, "");
     context.setTermOfLeaderSCM(CURRENT_TERM);
     datanode = MockDatanodeDetails.randomDatanodeDetails();
-    mockClient = mock(DNContainerOperationClient.class);
-    mockController = mock(ContainerController.class);
     when(stateMachine.getDatanodeDetails()).thenReturn(datanode);
-    volumeChoosingPolicy = VolumeChoosingPolicyFactory.getPolicy(new OzoneConfiguration());
   }
 
   @AfterEach
@@ -346,143 +312,20 @@ public class TestReplicationSupervisor {
     ContainerController mockedCC =
         mock(ContainerController.class);
     ContainerImporter importer =
-        new ContainerImporter(conf, set, mockedCC, volumeSet, volumeChoosingPolicy);
+        new ContainerImporter(conf, set, mockedCC, volumeSet);
     ContainerReplicator replicator =
         new DownloadAndImportReplicator(conf, set, importer, moc);
 
     replicatorRef.set(replicator);
 
-    LogCapturer logCapturer = LogCapturer.captureLogs(DownloadAndImportReplicator.class);
+    GenericTestUtils.LogCapturer logCapturer = GenericTestUtils.LogCapturer
+        .captureLogs(DownloadAndImportReplicator.LOG);
 
     supervisor.addTask(createTask(1L));
     assertEquals(1, supervisor.getReplicationFailureCount());
     assertEquals(0, supervisor.getReplicationSuccessCount());
     assertThat(logCapturer.getOutput())
         .contains("Container 1 replication was unsuccessful.");
-  }
-
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testReplicationImportReserveSpace(ContainerLayoutVersion layout)
-      throws IOException, InterruptedException, TimeoutException {
-    final long containerUsedSize = 100;
-    this.layoutVersion = layout;
-    OzoneConfiguration conf = new OzoneConfiguration();
-    conf.set(ScmConfigKeys.HDDS_DATANODE_DIR_KEY, tempDir.getAbsolutePath());
-
-    long containerMaxSize = (long) conf.getStorageSize(
-        ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
-        ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-
-    ReplicationSupervisor supervisor = ReplicationSupervisor.newBuilder()
-        .stateContext(context)
-        .executor(newDirectExecutorService())
-        .clock(clock)
-        .build();
-
-    MutableVolumeSet volumeSet = new MutableVolumeSet(datanode.getUuidString(), conf, null,
-        StorageVolume.VolumeType.DATA_VOLUME, null);
-
-    long containerId = 1;
-    // create container
-    KeyValueContainerData containerData = new KeyValueContainerData(containerId,
-        ContainerLayoutVersion.FILE_PER_BLOCK, containerMaxSize, "test", "test");
-    HddsVolume vol1 = (HddsVolume) volumeSet.getVolumesList().get(0);
-    containerData.setVolume(vol1);
-    // the container is not yet in HDDS, so only set its own size, leaving HddsVolume with used=0
-    containerData.getStatistics().updateWrite(100, false);
-    KeyValueContainer container = new KeyValueContainer(containerData, conf);
-    ContainerController controllerMock = mock(ContainerController.class);
-    Semaphore semaphore = new Semaphore(1);
-    when(controllerMock.importContainer(any(), any(), any()))
-        .thenAnswer((invocation) -> {
-          semaphore.acquire();
-          return container;
-        });
-    
-    File tarFile = containerTarFile(containerId, containerData);
-
-    SimpleContainerDownloader moc =
-        mock(SimpleContainerDownloader.class);
-    when(
-        moc.getContainerDataFromReplicas(anyLong(), anyList(),
-            any(Path.class), any()))
-        .thenReturn(tarFile.toPath());
-
-    ContainerImporter importer =
-        new ContainerImporter(conf, set, controllerMock, volumeSet, volumeChoosingPolicy);
-
-    // Initially volume has 0 commit space
-    assertEquals(0, vol1.getCommittedBytes());
-    long usedSpace = vol1.getCurrentUsage().getUsedSpace();
-    // Initially volume has 0 used space
-    assertEquals(0, usedSpace);
-    // Increase committed bytes so that volume has only remaining 3 times container size space
-    long minFreeSpace =
-        conf.getObject(DatanodeConfiguration.class).getMinFreeSpace(vol1.getCurrentUsage().getCapacity());
-    long initialCommittedBytes = vol1.getCurrentUsage().getCapacity() - containerMaxSize * 3 - minFreeSpace;
-    vol1.incCommittedBytes(initialCommittedBytes);
-    ContainerReplicator replicator =
-        new DownloadAndImportReplicator(conf, set, importer, moc);
-    replicatorRef.set(replicator);
-
-    LogCapturer logCapturer = LogCapturer.captureLogs(DownloadAndImportReplicator.class);
-
-    // Acquire semaphore so that container import will pause after reserving space.
-    semaphore.acquire();
-    CompletableFuture.runAsync(() -> {
-      try {
-        supervisor.addTask(createTask(containerId));
-      } catch (Exception ex) {
-      }
-    });
-
-    // Wait such that first container import reserve space
-    GenericTestUtils.waitFor(() ->
-        vol1.getCommittedBytes() > initialCommittedBytes,
-        1000, 50000);
-
-    // Volume has reserved space of 2 * containerSize
-    assertEquals(vol1.getCommittedBytes(), initialCommittedBytes + 2 * containerMaxSize);
-    // Container 2 import will fail as container 1 has reserved space and no space left to import new container
-    // New container import requires at least (2 * container size)
-    long containerId2 = 2;
-    supervisor.addTask(createTask(containerId2));
-    GenericTestUtils.waitFor(() -> 1 == supervisor.getReplicationFailureCount(),
-        1000, 50000);
-    assertThat(logCapturer.getOutput()).contains("No volumes have enough space for a new container");
-    // Release semaphore so that first container import will pass
-    semaphore.release();
-    GenericTestUtils.waitFor(() ->
-        1 == supervisor.getReplicationSuccessCount(), 1000, 50000);
-
-    usedSpace = vol1.getCurrentUsage().getUsedSpace();
-    // After replication, volume used space should be increased by container used bytes
-    assertEquals(containerUsedSize, usedSpace);
-
-    // Volume committed bytes used for replication has been released, no need to reserve space for imported container
-    // only closed container gets replicated, so no new data will be written it
-    assertEquals(vol1.getCommittedBytes(), initialCommittedBytes);
-
-  }
-
-  private File containerTarFile(
-      long containerId, ContainerData containerData) throws IOException {
-    File yamlFile = new File(tempDir, "container.yaml");
-    ContainerDataYaml.createContainerFile(containerData,
-        yamlFile);
-    File tarFile = new File(tempDir,
-        ContainerUtils.getContainerTarName(containerId));
-    try (OutputStream output = Files.newOutputStream(tarFile.toPath())) {
-      ArchiveOutputStream<TarArchiveEntry> archive = new TarArchiveOutputStream(output);
-      TarArchiveEntry entry = archive.createArchiveEntry(yamlFile,
-          "container.yaml");
-      archive.putArchiveEntry(entry);
-      try (InputStream input = Files.newInputStream(yamlFile.toPath())) {
-        IOUtils.copy(input, archive);
-      }
-      archive.closeArchiveEntry();
-    }
-    return tarFile;
   }
 
   @ContainerLayoutTestInfo.ContainerTest
@@ -588,7 +431,7 @@ public class TestReplicationSupervisor {
       when(volumeSet.getVolumesList()).thenReturn(singletonList(
           new HddsVolume.Builder(testDir).conf(conf).build()));
       ContainerController mockedCC = mock(ContainerController.class);
-      ContainerImporter importer = new ContainerImporter(conf, set, mockedCC, volumeSet, volumeChoosingPolicy);
+      ContainerImporter importer = new ContainerImporter(conf, set, mockedCC, volumeSet);
       ContainerReplicator replicator = new DownloadAndImportReplicator(
           conf, set, importer, moc);
       replicatorRef.set(replicator);
@@ -664,56 +507,6 @@ public class TestReplicationSupervisor {
       ecReconstructionMetrics.unRegister();
       replicationSupervisor.stop();
       ecReconstructionSupervisor.stop();
-    }
-  }
-
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testReconciliationTaskMetrics(ContainerLayoutVersion layout) throws IOException {
-    this.layoutVersion = layout;
-    // GIVEN
-    ReplicationSupervisor replicationSupervisor =
-        supervisorWithReplicator(FakeReplicator::new);
-    ReplicationSupervisorMetrics replicationMetrics =
-        ReplicationSupervisorMetrics.create(replicationSupervisor);
-
-    try {
-      //WHEN
-      replicationSupervisor.addTask(createReconciliationTask(1L));
-      replicationSupervisor.addTask(createReconciliationTask(2L));
-
-      ReconcileContainerTask reconciliationTask = createReconciliationTask(6L);
-      clock.fastForward(15000);
-      replicationSupervisor.addTask(reconciliationTask);
-      doThrow(IOException.class).when(mockController).reconcileContainer(any(), anyLong(), any());
-      replicationSupervisor.addTask(createReconciliationTask(7L));
-
-      //THEN
-      assertEquals(2, replicationSupervisor.getReplicationSuccessCount());
-
-      assertEquals(2, replicationSupervisor.getReplicationSuccessCount(
-          reconciliationTask.getMetricName()));
-      assertEquals(1, replicationSupervisor.getReplicationFailureCount());
-      assertEquals(1, replicationSupervisor.getReplicationFailureCount(
-          reconciliationTask.getMetricName()));
-      assertEquals(1, replicationSupervisor.getReplicationTimeoutCount());
-      assertEquals(1, replicationSupervisor.getReplicationTimeoutCount(
-          reconciliationTask.getMetricName()));
-      assertEquals(4, replicationSupervisor.getReplicationRequestCount());
-      assertEquals(4, replicationSupervisor.getReplicationRequestCount(
-          reconciliationTask.getMetricName()));
-
-
-      assertTrue(replicationSupervisor.getReplicationRequestTotalTime(
-          reconciliationTask.getMetricName()) > 0);
-      assertTrue(replicationSupervisor.getReplicationRequestAvgTime(
-          reconciliationTask.getMetricName()) > 0);
-
-      MetricsCollectorImpl replicationMetricsCollector = new MetricsCollectorImpl();
-      replicationMetrics.getMetrics(replicationMetricsCollector, true);
-      assertEquals(1, replicationMetricsCollector.getRecords().size());
-    } finally {
-      replicationMetrics.unRegister();
-      replicationSupervisor.stop();
     }
   }
 
@@ -893,15 +686,6 @@ public class TestReplicationSupervisor {
   private ReplicationTask createTask(long containerId) {
     ReplicateContainerCommand cmd = createCommand(containerId);
     return new ReplicationTask(cmd, replicatorRef.get());
-  }
-
-  private ReconcileContainerTask createReconciliationTask(long containerId) {
-    ReconcileContainerCommand reconcileContainerCommand =
-        new ReconcileContainerCommand(containerId, Collections.singleton(datanode));
-    reconcileContainerCommand.setTerm(CURRENT_TERM);
-    reconcileContainerCommand.setDeadline(clock.millis() + 10000);
-    return new ReconcileContainerTask(mockController, mockClient,
-        reconcileContainerCommand);
   }
 
   private ECReconstructionCoordinatorTask createECTask(long containerId) {

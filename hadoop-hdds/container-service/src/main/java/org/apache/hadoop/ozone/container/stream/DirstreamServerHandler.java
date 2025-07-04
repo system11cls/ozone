@@ -46,6 +46,8 @@ public class DirstreamServerHandler extends ChannelInboundHandlerAdapter {
 
   public static final String END_MARKER = "0 END";
 
+  private final StringBuilder id = new StringBuilder();
+
   private StreamingSource source;
 
   private boolean headerProcessed = false;
@@ -57,7 +59,6 @@ public class DirstreamServerHandler extends ChannelInboundHandlerAdapter {
   @Override
   public void channelRead(ChannelHandlerContext ctx, Object msg)
       throws Exception {
-    StringBuilder id = new StringBuilder();
     if (!headerProcessed) {
       ByteBuf buffer = (ByteBuf) msg;
       int eolPosition = buffer.forEachByte(ByteProcessor.FIND_LF) - buffer

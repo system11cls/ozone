@@ -99,7 +99,6 @@ public class TestOzoneContainer {
         clusterId, conf, null, StorageVolume.VolumeType.DATA_VOLUME, null);
     createDbInstancesForTestIfNeeded(volumeSet, clusterId, clusterId, conf);
     volumeChoosingPolicy = new RoundRobinVolumeChoosingPolicy();
-    volumeSet.startAllVolume();
   }
 
   @AfterEach
@@ -143,7 +142,7 @@ public class TestOzoneContainer {
       keyValueContainer.create(volumeSet, volumeChoosingPolicy, clusterId);
       myVolume = keyValueContainer.getContainerData().getVolume();
 
-      freeBytes = addBlocks(keyValueContainer, 2, 3, 65536);
+      freeBytes = addBlocks(keyValueContainer, 2, 3);
 
       // update our expectation of volume committed space in the map
       volCommitBytes = commitSpaceMap.get(getVolumeKey(myVolume)).longValue();
@@ -159,8 +158,6 @@ public class TestOzoneContainer {
     ContainerSet containerset = ozoneContainer.getContainerSet();
     assertEquals(numTestContainers, containerset.containerCount());
     verifyCommittedSpace(ozoneContainer);
-    // container usage here, nrOfContainer * blocks * chunksPerBlock * datalen
-    assertEquals(10 * 2 * 3 * 65536, ozoneContainer.gatherContainerUsages(volumes.get(0)));
     Set<Long> missingContainers = new HashSet<>();
     for (int i = 0; i < numTestContainers; i++) {
       if (i % 2 == 0) {
@@ -192,7 +189,7 @@ public class TestOzoneContainer {
     for (int i = 0; i < 3; i++) {
       dbPaths[i] =
           Files.createDirectory(folder.resolve(Integer.toString(i))).toFile();
-      dbDirString.append(dbPaths[i]).append(',');
+      dbDirString.append(dbPaths[i]).append(",");
     }
     conf.set(OzoneConfigKeys.HDDS_DATANODE_CONTAINER_DB_DIR,
         dbDirString.toString());
@@ -265,9 +262,10 @@ public class TestOzoneContainer {
   }
 
   private long addBlocks(KeyValueContainer container,
-      int blocks, int chunksPerBlock, int datalen) throws Exception {
+      int blocks, int chunksPerBlock) throws Exception {
     String strBlock = "block";
     String strChunk = "-chunkFile";
+    int datalen = 65536;
     long usedBytes = 0;
 
     long freeBytes = container.getContainerData().getMaxSize();

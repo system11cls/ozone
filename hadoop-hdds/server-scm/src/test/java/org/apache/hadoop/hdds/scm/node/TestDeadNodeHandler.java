@@ -23,7 +23,6 @@ import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLU
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -108,7 +107,6 @@ public class TestDeadNodeHandler {
     pipelineManager =
         (PipelineManagerImpl)scm.getPipelineManager();
     pipelineManager.setScmContext(scmContext);
-    scm.getReplicationManager().setScmContext(scmContext);
     PipelineProvider mockRatisProvider =
         new MockRatisPipelineProvider(nodeManager,
             pipelineManager.getStateManager(), conf);
@@ -140,12 +138,12 @@ public class TestDeadNodeHandler {
     DatanodeDetails datanode3 = MockDatanodeDetails.randomDatanodeDetails();
 
     String storagePath = tempDir.getPath()
-        .concat("/data-" + datanode1.getID());
+        .concat("/data-" + datanode1.getUuidString());
     String metaStoragePath = tempDir.getPath()
-        .concat("/metadata-" + datanode1.getID());
+        .concat("/metadata-" + datanode1.getUuidString());
 
     StorageReportProto storageOne = HddsTestUtils.createStorageReport(
-        datanode1.getID(), storagePath, 100 * OzoneConsts.TB,
+        datanode1.getUuid(), storagePath, 100 * OzoneConsts.TB,
         10 * OzoneConsts.TB, 90 * OzoneConsts.TB, null);
     MetadataStorageReportProto metaStorageOne =
         HddsTestUtils.createMetadataStorageReport(metaStoragePath,
@@ -221,7 +219,7 @@ public class TestDeadNodeHandler {
 
     // First set the node to IN_MAINTENANCE and ensure the container replicas
     // are not removed on the dead event
-    datanode1 = nodeManager.getNode(datanode1.getID());
+    datanode1 = nodeManager.getNodeByUuid(datanode1.getUuidString());
     assertTrue(
         nodeManager.getClusterNetworkTopologyMap().contains(datanode1));
     nodeManager.setNodeOperationalState(datanode1,
@@ -232,12 +230,8 @@ public class TestDeadNodeHandler {
     assertFalse(
         nodeManager.getClusterNetworkTopologyMap().contains(datanode1));
 
-    verify(publisher, times(0)).fireEvent(SCMEvents.REPLICATION_MANAGER_NOTIFY, datanode1);
-
-    clearInvocations(publisher);
-
     verify(deletedBlockLog, times(0))
-        .onDatanodeDead(datanode1.getID());
+        .onDatanodeDead(datanode1.getUuid());
 
     Set<ContainerReplica> container1Replicas = containerManager
         .getContainerReplicas(ContainerID.valueOf(container1.getContainerID()));
@@ -255,7 +249,7 @@ public class TestDeadNodeHandler {
     // Now set the node to anything other than IN_MAINTENANCE and the relevant
     // replicas should be removed
     DeleteBlocksCommand cmd = new DeleteBlocksCommand(Collections.emptyList());
-    nodeManager.addDatanodeCommand(datanode1.getID(), cmd);
+    nodeManager.addDatanodeCommand(datanode1.getUuid(), cmd);
     nodeManager.setNodeOperationalState(datanode1,
         HddsProtos.NodeOperationalState.IN_SERVICE);
     deadNodeHandler.onMessage(datanode1, publisher);
@@ -263,10 +257,10 @@ public class TestDeadNodeHandler {
     //deadNodeHandler.onMessage call will not change this
     assertFalse(
         nodeManager.getClusterNetworkTopologyMap().contains(datanode1));
-    assertEquals(0, nodeManager.getCommandQueueCount(datanode1.getID(), cmd.getType()));
+    assertEquals(0, nodeManager.getCommandQueueCount(datanode1.getUuid(), cmd.getType()));
 
-    verify(publisher).fireEvent(SCMEvents.REPLICATION_MANAGER_NOTIFY, datanode1);
-    verify(deletedBlockLog).onDatanodeDead(datanode1.getID());
+    verify(deletedBlockLog, times(1))
+        .onDatanodeDead(datanode1.getUuid());
 
     container1Replicas = containerManager
         .getContainerReplicas(ContainerID.valueOf(container1.getContainerID()));
@@ -305,12 +299,15 @@ public class TestDeadNodeHandler {
 
   /**
    * Update containers available on the datanode.
+   * @param datanode
+   * @param containers
+   * @throws NodeNotFoundException
    */
   private void registerContainers(DatanodeDetails datanode,
       ContainerInfo... containers)
       throws NodeNotFoundException {
-    ScmNodeTestUtil.setContainers(nodeManager,
-        datanode,
+    nodeManager
+        .setContainers(datanode,
             Arrays.stream(containers)
                 .map(ContainerInfo::containerID)
                 .collect(Collectors.toSet()));

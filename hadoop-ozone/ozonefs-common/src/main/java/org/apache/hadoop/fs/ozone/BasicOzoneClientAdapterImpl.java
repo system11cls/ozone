@@ -67,7 +67,6 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
-import org.apache.hadoop.ozone.client.OzoneClientUtils;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
@@ -428,6 +427,7 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
     }
   }
 
+
   @Override
   public Iterator<BasicKeyInfo> listKeys(String pathKey) throws IOException {
     incrementCounter(Statistic.OBJECTS_LIST, 1);
@@ -703,7 +703,7 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
       SnapshotDiffReportOzone report =
           getSnapshotDiffReportOnceComplete(fromSnapshot, toSnapshot, "");
       aggregated = report;
-      while (StringUtils.isNotEmpty(report.getToken())) {
+      while (!report.getToken().isEmpty()) {
         LOG.info(
             "Total Snapshot Diff length between snapshot {} and {} exceeds"
                 + " max page size, Performing another " +

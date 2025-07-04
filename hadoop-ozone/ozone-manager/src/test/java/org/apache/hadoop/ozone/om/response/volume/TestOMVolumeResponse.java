@@ -56,7 +56,6 @@ public class TestOMVolumeResponse {
   protected OMMetadataManager getOmMetadataManager() {
     return omMetadataManager;
   }
-
   protected BatchOperation getBatchOperation() {
     return batchOperation;
   }

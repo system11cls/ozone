@@ -152,7 +152,6 @@ public class TestOpenContainerHandler {
         .sendCloseContainerEvent(containerInfo.containerID());
     assertEquals(1, request.getReport().getStat(HealthState.OPEN_WITHOUT_PIPELINE));
   }
-
   @Test
   public void testClosedRatisContainerReturnsFalse() {
     ContainerInfo containerInfo = ReplicationTestUtil.createContainerInfo(

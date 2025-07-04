@@ -88,6 +88,7 @@ public final class OmMultipartAbortInfo {
     }
   }
 
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {

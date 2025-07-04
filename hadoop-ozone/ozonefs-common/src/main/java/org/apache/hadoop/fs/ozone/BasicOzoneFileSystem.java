@@ -74,7 +74,6 @@ import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.utils.LegacyHadoopConfigurationSource;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneFsServerDefaults;
-import org.apache.hadoop.ozone.client.OzoneClientUtils;
 import org.apache.hadoop.ozone.client.io.SelectorOutputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
@@ -994,7 +993,6 @@ public class BasicOzoneFileSystem extends FileSystem {
     String key = pathToKey(qualifiedPath);
     adapter.setTimes(key, mtime, atime);
   }
-
   /**
    * A private class implementation for iterating list of file status.
    *

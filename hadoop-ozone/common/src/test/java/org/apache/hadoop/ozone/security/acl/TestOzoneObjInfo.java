@@ -38,6 +38,7 @@ public class TestOzoneObjInfo {
   private String key = "key1";
   private static final OzoneObj.StoreType STORE = OzoneObj.StoreType.OZONE;
 
+
   @Test
   public void testGetVolumeName() {
 

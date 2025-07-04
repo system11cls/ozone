@@ -17,13 +17,16 @@
 
 package org.apache.hadoop.hdds.scm.net;
 
-import org.apache.hadoop.hdds.scm.net.NodeSchema.LayerType;
+import  org.apache.hadoop.hdds.scm.net.NodeSchema.LayerType;
 import org.apache.hadoop.ozone.util.StringWithByteString;
 
 /**
  * Class to hold network topology related constants and configurations.
  */
 public final class NetConstants {
+  private NetConstants() {
+    // Prevent instantiation
+  }
   public static final char PATH_SEPARATOR = '/';
   /** Path separator as a string. */
   public static final String PATH_SEPARATOR_STR = "/";
@@ -63,8 +66,4 @@ public final class NetConstants {
 
   public static final NodeSchema LEAF_SCHEMA =
       new NodeSchema.Builder().setType(LayerType.LEAF_NODE).build();
-
-  private NetConstants() {
-    // Prevent instantiation
-  }
 }

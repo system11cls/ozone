@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.om.helpers;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +59,19 @@ public final class OmKeyInfo extends WithParentObjectId
   private static final Codec<OmKeyInfo> CODEC_TRUE = newCodec(true);
   private static final Codec<OmKeyInfo> CODEC_FALSE = newCodec(false);
 
+  private static Codec<OmKeyInfo> newCodec(boolean ignorePipeline) {
+    return new DelegatedCodec<>(
+        Proto2Codec.get(KeyInfo.getDefaultInstance()),
+        OmKeyInfo::getFromProtobuf,
+        k -> k.getProtobuf(ignorePipeline, ClientVersion.CURRENT_VERSION),
+        OmKeyInfo.class);
+  }
+
+  public static Codec<OmKeyInfo> getCodec(boolean ignorePipeline) {
+    LOG.debug("OmKeyInfo.getCodec ignorePipeline = {}", ignorePipeline);
+    return ignorePipeline ? CODEC_TRUE : CODEC_FALSE;
+  }
+
   private final String volumeName;
   private final String bucketName;
   // name of key client specified
@@ -80,7 +94,7 @@ public final class OmKeyInfo extends WithParentObjectId
    * keyName is "a/b/key1" then the fileName stores "key1".
    */
   private String fileName;
-  private final String ownerName;
+  private String ownerName;
 
   /**
    * ACL Information.
@@ -118,19 +132,6 @@ public final class OmKeyInfo extends WithParentObjectId
     this.ownerName = b.ownerName;
     this.tags = b.tags;
     this.expectedDataGeneration = b.expectedDataGeneration;
-  }
-
-  private static Codec<OmKeyInfo> newCodec(boolean ignorePipeline) {
-    return new DelegatedCodec<>(
-        Proto2Codec.get(KeyInfo.getDefaultInstance()),
-        OmKeyInfo::getFromProtobuf,
-        k -> k.getProtobuf(ignorePipeline, ClientVersion.CURRENT_VERSION),
-        OmKeyInfo.class);
-  }
-
-  public static Codec<OmKeyInfo> getCodec(boolean ignorePipeline) {
-    LOG.debug("OmKeyInfo.getCodec ignorePipeline = {}", ignorePipeline);
-    return ignorePipeline ? CODEC_TRUE : CODEC_FALSE;
   }
 
   public String getVolumeName() {
@@ -334,11 +335,13 @@ public final class OmKeyInfo extends WithParentObjectId
    *
    * @param newLocationList the list of new blocks to be added.
    * @param updateTime if true, will update modification time.
+   * @throws IOException
    */
   public synchronized void appendNewBlocks(
-      List<OmKeyLocationInfo> newLocationList, boolean updateTime) {
+      List<OmKeyLocationInfo> newLocationList, boolean updateTime)
+      throws IOException {
     if (keyLocationVersions.isEmpty()) {
-      throw new IllegalStateException("Appending new blocks but keyLocationVersions is empty");
+      throw new IOException("Appending new block, but no version exist");
     }
     OmKeyLocationInfoGroup currentLatestVersion =
         keyLocationVersions.get(keyLocationVersions.size() - 1);
@@ -730,7 +733,7 @@ public final class OmKeyInfo extends WithParentObjectId
     return kb.build();
   }
 
-  public static OmKeyInfo getFromProtobuf(KeyInfo keyInfo) {
+  public static OmKeyInfo getFromProtobuf(KeyInfo keyInfo) throws IOException {
     if (keyInfo == null) {
       return null;
     }
@@ -802,6 +805,7 @@ public final class OmKeyInfo extends WithParentObjectId
         '}';
   }
 
+
   public boolean isKeyInfoSame(OmKeyInfo omKeyInfo, boolean checkPath,
                                boolean checkKeyLocationVersions,
                                boolean checkModificationTime,
@@ -814,7 +818,6 @@ public final class OmKeyInfo extends WithParentObjectId
         replicationConfig.equals(omKeyInfo.replicationConfig) &&
         Objects.equals(getMetadata(), omKeyInfo.getMetadata()) &&
         Objects.equals(acls, omKeyInfo.acls) &&
-        Objects.equals(getTags(), omKeyInfo.getTags()) &&
         getObjectID() == omKeyInfo.getObjectID();
 
     if (isEqual && checkUpdateID) {

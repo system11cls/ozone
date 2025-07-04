@@ -35,6 +35,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Service
  */
 public final class ServiceInfo {
 
+
   /**
    * Type of node/service.
    */

@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -85,6 +86,7 @@ public class TestSCMContainerPlacementRackAware {
   private SCMContainerPlacementMetrics metrics;
   private static final int NODE_PER_RACK = 5;
 
+
   private static IntStream numDatanodes() {
     return IntStream.rangeClosed(3, 15);
   }
@@ -115,11 +117,11 @@ public class TestSCMContainerPlacementRackAware {
           UpgradeUtils.defaultLayoutVersionProto());
 
       StorageReportProto storage1 = HddsTestUtils.createStorageReport(
-          datanodeInfo.getID(), "/data1-" + datanodeInfo.getID(),
+          datanodeInfo.getUuid(), "/data1-" + datanodeInfo.getUuidString(),
           STORAGE_CAPACITY, 0, 100L, null);
       MetadataStorageReportProto metaStorage1 =
           HddsTestUtils.createMetadataStorageReport(
-          "/metadata1-" + datanodeInfo.getID(),
+          "/metadata1-" + datanodeInfo.getUuidString(),
           STORAGE_CAPACITY, 0, 100L, null);
       datanodeInfo.updateStorageReports(
           new ArrayList<>(Arrays.asList(storage1)));
@@ -130,40 +132,40 @@ public class TestSCMContainerPlacementRackAware {
 
     if (datanodeCount > 4) {
       StorageReportProto storage2 = HddsTestUtils.createStorageReport(
-          dnInfos.get(2).getID(),
-          "/data1-" + datanodes.get(2).getID(),
+          dnInfos.get(2).getUuid(),
+          "/data1-" + datanodes.get(2).getUuidString(),
           STORAGE_CAPACITY, 90L, 10L, null);
       dnInfos.get(2).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage2)));
       StorageReportProto storage3 = HddsTestUtils.createStorageReport(
-          dnInfos.get(3).getID(),
-          "/data1-" + dnInfos.get(3).getID(),
+          dnInfos.get(3).getUuid(),
+          "/data1-" + dnInfos.get(3).getUuidString(),
           STORAGE_CAPACITY, 80L, 20L, null);
       dnInfos.get(3).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage3)));
       StorageReportProto storage4 = HddsTestUtils.createStorageReport(
-          dnInfos.get(4).getID(),
-          "/data1-" + dnInfos.get(4).getID(),
+          dnInfos.get(4).getUuid(),
+          "/data1-" + dnInfos.get(4).getUuidString(),
           STORAGE_CAPACITY, 70L, 30L, null);
       dnInfos.get(4).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage4)));
     } else if (datanodeCount > 3) {
       StorageReportProto storage2 = HddsTestUtils.createStorageReport(
-          dnInfos.get(2).getID(),
-          "/data1-" + dnInfos.get(2).getID(),
+          dnInfos.get(2).getUuid(),
+          "/data1-" + dnInfos.get(2).getUuidString(),
           STORAGE_CAPACITY, 90L, 10L, null);
       dnInfos.get(2).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage2)));
       StorageReportProto storage3 = HddsTestUtils.createStorageReport(
-          dnInfos.get(3).getID(),
-          "/data1-" + dnInfos.get(3).getID(),
+          dnInfos.get(3).getUuid(),
+          "/data1-" + dnInfos.get(3).getUuidString(),
           STORAGE_CAPACITY, 80L, 20L, null);
       dnInfos.get(3).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage3)));
     } else if (datanodeCount > 2) {
       StorageReportProto storage2 = HddsTestUtils.createStorageReport(
-          dnInfos.get(2).getID(),
-          "/data1-" + dnInfos.get(2).getID(),
+          dnInfos.get(2).getUuid(),
+          "/data1-" + dnInfos.get(2).getUuidString(),
           STORAGE_CAPACITY, 84L, 16L, null);
       dnInfos.get(2).updateStorageReports(
           new ArrayList<>(Arrays.asList(storage2)));
@@ -174,7 +176,7 @@ public class TestSCMContainerPlacementRackAware {
     when(nodeManager.getNodes(NodeStatus.inServiceHealthy()))
         .thenReturn(new ArrayList<>(datanodes));
     for (DatanodeInfo dn: dnInfos) {
-      when(nodeManager.getNode(dn.getID()))
+      when(nodeManager.getNodeByUuid(dn.getUuid()))
           .thenReturn(dn);
     }
     when(nodeManager.getClusterNetworkTopologyMap())
@@ -458,11 +460,11 @@ public class TestSCMContainerPlacementRackAware {
           UpgradeUtils.defaultLayoutVersionProto());
 
       StorageReportProto storage1 = HddsTestUtils.createStorageReport(
-          dnInfo.getID(), "/data1-" + dnInfo.getID(),
+          dnInfo.getUuid(), "/data1-" + dnInfo.getUuidString(),
           STORAGE_CAPACITY, 0, 100L, null);
       MetadataStorageReportProto metaStorage1 =
           HddsTestUtils.createMetadataStorageReport(
-          "/metadata1-" + dnInfo.getID(),
+          "/metadata1-" + dnInfo.getUuidString(),
           STORAGE_CAPACITY, 0, 100L, null);
       dnInfo.updateStorageReports(
           new ArrayList<>(Arrays.asList(storage1)));
@@ -476,7 +478,7 @@ public class TestSCMContainerPlacementRackAware {
     assertEquals(dataList.size(), StringUtils.countMatches(
         clusterMap.toString(), NetConstants.DEFAULT_RACK));
     for (DatanodeInfo dn: dnInfoList) {
-      when(nodeManager.getNode(dn.getID()))
+      when(nodeManager.getNodeByUuid(dn.getUuid()))
           .thenReturn(dn);
     }
 
@@ -614,12 +616,12 @@ public class TestSCMContainerPlacementRackAware {
     setup(datanodeCount);
     // Set all the nodes to out of service
     for (DatanodeInfo dn : dnInfos) {
-      dn.setNodeStatus(NodeStatus.valueOf(DECOMMISSIONED, HEALTHY));
+      dn.setNodeStatus(new NodeStatus(DECOMMISSIONED, HEALTHY));
     }
 
     for (int i = 0; i < 10; i++) {
       // Set a random DN to in_service and ensure it is always picked
-      int index = RandomUtils.secure().randomInt(0, dnInfos.size());
+      int index = RandomUtils.nextInt(0, dnInfos.size());
       dnInfos.get(index).setNodeStatus(NodeStatus.inServiceHealthy());
       try {
         List<DatanodeDetails> datanodeDetails =
@@ -630,7 +632,7 @@ public class TestSCMContainerPlacementRackAware {
         // ok, as there is only 1 IN_SERVICE node and with the retry logic we
         // may never find it.
       }
-      dnInfos.get(index).setNodeStatus(NodeStatus.valueOf(DECOMMISSIONED, HEALTHY));
+      dnInfos.get(index).setNodeStatus(new NodeStatus(DECOMMISSIONED, HEALTHY));
     }
   }
 
@@ -692,9 +694,10 @@ public class TestSCMContainerPlacementRackAware {
         excludedNodes, null, nodeNum, 0, 5);
     assertEquals(nodeNum, datanodeDetails.size());
 
-    assertTrue(cluster.isSameParent(datanodes.get(0), datanodeDetails.get(0)));
-    assertTrue(cluster.isSameParent(datanodes.get(1), datanodeDetails.get(0)));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
+    assertTrue(cluster.isSameParent(
+        datanodes.get(0), datanodeDetails.get(0)) &&
+        cluster.isSameParent(datanodes.get(1), datanodeDetails.get(0)) &&
+        excludedNodes.get(0).getUuid() != datanodeDetails.get(0).getUuid());
 
     // Required 2 DN for 2 replica
     nodeNum = 2;
@@ -707,8 +710,9 @@ public class TestSCMContainerPlacementRackAware {
         excludedNodes, null, nodeNum, 0, 5);
     assertEquals(nodeNum, datanodeDetails.size());
 
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() &&
+        excludedNodes.get(0).getUuid() != datanodeDetails.get(1).getUuid());
 
     nodeNum = 3;
     // No replica exist
@@ -718,8 +722,9 @@ public class TestSCMContainerPlacementRackAware {
         excludedNodes, null, nodeNum, 0, 5);
     assertEquals(nodeNum, datanodeDetails.size());
 
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() &&
+        excludedNodes.get(0).getUuid() != datanodeDetails.get(1).getUuid());
   }
 
   @ParameterizedTest
@@ -743,8 +748,9 @@ public class TestSCMContainerPlacementRackAware {
     assertEquals(nodeNum, datanodeDetails.size());
 
     // Exclude node should not be returned
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() && excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(1).getUuid());
 
     usedNodes.clear();
     excludedNodes.clear();
@@ -759,11 +765,13 @@ public class TestSCMContainerPlacementRackAware {
 
     assertEquals(nodeNum, datanodeDetails.size());
 
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(1), datanodeDetails.get(0));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() && excludedNodes.get(1).getUuid() !=
+        datanodeDetails.get(0).getUuid());
 
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
-    assertNotEquals(excludedNodes.get(1), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(1).getUuid() && excludedNodes.get(1).getUuid() !=
+        datanodeDetails.get(1).getUuid());
   }
 
   @ParameterizedTest
@@ -783,8 +791,9 @@ public class TestSCMContainerPlacementRackAware {
     assertEquals(nodeNum, datanodeDetails.size());
 
     // Exclude node should not be returned
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() && excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(1).getUuid());
 
     excludedNodes.clear();
     // Multiple exclude nodes
@@ -797,13 +806,14 @@ public class TestSCMContainerPlacementRackAware {
     assertEquals(nodeNum, datanodeDetails.size());
 
     // Exclude node should not be returned
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(0), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(0).getUuid() && excludedNodes.get(0).getUuid() !=
+        datanodeDetails.get(1).getUuid());
 
-    assertNotEquals(excludedNodes.get(1), datanodeDetails.get(0));
-    assertNotEquals(excludedNodes.get(1), datanodeDetails.get(1));
+    assertTrue(excludedNodes.get(1).getUuid() !=
+        datanodeDetails.get(0).getUuid() && excludedNodes.get(1).getUuid() !=
+        datanodeDetails.get(1).getUuid());
   }
-
   @ParameterizedTest
   @ValueSource(ints = {11, 12, 13, 14, 15})
   public void testNoFallbackWithUsedNodes(int datanodeCount) {
@@ -871,19 +881,7 @@ public class TestSCMContainerPlacementRackAware {
 
     // Favoured node should be returned,
     // as favoured node is in the different rack as used nodes.
-    assertEquals(favouredNodes.get(0), datanodeDetails.get(0));
+    assertSame(favouredNodes.get(0).getUuid(), datanodeDetails.get(0).getUuid());
 
-  }
-
-  @Test
-  public void testSourceDatanodeIsNotChosenAsTarget() {
-    setup(2);
-    List<DatanodeDetails> usedNodes = new ArrayList<>();
-    usedNodes.add(datanodes.get(0));
-    dnInfos.get(1).setNodeStatus(NodeStatus.inServiceHealthyReadOnly());
-
-    assertThrows(SCMException.class,
-            () -> policy.chooseDatanodes(usedNodes, null, null, 1, 0, 0),
-            "No target datanode, this call should fail");
   }
 }

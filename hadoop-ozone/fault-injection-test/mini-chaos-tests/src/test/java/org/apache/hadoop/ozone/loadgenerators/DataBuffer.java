@@ -39,7 +39,7 @@ public class DataBuffer {
     for (int i = 0; i < numBuffers; i++) {
       int size = (int) StorageUnit.KB.toBytes(1 << i);
       ByteBuffer buffer = ByteBuffer.allocate(size);
-      buffer.put(RandomUtils.secure().randomBytes(size));
+      buffer.put(RandomUtils.nextBytes(size));
       this.buffers.add(buffer);
     }
     // TODO: add buffers of sizes of prime numbers.

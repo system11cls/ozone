@@ -23,7 +23,13 @@ import java.security.SecureRandom;
  * Helper methods to deal with random UUIDs.
  */
 public final class UUIDUtil {
-  private static final ThreadLocal<SecureRandom> GENERATOR = ThreadLocal.withInitial(SecureRandom::new);
+
+  private UUIDUtil() {
+
+  }
+
+  private static final ThreadLocal<SecureRandom> GENERATOR =
+      ThreadLocal.withInitial(SecureRandom::new);
 
   public static byte[] randomUUIDBytes() {
     final byte[] bytes = new byte[16];
@@ -36,6 +42,4 @@ public final class UUIDUtil {
     return bytes;
   }
 
-  private UUIDUtil() {
-  }
 }

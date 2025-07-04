@@ -47,10 +47,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Test getFileStatus and related listing operations.
  */
-public abstract class AbstractContractGetFileStatusTest extends AbstractFSContractTestBase {
-
-  private static final PathFilter ALL_PATHS = new AllPathsFilter();
-  private static final PathFilter NO_PATHS = new NoPathsFilter();
+public abstract class AbstractContractGetFileStatusTest extends
+    AbstractFSContractTestBase {
 
   private Path testPath;
   private Path target;
@@ -554,6 +552,7 @@ public abstract class AbstractContractGetFileStatusTest extends AbstractFSContra
     return count;
   }
 
+
   @Test
   public void testListStatusFiltering() throws Throwable {
     describe("Call listStatus() against paths and directories with filtering");
@@ -692,6 +691,9 @@ public abstract class AbstractContractGetFileStatusTest extends AbstractFSContra
         .hasSize(expected);
     return result;
   }
+
+  private static final PathFilter ALL_PATHS = new AllPathsFilter();
+  private static final PathFilter NO_PATHS = new NoPathsFilter();
 
   /**
    * Accept everything.

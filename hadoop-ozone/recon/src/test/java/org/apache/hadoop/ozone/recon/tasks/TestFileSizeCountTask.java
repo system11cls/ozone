@@ -17,8 +17,6 @@
 
 package org.apache.hadoop.ozone.recon.tasks;
 
-import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.FILE_TABLE;
-import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.KEY_TABLE;
 import static org.apache.hadoop.ozone.recon.tasks.OMDBUpdateEvent.OMDBUpdateAction.DELETE;
 import static org.apache.hadoop.ozone.recon.tasks.OMDBUpdateEvent.OMDBUpdateAction.PUT;
 import static org.apache.hadoop.ozone.recon.tasks.OMDBUpdateEvent.OMDBUpdateAction.UPDATE;
@@ -37,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.TypedTable;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
@@ -113,7 +110,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
     when(keyTableOBS.iterator()).thenReturn(mockIterOBS);
     // Simulate three keys then end.
     when(mockIterOBS.hasNext()).thenReturn(true, true, true, false);
-    final Table.KeyValue mockKeyValueOBS = mock(Table.KeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueOBS = mock(TypedTable.TypedKeyValue.class);
     when(mockIterOBS.next()).thenReturn(mockKeyValueOBS);
     when(mockKeyValueOBS.getValue()).thenReturn(omKeyInfos[0], omKeyInfos[1], omKeyInfos[2]);
 
@@ -124,7 +121,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
     TypedTable.TypedTableIterator mockIterFSO = mock(TypedTable.TypedTableIterator.class);
     when(keyTableFSO.iterator()).thenReturn(mockIterFSO);
     when(mockIterFSO.hasNext()).thenReturn(true, true, true, false);
-    final Table.KeyValue mockKeyValueFSO = mock(Table.KeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueFSO = mock(TypedTable.TypedKeyValue.class);
     when(mockIterFSO.next()).thenReturn(mockKeyValueFSO);
     when(mockKeyValueFSO.getValue()).thenReturn(omKeyInfos[0], omKeyInfos[1], omKeyInfos[2]);
 
@@ -181,7 +178,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
         .setAction(PUT)
         .setKey("deletedKey")
         .setValue(toBeDeletedKey)
-        .setTable(KEY_TABLE)
+        .setTable(OmMetadataManagerImpl.KEY_TABLE)
         .build();
 
     OmKeyInfo toBeUpdatedKey = mock(OmKeyInfo.class);
@@ -193,7 +190,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
         .setAction(PUT)
         .setKey("updatedKey")
         .setValue(toBeUpdatedKey)
-        .setTable(FILE_TABLE)
+        .setTable(OmMetadataManagerImpl.FILE_TABLE)
         .build();
 
     OMUpdateEventBatch omUpdateEventBatch =
@@ -232,7 +229,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
         .setAction(PUT)
         .setKey("newKey")
         .setValue(newKey)
-        .setTable(KEY_TABLE)
+        .setTable(OmMetadataManagerImpl.KEY_TABLE)
         .build();
 
     // Update existing key.
@@ -246,7 +243,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
         .setKey("updatedKey")
         .setValue(updatedKey)
         .setOldValue(toBeUpdatedKey)
-        .setTable(KEY_TABLE)
+        .setTable(OmMetadataManagerImpl.KEY_TABLE)
         .build();
 
     // Delete another existing key.
@@ -254,7 +251,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
         .setAction(DELETE)
         .setKey("deletedKey")
         .setValue(toBeDeletedKey)
-        .setTable(FILE_TABLE)
+        .setTable(OmMetadataManagerImpl.FILE_TABLE)
         .build();
 
     omUpdateEventBatch = new OMUpdateEventBatch(
@@ -306,8 +303,8 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
 
     TypedTable.TypedTableIterator mockKeyIterLegacy = mock(TypedTable.TypedTableIterator.class);
     TypedTable.TypedTableIterator mockKeyIterFso = mock(TypedTable.TypedTableIterator.class);
-    final Table.KeyValue mockKeyValueLegacy = mock(Table.KeyValue.class);
-    final Table.KeyValue mockKeyValueFso = mock(Table.KeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueLegacy = mock(TypedTable.TypedKeyValue.class);
+    TypedTable.TypedKeyValue mockKeyValueFso = mock(TypedTable.TypedKeyValue.class);
 
     when(keyTableLegacy.iterator()).thenReturn(mockKeyIterLegacy);
     when(keyTableFso.iterator()).thenReturn(mockKeyIterFso);
@@ -379,7 +376,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
                 .setAction(PUT)
                 .setKey("key" + keyIndex)
                 .setValue(omKeyInfo)
-                .setTable(KEY_TABLE)
+                .setTable(OmMetadataManagerImpl.KEY_TABLE)
                 .build());
           } else {
             // All the keys ending with odd will be stored in FILE-TABLE
@@ -387,7 +384,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
                 .setAction(PUT)
                 .setKey("key" + keyIndex)
                 .setValue(omKeyInfo)
-                .setTable(FILE_TABLE)
+                .setTable(OmMetadataManagerImpl.FILE_TABLE)
                 .build());
           }
         }
@@ -434,14 +431,14 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
                   .setAction(DELETE)
                   .setKey("key" + keyIndex)
                   .setValue(omKeyInfo)
-                  .setTable(KEY_TABLE)
+                  .setTable(OmMetadataManagerImpl.KEY_TABLE)
                   .build());
             } else {
               omDbEventList.add(new OMUpdateEventBuilder()
                   .setAction(DELETE)
                   .setKey("key" + keyIndex)
                   .setValue(omKeyInfo)
-                  .setTable(FILE_TABLE)
+                  .setTable(OmMetadataManagerImpl.FILE_TABLE)
                   .build());
             }
           } else {
@@ -453,7 +450,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
                   .setAction(UPDATE)
                   .setKey("key" + keyIndex)
                   .setValue(omKeyInfo)
-                  .setTable(KEY_TABLE)
+                  .setTable(OmMetadataManagerImpl.KEY_TABLE)
                   .setOldValue(
                       omKeyInfoList.get((volIndex * bktIndex) + keyIndex))
                   .build());
@@ -462,7 +459,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
                   .setAction(UPDATE)
                   .setKey("key" + keyIndex)
                   .setValue(omKeyInfo)
-                  .setTable(FILE_TABLE)
+                  .setTable(OmMetadataManagerImpl.FILE_TABLE)
                   .setOldValue(
                       omKeyInfoList.get((volIndex * bktIndex) + keyIndex))
                   .build());
@@ -498,6 +495,7 @@ public class TestFileSizeCountTask extends AbstractReconSqlDBTest {
     assertEquals(1, fileCountBySizeDao.findById(recordToFind)
         .getCount().longValue());
   }
+
 
   @Test
   public void testTruncateTableExceptionPropagation() {

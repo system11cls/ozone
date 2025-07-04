@@ -55,6 +55,7 @@ public class TestOMVolumeSetOwnerRequest extends TestOMVolumeRequest {
     assertNotEquals(modifiedRequest, originalRequest);
   }
 
+
   @Test
   public void testValidateAndUpdateCacheSuccess() throws Exception {
     String volumeName = UUID.randomUUID().toString();
@@ -121,6 +122,7 @@ public class TestOMVolumeSetOwnerRequest extends TestOMVolumeRequest {
 
   }
 
+
   @Test
   public void testValidateAndUpdateCacheWithVolumeNotFound()
       throws Exception {
@@ -170,6 +172,7 @@ public class TestOMVolumeSetOwnerRequest extends TestOMVolumeRequest {
     assertEquals(OzoneManagerProtocolProtos.Status.INVALID_REQUEST,
         omResponse.getStatus());
   }
+
 
   @Test
   public void testOwnSameVolumeTwice() throws Exception {

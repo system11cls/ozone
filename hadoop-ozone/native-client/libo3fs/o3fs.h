@@ -19,7 +19,7 @@
 #ifndef O3FS_DOT_H
 #define O3FS_DOT_H
 
-#include "hdfs.h"
+#include "hdfs/hdfs.h"
 
 struct hdfs_internal;
 typedef struct hdfs_internal* o3fsFS;

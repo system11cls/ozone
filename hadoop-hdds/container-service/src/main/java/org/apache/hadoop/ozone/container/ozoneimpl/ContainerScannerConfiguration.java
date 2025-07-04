@@ -217,8 +217,4 @@ public class ContainerScannerConfiguration {
   public long getContainerScanMinGap() {
     return containerScanMinGap;
   }
-
-  public void setContainerScanMinGap(long scanGap) {
-    containerScanMinGap = scanGap;
-  }
 }

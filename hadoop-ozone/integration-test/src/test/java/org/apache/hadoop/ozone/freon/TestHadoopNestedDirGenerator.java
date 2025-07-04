@@ -90,10 +90,12 @@ public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCas
       // verify root path details
       FileStatus[] fileStatuses = fileSystem.listStatus(rootDir);
       Path p = null;
-      // verify the num of peer directories and span directories
-      p = depthBFS(fileSystem, fileStatuses, span, actualDepth);
-      int actualSpan = spanCheck(fileSystem, p);
-      assertEquals(span, actualSpan, "Mismatch span in a path");
+      for (FileStatus fileStatus : fileStatuses) {
+        // verify the num of peer directories and span directories
+        p = depthBFS(fileSystem, fileStatuses, span, actualDepth);
+        int actualSpan = spanCheck(fileSystem, span, p);
+        assertEquals(span, actualSpan, "Mismatch span in a path");
+      }
     }
   }
 
@@ -141,8 +143,14 @@ public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCas
      * and count the span directories.
      */
 
-  private int spanCheck(FileSystem fs, Path p) throws IOException {
+  private int spanCheck(FileSystem fs, int span, Path p) throws IOException {
     int sp = 0;
+    int depth = 0;
+    if (span >= 0) {
+      depth = 0;
+    } else {
+      LOG.info("Span value can never be negative");
+    }
     FileStatus[] fileStatuses = fs.listStatus(p);
     for (FileStatus fileStatus : fileStatuses) {
       if (fileStatus.isDirectory()) {

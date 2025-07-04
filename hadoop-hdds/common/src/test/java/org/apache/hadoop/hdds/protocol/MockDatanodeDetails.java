@@ -20,6 +20,7 @@ package org.apache.hadoop.hdds.protocol;
 import static org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name.ALL_PORTS;
 
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.ozone.test.GenericTestUtils;
@@ -30,16 +31,16 @@ import org.apache.ozone.test.GenericTestUtils;
 public final class MockDatanodeDetails {
 
   /**
-   * Creates DatanodeDetails with random ID and random IP address.
+   * Creates DatanodeDetails with random UUID and random IP address.
    *
    * @return DatanodeDetails
    */
   public static DatanodeDetails randomDatanodeDetails() {
-    return createDatanodeDetails(DatanodeID.randomID());
+    return createDatanodeDetails(UUID.randomUUID());
   }
 
   /**
-   * Creates DatanodeDetails with random DatanodeID, specific hostname and network
+   * Creates DatanodeDetails with random UUID, specific hostname and network
    * location.
    *
    * @return DatanodeDetails
@@ -51,46 +52,46 @@ public final class MockDatanodeDetails {
         + "." + random.nextInt(256)
         + "." + random.nextInt(256)
         + "." + random.nextInt(256);
-    return createDatanodeDetails(DatanodeID.randomID(), hostname,
+    return createDatanodeDetails(UUID.randomUUID().toString(), hostname,
         ipAddress, loc);
   }
 
   /**
-   * Creates DatanodeDetails using the given DatanodeID.
+   * Creates DatanodeDetails using the given UUID.
    *
-   * @param id Datanode's ID
+   * @param uuid Datanode's UUID
    *
    * @return DatanodeDetails
    */
-  public static DatanodeDetails createDatanodeDetails(DatanodeID id) {
+  public static DatanodeDetails createDatanodeDetails(UUID uuid) {
     Random random = ThreadLocalRandom.current();
     String ipAddress = random.nextInt(256)
         + "." + random.nextInt(256)
         + "." + random.nextInt(256)
         + "." + random.nextInt(256);
-    return createDatanodeDetails(id, "localhost" + "-" + ipAddress,
+    return createDatanodeDetails(uuid.toString(), "localhost" + "-" + ipAddress,
         ipAddress, null);
   }
 
   /**
    * Creates DatanodeDetails with the given information.
    *
-   * @param id      Datanode's ID
+   * @param uuid      Datanode's UUID
    * @param hostname  hostname of Datanode
    * @param ipAddress ip address of Datanode
    *
    * @return DatanodeDetails
    */
-  public static DatanodeDetails createDatanodeDetails(DatanodeID id,
+  public static DatanodeDetails createDatanodeDetails(String uuid,
       String hostname, String ipAddress, String networkLocation) {
-    return createDatanodeDetails(id, hostname, ipAddress, networkLocation, 0);
+    return createDatanodeDetails(uuid, hostname, ipAddress, networkLocation, 0);
   }
 
-  public static DatanodeDetails createDatanodeDetails(DatanodeID id,
+  public static DatanodeDetails createDatanodeDetails(String uuid,
       String hostname, String ipAddress, String networkLocation, int port) {
 
     DatanodeDetails.Builder dn = DatanodeDetails.newBuilder()
-        .setID(id)
+        .setUuid(UUID.fromString(uuid))
         .setHostName(hostname)
         .setIpAddress(ipAddress)
         .setNetworkLocation(networkLocation)
@@ -105,12 +106,12 @@ public final class MockDatanodeDetails {
   }
 
   /**
-   * Creates DatanodeDetails with random ID and valid local address and port.
+   * Creates DatanodeDetails with random UUID and valid local address and port.
    *
    * @return DatanodeDetails
    */
   public static DatanodeDetails randomLocalDatanodeDetails() {
-    return createDatanodeDetails(DatanodeID.randomID(),
+    return createDatanodeDetails(UUID.randomUUID().toString(),
         GenericTestUtils.PortAllocator.HOSTNAME,
         GenericTestUtils.PortAllocator.HOST_ADDRESS, null,
         GenericTestUtils.PortAllocator.getFreePort());

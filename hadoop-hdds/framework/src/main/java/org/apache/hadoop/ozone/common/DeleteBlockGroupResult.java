@@ -31,7 +31,6 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.DeleteBlockResult;
 public class DeleteBlockGroupResult {
   private String objectKey;
   private List<DeleteBlockResult> blockResultList;
-
   public DeleteBlockGroupResult(String objectKey,
       List<DeleteBlockResult> blockResultList) {
     this.objectKey = objectKey;

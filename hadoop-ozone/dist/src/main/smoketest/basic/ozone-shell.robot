@@ -20,8 +20,7 @@ Resource            ../commonlib.robot
 Resource            ozone-shell-lib.robot
 Test Setup          Run Keyword if    '${SECURITY_ENABLED}' == 'true'    Kinit test user     testuser     testuser.keytab
 Test Timeout        10 minutes
-Suite Setup         Run Keywords    Generate prefix
-...                 AND             Get Security Enabled From Config
+Suite Setup         Generate prefix
 
 *** Test Cases ***
 RpcClient with port

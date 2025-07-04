@@ -58,6 +58,7 @@ import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -66,6 +67,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests failure detection and handling in BlockOutputStream Class.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(300)
 @Flaky("HDDS-11849")
 class TestBlockOutputStreamWithFailures {
 
@@ -109,7 +111,7 @@ class TestBlockOutputStreamWithFailures {
     String keyName = getKeyName();
     OzoneOutputStream key = createKey(client, keyName);
     int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-    byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+    byte[] data1 = RandomUtils.nextBytes(dataLength);
     key.write(data1);
 
     KeyOutputStream keyOutputStream =
@@ -194,7 +196,7 @@ class TestBlockOutputStreamWithFailures {
       String keyName = getKeyName();
       OzoneOutputStream key = createKey(client, keyName);
       int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-      byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+      byte[] data1 = RandomUtils.nextBytes(dataLength);
       key.write(data1);
       // since its hitting the full bufferCondition, it will call watchForCommit
       // and completes at least putBlock for first flushSize worth of data
@@ -278,7 +280,7 @@ class TestBlockOutputStreamWithFailures {
       String keyName = getKeyName();
       OzoneOutputStream key = createKey(client, keyName);
       int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-      byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+      byte[] data1 = RandomUtils.nextBytes(dataLength);
       key.write(data1);
       // since its hitting the full bufferCondition, it will call watchForCommit
       // and completes atleast putBlock for first flushSize worth of data
@@ -374,7 +376,7 @@ class TestBlockOutputStreamWithFailures {
     String keyName = getKeyName();
     OzoneOutputStream key = createKey(client, keyName);
     int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-    byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+    byte[] data1 = RandomUtils.nextBytes(dataLength);
     key.write(data1);
 
     KeyOutputStream keyOutputStream =
@@ -431,7 +433,7 @@ class TestBlockOutputStreamWithFailures {
     String keyName = getKeyName();
     OzoneOutputStream key = createKey(client, keyName);
     int dataLength = 167;
-    byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+    byte[] data1 = RandomUtils.nextBytes(dataLength);
     key.write(data1);
 
     KeyOutputStream keyOutputStream =
@@ -496,7 +498,7 @@ class TestBlockOutputStreamWithFailures {
     OzoneOutputStream key =
         createKey(client, keyName, 0, ReplicationFactor.ONE);
     int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-    byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+    byte[] data1 = RandomUtils.nextBytes(dataLength);
     key.write(data1);
 
     KeyOutputStream keyOutputStream =
@@ -585,7 +587,7 @@ class TestBlockOutputStreamWithFailures {
       OzoneOutputStream key =
           createKey(client, keyName, 0, ReplicationFactor.ONE);
       int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-      byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+      byte[] data1 = RandomUtils.nextBytes(dataLength);
       key.write(data1);
       // since its hitting the full bufferCondition, it will call watchForCommit
       // and completes at least putBlock for first flushSize worth of data
@@ -676,7 +678,7 @@ class TestBlockOutputStreamWithFailures {
           createKey(client, keyName, 3 * BLOCK_SIZE,
               ReplicationFactor.ONE);
       int dataLength = MAX_FLUSH_SIZE + CHUNK_SIZE;
-      byte[] data1 = RandomUtils.secure().randomBytes(dataLength);
+      byte[] data1 = RandomUtils.nextBytes(dataLength);
       key.write(data1);
       // since its hitting the full bufferCondition, it will call watchForCommit
       // and completes at least putBlock for first flushSize worth of data

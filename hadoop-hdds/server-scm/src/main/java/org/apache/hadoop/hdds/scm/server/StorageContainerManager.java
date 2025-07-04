@@ -92,11 +92,9 @@ import org.apache.hadoop.hdds.scm.container.placement.algorithms.ContainerPlacem
 import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementMetrics;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMMetrics;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMPerformanceMetrics;
-import org.apache.hadoop.hdds.scm.container.reconciliation.ReconcileContainerEventHandler;
 import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaPendingOps;
 import org.apache.hadoop.hdds.scm.container.replication.DatanodeCommandCountUpdatedHandler;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
-import org.apache.hadoop.hdds.scm.container.replication.ReplicationManagerEventHandler;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes;
@@ -404,8 +402,6 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
             .register(OZONE_READONLY_ADMINISTRATORS,
                 this::reconfOzoneReadOnlyAdmins);
 
-    reconfigurationHandler.setReconfigurationCompleteCallback(reconfigurationHandler.defaultLoggingCallback());
-
     initializeSystemManagers(conf, configurator);
 
     if (isSecretKeyEnable(securityConfig)) {
@@ -445,7 +441,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     containerBalancer = new ContainerBalancer(this);
 
     // Emit initial safe mode status, as now handlers are registered.
-    scmSafeModeManager.start();
+    scmSafeModeManager.emitSafeModeStatus();
     scmHostName = HddsUtils.getHostName(conf);
 
     registerMXBean();
@@ -499,19 +495,11 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     PipelineActionHandler pipelineActionHandler =
         new PipelineActionHandler(pipelineManager, scmContext);
 
-    ReplicationManagerEventHandler replicationManagerEventHandler =
-        new ReplicationManagerEventHandler(replicationManager, scmContext);
-
-    ReconcileContainerEventHandler reconcileContainerEventHandler =
-        new ReconcileContainerEventHandler(containerManager, scmContext);
-
     eventQueue.addHandler(SCMEvents.DATANODE_COMMAND, scmNodeManager);
     eventQueue.addHandler(SCMEvents.RETRIABLE_DATANODE_COMMAND, scmNodeManager);
     eventQueue.addHandler(SCMEvents.NODE_REPORT, nodeReportHandler);
     eventQueue.addHandler(SCMEvents.DATANODE_COMMAND_COUNT_UPDATED,
         new DatanodeCommandCountUpdatedHandler(replicationManager));
-    eventQueue.addHandler(SCMEvents.REPLICATION_MANAGER_NOTIFY,
-        replicationManagerEventHandler);
 
     // Use the same executor for both ICR and FCR.
     // The Executor maps the event to a thread for DN.
@@ -578,7 +566,6 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
         (DeletedBlockLogImpl) scmBlockManager.getDeletedBlockLog());
     eventQueue.addHandler(SCMEvents.PIPELINE_ACTIONS, pipelineActionHandler);
     eventQueue.addHandler(SCMEvents.PIPELINE_REPORT, pipelineReportHandler);
-    eventQueue.addHandler(SCMEvents.RECONCILE_CONTAINER, reconcileContainerEventHandler);
 
     scmNodeManager.registerSendCommandNotify(
         SCMCommandProto.Type.deleteBlocksCommand,
@@ -838,8 +825,9 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     if (configurator.getScmSafeModeManager() != null) {
       scmSafeModeManager = configurator.getScmSafeModeManager();
     } else {
-      scmSafeModeManager = new SCMSafeModeManager(conf, scmNodeManager, pipelineManager,
-          containerManager, serviceManager, eventQueue, scmContext);
+      scmSafeModeManager = new SCMSafeModeManager(conf,
+          containerManager, pipelineManager, eventQueue,
+          serviceManager, scmContext);
     }
 
     scmDecommissionManager = new NodeDecommissionManager(conf, scmNodeManager, containerManager,
@@ -1384,14 +1372,12 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   public static SCMMetrics getMetrics() {
     return metrics == null ? SCMMetrics.create() : metrics;
   }
-
   /**
    * Initialize SCMPerformance metrics.
    */
   public static void initPerfMetrics() {
     perfMetrics = SCMPerformanceMetrics.create();
   }
-
   /**
    * Return SCMPerformance metrics instance.
    */
@@ -1583,7 +1569,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
           getScmSecurityClientWithMaxRetry(configuration, getCurrentUser()).listCACertificate();
       // Write the primary SCM CA and Root CA during startup.
       for (String cert : pemEncodedCerts) {
-        final X509Certificate x509Certificate = CertificateCodec.readX509Certificate(cert);
+        X509Certificate x509Certificate = CertificateCodec.getX509Certificate(
+            cert, CertificateCodec::toIOException);
         if (certificateStore.getCertificateByID(x509Certificate.getSerialNumber()) == null) {
           LOG.info("Persist certificate serialId {} on Scm Bootstrap Node " +
                   "{}", x509Certificate.getSerialNumber(),
@@ -1712,6 +1699,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
       SCMHAMetrics.unRegister();
     }
 
+    IOUtils.cleanupWithLogger(LOG, containerManager);
     IOUtils.cleanupWithLogger(LOG, pipelineManager);
 
     if (ms != null) {
@@ -1939,6 +1927,11 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     return scmSafeModeManager.getInSafeMode();
   }
 
+  @Override
+  public boolean isSafeModeExitForceful() {
+    return scmSafeModeManager.isForceExitSafeMode();
+  }
+
   /**
    * Returns EventPublisher.
    */
@@ -1971,7 +1964,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
    * Force SCM out of safe mode.
    */
   public boolean exitSafeMode() {
-    scmSafeModeManager.forceExitSafeMode();
+    scmSafeModeManager.exitSafeMode(eventQueue, true);
     return true;
   }
 
@@ -2014,7 +2007,6 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   public String getNamespace() {
     return scmHANodeDetails.getLocalNodeDetails().getServiceId();
   }
-
   /**
    * Get the safe mode status of all rules.
    *

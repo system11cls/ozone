@@ -28,10 +28,12 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Verifies OM startup with different layout.
  */
+@Timeout(300)
 public class TestOMStartupWithBucketLayout {
 
   private static MiniOzoneCluster cluster;

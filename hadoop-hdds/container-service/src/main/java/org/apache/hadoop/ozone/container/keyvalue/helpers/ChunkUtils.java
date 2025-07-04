@@ -38,6 +38,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
@@ -180,7 +181,10 @@ public final class ChunkUtils {
       FileChannel channel = null;
       try {
         channel = open(path, WRITE_OPTIONS, NO_ATTRIBUTES);
-        return writeDataToChannel(channel, data, offset);
+
+        try (FileLock ignored = channel.lock()) {
+          return writeDataToChannel(channel, data, offset);
+        }
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       } finally {
@@ -360,6 +364,7 @@ public final class ChunkUtils {
 
     return false;
   }
+
 
   /**
    * Validates chunk data and returns a boolean value that indicates if the

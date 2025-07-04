@@ -17,13 +17,7 @@
 
 package org.apache.hadoop.ozone.security.acl;
 
-import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -76,7 +70,6 @@ public interface IAccessAuthorizer {
             + " > 16, check the commit of this change and update the code.");
       }
     }
-
     private static ACLType[] vals = ACLType.values();
 
     public static int getNoOfAcls() {
@@ -125,6 +118,7 @@ public interface IAccessAuthorizer {
         throw new IllegalArgumentException("[" + type + "] ACL right is not " +
             "recognized");
       }
+
     }
 
     /**
@@ -165,15 +159,6 @@ public interface IAccessAuthorizer {
         throw new IllegalArgumentException("ACL right is not recognized");
       }
     }
-
-    public static Set<ACLType> parseList(String conf) {
-      String[] array = Objects.requireNonNull(conf, "conf == null")
-          .trim()
-          .split(",");
-      return Collections.unmodifiableSet(Arrays.stream(array)
-          .map(each -> ACLType.valueOf(each.trim()))
-          .collect(Collectors.toCollection(() -> EnumSet.noneOf(ACLType.class))));
-    }
   }
 
   /**
@@ -188,6 +173,10 @@ public interface IAccessAuthorizer {
 
     // TODO: Add support for acl checks based on CLIENT_IP.
 
+    @Override
+    public String toString() {
+      return value;
+    }
     /**
      * String value for this Enum.
      */
@@ -200,11 +189,6 @@ public interface IAccessAuthorizer {
      */
     ACLIdentityType(String val) {
       value = val;
-    }
-
-    @Override
-    public String toString() {
-      return value;
     }
   }
 

@@ -111,6 +111,7 @@ public class NamespaceSummaryResponse {
     private ObjectDBInfo objectDBInfo;
     private ResponseStatus status;
 
+
     public Builder() {
       // Default values
       this.path = StringUtils.EMPTY;

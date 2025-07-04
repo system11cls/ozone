@@ -34,12 +34,14 @@ import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Tests for SCM HA.
  */
+@Timeout(300)
 public class TestStorageContainerManagerHA {
 
   private static final Logger LOG = LoggerFactory.getLogger(TestStorageContainerManagerHA.class);

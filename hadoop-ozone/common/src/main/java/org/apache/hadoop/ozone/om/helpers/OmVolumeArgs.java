@@ -46,6 +46,10 @@ public final class OmVolumeArgs extends WithObjectID
       OmVolumeArgs::getProtobuf,
       OmVolumeArgs.class);
 
+  public static Codec<OmVolumeArgs> getCodec() {
+    return CODEC;
+  }
+
   private final String adminName;
   private String ownerName;
   private final String volume;
@@ -81,10 +85,6 @@ public final class OmVolumeArgs extends WithObjectID
     this.creationTime = b.creationTime;
     this.modificationTime = b.modificationTime;
     this.refCount = b.refCount;
-  }
-
-  public static Codec<OmVolumeArgs> getCodec() {
-    return CODEC;
   }
 
   public long getRefCount() {

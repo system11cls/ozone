@@ -18,14 +18,27 @@
 
 import React from 'react';
 import moment from 'moment';
-import {Button, Dropdown, Input, Menu, Row, Tooltip} from 'antd';
-import {MenuProps} from 'antd/es/menu';
-import {InfoCircleOutlined, LeftOutlined, LoadingOutlined, RedoOutlined} from '@ant-design/icons';
+import {
+  Row,
+  Button,
+  Input,
+  Menu,
+  Dropdown,
+  Tooltip
+} from 'antd';
+import { MenuProps } from 'antd/es/menu';
+import {
+  CloseOutlined,
+  InfoCircleOutlined,
+  LeftOutlined,
+  LoadingOutlined,
+  RedoOutlined
+} from '@ant-design/icons';
 
-import {DetailPanel} from '@/components/rightDrawer/rightDrawer';
-import {EChart} from '@/components/eChart/eChart';
-import {byteToSize, showDataFetchError} from '@/utils/common';
-import {AxiosGetHelper, cancelRequests} from '@/utils/axiosRequestHelper';
+import { DetailPanel } from '@/components/rightDrawer/rightDrawer';
+import { EChart } from '@/components/eChart/eChart';
+import { byteToSize, showDataFetchError } from '@/utils/common';
+import { AxiosGetHelper, cancelRequests } from '@/utils/axiosRequestHelper';
 
 import './diskUsage.less';
 
@@ -143,7 +156,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
     this.setState({
       isLoading: true
     });
-    const duEndpoint = `/api/v1/namespace/usage?path=${path}&files=true&sortSubPaths=true`;
+    const duEndpoint = `/api/v1/namespace/du?path=${path}&files=true&sortSubPaths=true`;
     const { request, controller } = AxiosGetHelper(duEndpoint, cancelPieSignal)
     cancelPieSignal = controller;
     request.then(response => {
@@ -310,7 +323,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
 
       if (summaryResponse.status !== 'INITIALIZING' && summaryResponse.status !== 'PATH_NOT_FOUND') {
         if (summaryResponse.type === 'KEY') {
-          const keyEndpoint = `/api/v1/namespace/usage?path=${path}&replica=true`;
+          const keyEndpoint = `/api/v1/namespace/du?path=${path}&replica=true`;
           const { request: metadataRequest, controller: metadataNewController } = AxiosGetHelper(keyEndpoint, cancelKeyMetadataSignal);
           cancelKeyMetadataSignal = metadataNewController;
           metadataRequest.then(response => {
@@ -415,7 +428,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
 
         if (summaryResponse.objectInfo?.quotaInNamespace !== undefined && summaryResponse.objectInfo?.quotaInNamespace !== -1) {
           keys.push('Quota In Namespace');
-          values.push(summaryResponse.objectInfo.quotaInNamespace);
+          values.push(byteToSize(summaryResponse.objectInfo.quotaInNamespace, 3));
         }
 
         if (summaryResponse.objectInfo?.replicationConfig?.replicationFactor !== undefined && summaryResponse.objectInfo?.replicationConfig?.replicationFactor !== -1) {
@@ -559,7 +572,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
 
     const eChartsOptions = {
       title: {
-        text: `Namespace Usage for ${returnPath} (Total Size: ${byteToSize(duResponse.size, 1)})`,
+        text: `Disk Usage for ${returnPath} (Total Size: ${byteToSize(duResponse.size, 1)})`,
         left: 'center'
       },
       tooltip: {
@@ -600,7 +613,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
     return (
       <div className='du-container'>
         <div className='page-header'>
-          Namespace Usage
+          Disk Usage
         </div>
         <div className='content-div'>
           {isLoading ? <span><LoadingOutlined /> Loading...</span> : (
@@ -670,7 +683,7 @@ export class DiskUsage extends React.Component<Record<string, object>, IDUState>
                   </div>
                   :
                   <div style={{ height: 800 }} className='metadatainformation'><br />
-                    This object is empty. Add files to it to see a visualization on namespace usage.{' '}<br />
+                    This object is empty. Add files to it to see a visualization on disk usage.{' '}<br />
                     You can also view its metadata details by clicking the top right button.
                   </div>}
                 <DetailPanel path={returnPath} keys={panelKeys} values={panelValues} visible={showPanel} />

@@ -88,6 +88,7 @@ public final class OzoneNetUtils {
     return fqdn.split("\\.")[0];
   }
 
+
   /**
    * Match input address to local address.
    * Return true if it matches, false otherwsie.
@@ -96,6 +97,7 @@ public final class OzoneNetUtils {
     InetAddress inetAddress = addr.getAddress();
     return inetAddress != null && NetUtils.isLocalAddress(inetAddress);
   }
+
 
   public static boolean isUnresolved(boolean flexibleFqdnResolutionEnabled,
                                       InetSocketAddress addr) {

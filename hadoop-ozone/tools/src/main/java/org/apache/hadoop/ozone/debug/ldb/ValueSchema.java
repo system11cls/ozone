@@ -54,7 +54,7 @@ public class ValueSchema extends AbstractSubcommand implements Callable<Void> {
   @CommandLine.ParentCommand
   private RDBParser parent;
 
-  private static final Logger LOG = LoggerFactory.getLogger(ValueSchema.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ValueSchema.class);
 
   @CommandLine.Option(names = {"--column_family", "--column-family", "--cf"},
       required = true,

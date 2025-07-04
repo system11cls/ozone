@@ -23,13 +23,13 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
-import org.apache.hadoop.ozone.s3.util.S3Consts;
 
 /**
  * Response for multi object delete request.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlRootElement(name = "DeleteResult", namespace = S3Consts.S3_XML_NAMESPACE)
+@XmlRootElement(name = "DeleteResult", namespace = "http://s3.amazonaws"
+    + ".com/doc/2006-03-01/")
 public class MultiDeleteResponse {
 
   @XmlElement(name = "Deleted")
@@ -68,7 +68,8 @@ public class MultiDeleteResponse {
    * JAXB entity for child element.
    */
   @XmlAccessorType(XmlAccessType.FIELD)
-  @XmlRootElement(name = "Deleted", namespace = S3Consts.S3_XML_NAMESPACE)
+  @XmlRootElement(name = "Deleted", namespace = "http://s3.amazonaws"
+      + ".com/doc/2006-03-01/")
   public static class DeletedObject {
 
     @XmlElement(name = "Key")
@@ -104,7 +105,8 @@ public class MultiDeleteResponse {
    * JAXB entity for child element.
    */
   @XmlAccessorType(XmlAccessType.FIELD)
-  @XmlRootElement(name = "Error", namespace = S3Consts.S3_XML_NAMESPACE)
+  @XmlRootElement(name = "Error", namespace = "http://s3.amazonaws"
+      + ".com/doc/2006-03-01/")
   public static class Error {
 
     @XmlElement(name = "Key")

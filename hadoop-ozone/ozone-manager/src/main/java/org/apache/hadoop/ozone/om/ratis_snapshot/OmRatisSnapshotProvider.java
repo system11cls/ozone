@@ -49,7 +49,6 @@ import org.apache.hadoop.hdds.utils.RDBSnapshotProvider;
 import org.apache.hadoop.hdfs.web.URLConnectionFactory;
 import org.apache.hadoop.ozone.om.helpers.OMNodeDetails;
 import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +89,7 @@ public class OmRatisSnapshotProvider extends RDBSnapshotProvider {
     this.spnegoEnabled = spnegoEnabled;
     this.connectionFactory = connectionFactory;
   }
+
 
   public OmRatisSnapshotProvider(MutableConfigurationSource conf,
       File omRatisSnapshotDir, Map<String, OMNodeDetails> peerNodeDetails) {
@@ -188,17 +188,17 @@ public class OmRatisSnapshotProvider extends RDBSnapshotProvider {
       byte[] buffer = new byte[8 * 1024];
       long totalBytesRead = 0;
       int bytesRead;
-      long lastLoggedTime = Time.monotonicNow();
+      long lastLoggedTime = System.currentTimeMillis();
 
       while ((bytesRead = inputStream.read(buffer)) != -1) {
         outputStream.write(buffer, 0, bytesRead);
         totalBytesRead += bytesRead;
 
         // Log progress every 30 seconds
-        if (Time.monotonicNow() - lastLoggedTime >= 30000) {
+        if (System.currentTimeMillis() - lastLoggedTime >= 30000) {
           LOG.info("Downloading '{}': {} KB downloaded so far...",
               targetFile.getName(), totalBytesRead / (1024));
-          lastLoggedTime = Time.monotonicNow();
+          lastLoggedTime = System.currentTimeMillis();
         }
       }
 

@@ -36,9 +36,13 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.scm.ScmConfig;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
 import org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
+import org.apache.hadoop.hdds.scm.pipeline.MockPipelineManager;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.ContainerReportFromDatanode;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.hdds.utils.db.DBStore;
@@ -58,10 +62,13 @@ public class TestUnknownContainerReport {
 
   private NodeManager nodeManager;
   private ContainerManager containerManager;
+  private ContainerStateManager containerStateManager;
   private EventPublisher publisher;
+  private PipelineManager pipelineManager;
   @TempDir
   private File testDir;
   private DBStore dbStore;
+  private SCMHAManager scmhaManager;
 
   @BeforeEach
   public void setup() throws IOException {
@@ -69,14 +76,25 @@ public class TestUnknownContainerReport {
     this.nodeManager = new MockNodeManager(true, 10);
     this.containerManager = mock(ContainerManager.class);
     dbStore = DBStoreBuilder.createDBStore(conf, SCMDBDefinition.get());
+    scmhaManager = SCMHAManagerStub.getInstance(true);
+    pipelineManager =
+        new MockPipelineManager(dbStore, scmhaManager, nodeManager);
+    containerStateManager = ContainerStateManagerImpl.newBuilder()
+        .setConfiguration(conf)
+        .setPipelineManager(pipelineManager)
+        .setRatisServer(scmhaManager.getRatisServer())
+        .setContainerStore(SCMDBDefinition.CONTAINERS.getTable(dbStore))
+        .setSCMDBTransactionBuffer(scmhaManager.getDBTransactionBuffer())
+        .build();
     this.publisher = mock(EventPublisher.class);
 
     when(containerManager.getContainer(any(ContainerID.class)))
-        .thenThrow(ContainerNotFoundException.newInstanceForTesting());
+        .thenThrow(new ContainerNotFoundException());
   }
 
   @AfterEach
   public void tearDown() throws Exception {
+    containerStateManager.close();
     if (dbStore != null) {
       dbStore.close();
     }
@@ -97,7 +115,7 @@ public class TestUnknownContainerReport {
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.set(
         ScmConfig.HDDS_SCM_UNKNOWN_CONTAINER_ACTION,
-        ContainerReportHandler.UnknownContainerAction.DELETE.name());
+        ContainerReportHandler.UNKNOWN_CONTAINER_ACTION_DELETE);
 
     sendContainerReport(conf);
     verify(publisher, times(1)).fireEvent(

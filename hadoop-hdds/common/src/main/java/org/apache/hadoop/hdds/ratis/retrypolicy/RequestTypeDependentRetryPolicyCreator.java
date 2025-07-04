@@ -114,7 +114,6 @@ public class RequestTypeDependentRetryPolicyCreator
         .setDefaultPolicy(multipleLinearRandomRetry)
         .build();
   }
-
   private static TimeDuration toTimeDuration(Duration duration) {
     return toTimeDuration(duration.toMillis());
   }

@@ -31,8 +31,28 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
  */
 @InterfaceAudience.Private
 public final class HttpServer2Metrics implements MetricsSource {
+  enum HttpServer2MetricsInfo implements MetricsInfo {
+    SERVER_NAME("HttpServer2 Metrics."),
+    HttpServerThreadCount("Number of threads in the pool."),
+    HttpServerIdleThreadCount("Number of idle threads but not reserved."),
+    HttpServerMaxThreadCount("Maximum number of threads in the pool."),
+    HttpServerThreadQueueWaitingTaskCount(
+        "The number of jobs in the queue waiting for a thread");
 
-  public static final String SOURCE_NAME = HttpServer2Metrics.class.getSimpleName();
+    private final String desc;
+
+    HttpServer2MetricsInfo(String desc) {
+      this.desc = desc;
+    }
+
+    @Override
+    public String description() {
+      return desc;
+    }
+  }
+
+  public static final String SOURCE_NAME =
+      HttpServer2Metrics.class.getSimpleName();
 
   public static final String NAME = HttpServer2Metrics.class.getSimpleName();
 
@@ -70,25 +90,5 @@ public final class HttpServer2Metrics implements MetricsSource {
   public void unRegister() {
     MetricsSystem ms = DefaultMetricsSystem.instance();
     ms.unregisterSource(NAME);
-  }
-
-  enum HttpServer2MetricsInfo implements MetricsInfo {
-    SERVER_NAME("HttpServer2 Metrics."),
-    HttpServerThreadCount("Number of threads in the pool."),
-    HttpServerIdleThreadCount("Number of idle threads but not reserved."),
-    HttpServerMaxThreadCount("Maximum number of threads in the pool."),
-    HttpServerThreadQueueWaitingTaskCount(
-        "The number of jobs in the queue waiting for a thread");
-
-    private final String desc;
-
-    HttpServer2MetricsInfo(String desc) {
-      this.desc = desc;
-    }
-
-    @Override
-    public String description() {
-      return desc;
-    }
   }
 }

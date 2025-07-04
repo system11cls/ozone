@@ -200,7 +200,6 @@ public class TestDeleteContainerCommandHandler {
 
   static class ThreadPoolWithLockExecutor extends ThreadPoolExecutor {
     private CountDownLatch countDownLatch;
-
     ThreadPoolWithLockExecutor(ThreadFactory threadFactory, CountDownLatch latch) {
       super(1, 1, 0, TimeUnit.MILLISECONDS,
           new LinkedBlockingQueue<Runnable>(), threadFactory);

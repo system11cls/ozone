@@ -78,6 +78,7 @@ public class SCMConnectionManager
         this);
   }
 
+
   /**
    * Returns Config.
    *
@@ -95,6 +96,7 @@ public class SCMConnectionManager
   public int getRpcTimeout() {
     return rpcTimeout;
   }
+
 
   /**
    * Takes a read lock.

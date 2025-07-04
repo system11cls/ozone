@@ -33,7 +33,6 @@ import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.metadata.DatanodeStore;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
 /**
@@ -90,7 +89,7 @@ public final class HddsVolumeUtil {
     List<CompletableFuture<Void>> futures = new ArrayList<>();
     List<HddsVolume> hddsVolumes = StorageVolumeUtil.getHddsVolumesList(
         hddsVolumeSet.getVolumesList());
-    long start = Time.monotonicNow();
+    long start = System.currentTimeMillis();
     for (HddsVolume volume : hddsVolumes) {
       futures.add(CompletableFuture.runAsync(
           () -> loadVolume(volume, readOnly, logger)));
@@ -100,7 +99,7 @@ public final class HddsVolumeUtil {
     }
     if (logger != null) {
       logger.info("Load {} volumes DbStore cost: {}ms", hddsVolumes.size(),
-          Time.monotonicNow() - start);
+          System.currentTimeMillis() - start);
     }
   }
 

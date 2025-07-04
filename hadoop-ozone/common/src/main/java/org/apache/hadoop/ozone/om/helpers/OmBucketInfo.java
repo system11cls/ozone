@@ -48,6 +48,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       OmBucketInfo::getProtobuf,
       OmBucketInfo.class);
 
+  public static Codec<OmBucketInfo> getCodec() {
+    return CODEC;
+  }
+
   /**
    * Name of the volume in which the bucket belongs to.
    */
@@ -123,10 +127,6 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     this.bucketLayout = b.bucketLayout;
     this.owner = b.owner;
     this.defaultReplicationConfig = b.defaultReplicationConfig;
-  }
-
-  public static Codec<OmBucketInfo> getCodec() {
-    return CODEC;
   }
 
   /**
@@ -215,6 +215,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     return modificationTime;
   }
 
+
   /**
    * Returns bucket encryption key info.
    * @return bucket encryption key info
@@ -248,6 +249,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
   public String getSourceBucket() {
     return sourceBucket;
   }
+
 
   public long getUsedBytes() {
     return usedBytes;
@@ -585,6 +587,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     }
     return bib.build();
   }
+
 
   /**
    * Parses BucketInfo protobuf and creates OmBucketInfo.

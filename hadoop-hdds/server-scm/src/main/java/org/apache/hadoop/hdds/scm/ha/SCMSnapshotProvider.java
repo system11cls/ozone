@@ -49,6 +49,7 @@ public class SCMSnapshotProvider {
 
   private final File scmSnapshotDir;
 
+
   private final ConfigurationSource conf;
 
   private Map<String, SCMNodeDetails> peerNodesMap;

@@ -225,6 +225,7 @@ public class TestOMAllocateBlockRequest extends TestOMKeyRequest {
     return modifiedOmRequest;
   }
 
+
   protected OMRequest createAllocateBlockRequest() {
 
     KeyArgs keyArgs = KeyArgs.newBuilder()

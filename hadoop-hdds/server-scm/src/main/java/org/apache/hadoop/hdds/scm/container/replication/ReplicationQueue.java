@@ -97,8 +97,4 @@ public class ReplicationQueue {
     return overRepQueue.size();
   }
 
-  public boolean isEmpty() {
-    return underRepQueue.isEmpty() && overRepQueue.isEmpty();
-  }
-
 }

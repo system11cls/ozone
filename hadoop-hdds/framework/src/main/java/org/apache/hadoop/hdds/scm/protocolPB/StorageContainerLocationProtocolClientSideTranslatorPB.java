@@ -27,6 +27,7 @@ import com.google.protobuf.ServiceException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,6 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionInfo;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.GetScmInfoResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.TransferLeadershipRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.UpgradeFinalizationStatus;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos;
@@ -97,7 +97,6 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.QueryUpgradeFinalizationProgressResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.RecommissionNodesRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.RecommissionNodesResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ReconcileContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ReplicationManagerReportRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ReplicationManagerReportResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ReplicationManagerStatusRequestProto;
@@ -159,6 +158,12 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
 
   private final StorageContainerLocationProtocolPB rpcProxy;
   private final SCMContainerLocationFailoverProxyProvider fpp;
+
+  /**
+   * This is used to check if 'leader' or 'follower' exists,
+   * in order to confirm whether we have enabled Ratis.
+   */
+  private final List<String> scmRatisRolesToCheck = Arrays.asList("leader", "follower");
 
   /**
    * Creates a new StorageContainerLocationProtocolClientSideTranslatorPB.
@@ -224,28 +229,13 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
   public ContainerWithPipeline allocateContainer(
       HddsProtos.ReplicationType type, HddsProtos.ReplicationFactor factor,
       String owner) throws IOException {
-    ReplicationConfig replicationConfig =
-        ReplicationConfig.fromProtoTypeAndFactor(type, factor);
-    return allocateContainer(replicationConfig, owner);
-  }
 
-  @Override
-  public ContainerWithPipeline allocateContainer(
-      ReplicationConfig replicationConfig, String owner) throws IOException {
-
-    ContainerRequestProto.Builder request = ContainerRequestProto.newBuilder()
-          .setTraceID(TracingUtil.exportCurrentSpan())
-          .setReplicationType(replicationConfig.getReplicationType())
-          .setOwner(owner);
-
-    if (replicationConfig.getReplicationType() == HddsProtos.ReplicationType.EC) {
-      HddsProtos.ECReplicationConfig ecProto =
-          ((ECReplicationConfig) replicationConfig).toProto();
-      request.setEcReplicationConfig(ecProto);
-      request.setReplicationFactor(ReplicationFactor.ONE); // Set for backward compatibility, ignored for EC.
-    } else {
-      request.setReplicationFactor(ReplicationFactor.valueOf(replicationConfig.getReplication()));
-    }
+    ContainerRequestProto request = ContainerRequestProto.newBuilder()
+        .setTraceID(TracingUtil.exportCurrentSpan())
+        .setReplicationFactor(factor)
+        .setReplicationType(type)
+        .setOwner(owner)
+        .build();
 
     ContainerResponseProto response =
         submitRequest(Type.AllocateContainer,
@@ -256,7 +246,8 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
       throw new IOException(response.hasErrorMessage() ?
           response.getErrorMessage() : "Allocate container failed.");
     }
-    return ContainerWithPipeline.fromProtobuf(response.getContainerWithPipeline());
+    return ContainerWithPipeline.fromProtobuf(
+        response.getContainerWithPipeline());
   }
 
   @Override
@@ -385,7 +376,12 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
         .getContainerWithPipelinesList();
 
     for (HddsProtos.ContainerWithPipeline cp : protoCps) {
-      cps.add(ContainerWithPipeline.fromProtobuf(cp));
+      try {
+        cps.add(ContainerWithPipeline.fromProtobuf(cp));
+      } catch (IOException uex) {
+          // "fromProtobuf" may throw an exception
+          // do nothing , just go ahead
+      }
     }
     return cps;
   }
@@ -1228,14 +1224,5 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
         builder -> builder.setGetMetricsRequest(request)).getGetMetricsResponse();
     String metricsJsonStr = response.getMetricsJson();
     return metricsJsonStr;
-  }
-
-  @Override
-  public void reconcileContainer(long containerID) throws IOException {
-    ReconcileContainerRequestProto request = ReconcileContainerRequestProto.newBuilder()
-        .setContainerID(containerID)
-        .build();
-    // TODO check error handling.
-    submitRequest(Type.ReconcileContainer, builder -> builder.setReconcileContainerRequest(request));
   }
 }

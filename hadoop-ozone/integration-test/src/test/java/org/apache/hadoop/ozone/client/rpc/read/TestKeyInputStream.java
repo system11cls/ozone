@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
@@ -112,7 +111,7 @@ class TestKeyInputStream extends TestInputStreamBase {
     keyInputStream.seek(seek);
 
     byte[] readData = new byte[readLength];
-    IOUtils.readFully(keyInputStream, readData);
+    keyInputStream.read(readData, 0, readLength);
 
     bucket.validateData(inputData, (int) seek, readData);
   }
@@ -268,7 +267,7 @@ class TestKeyInputStream extends TestInputStreamBase {
         .getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
 
     byte[] readData = new byte[CHUNK_SIZE];
-    IOUtils.readFully(keyInputStream, readData);
+    keyInputStream.read(readData, 0, CHUNK_SIZE);
 
     // Since we read data from index 150 to 250 and the chunk boundary is
     // 100 bytes, we need to read 2 chunks.
@@ -361,7 +360,7 @@ class TestKeyInputStream extends TestInputStreamBase {
         .getContainerOpCountMetrics(ContainerProtos.Type.ReadChunk));
 
     byte[] readData = new byte[CHUNK_SIZE];
-    IOUtils.readFully(keyInputStream, readData);
+    keyInputStream.read(readData, 0, CHUNK_SIZE);
 
     // Since we reading data from index 150 to 250 and the chunk boundary is
     // 100 bytes, we need to read 2 chunks.

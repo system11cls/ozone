@@ -61,6 +61,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -73,7 +74,6 @@ import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
@@ -86,7 +86,6 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.scm.HddsTestUtils;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
-import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.net.NetworkTopology;
@@ -115,7 +114,6 @@ import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.hadoop.test.PathUtils;
 import org.apache.hadoop.util.Time;
 import org.apache.ozone.test.GenericTestUtils;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -322,7 +320,7 @@ public class TestSCMNodeManager {
     DatanodeDetails details = MockDatanodeDetails.randomDatanodeDetails();
 
     StorageReportProto storageReport =
-        HddsTestUtils.createStorageReport(details.getID(),
+        HddsTestUtils.createStorageReport(details.getUuid(),
             details.getNetworkFullPath(), Long.MAX_VALUE);
     MetadataStorageReportProto metadataStorageReport =
         HddsTestUtils.createMetadataStorageReport(details.getNetworkFullPath(),
@@ -435,7 +433,7 @@ public class TestSCMNodeManager {
       // creation, they will fail with not enough healthy nodes for ratis 3
       // pipeline. Therefore we do not have to worry about this create call
       // failing due to datanodes reaching their maximum pipeline limit.
-      assertPipelineCreationFailsWithExceedingLimit(2);
+      assertPipelineCreationFailsWithNotEnoughNodes(1);
 
       // Heartbeat bad MLV nodes back to healthy.
       nodeManager.processLayoutVersionReport(badMlvNode1, CORRECT_LAYOUT_PROTO);
@@ -465,19 +463,6 @@ public class TestSCMNodeManager {
     }, "3 nodes should not have been found for a pipeline.");
     assertThat(ex.getMessage()).contains("Required 3. Found " +
         actualNodeCount);
-  }
-
-  private void assertPipelineCreationFailsWithExceedingLimit(int limit) {
-    // Build once, outside the assertion
-    ReplicationConfig config = ReplicationConfig.fromProtoTypeAndFactor(
-        HddsProtos.ReplicationType.RATIS,
-        HddsProtos.ReplicationFactor.THREE);
-    SCMException ex = assertThrows(
-        SCMException.class,
-        () -> scm.getPipelineManager().createPipeline(config),
-        "3 nodes should not have been found for a pipeline.");
-    assertThat(ex.getMessage())
-        .contains("Cannot create pipeline as it would exceed the limit per datanode: " + limit);
   }
 
   private void assertPipelines(HddsProtos.ReplicationFactor factor,
@@ -732,7 +717,7 @@ public class TestSCMNodeManager {
           "Expected to find 1 stale node");
       assertEquals(1, staleNodeList.size(),
           "Expected to find 1 stale node");
-      assertEquals(staleNode.getID(), staleNodeList.get(0).getID(),
+      assertEquals(staleNode.getUuid(), staleNodeList.get(0).getUuid(),
           "Stale node is not the expected ID");
 
       Map<String, Map<String, Integer>> nodeCounts = nodeManager.getNodeCount();
@@ -770,7 +755,7 @@ public class TestSCMNodeManager {
       assertEquals(1,
           nodeCounts.get(HddsProtos.NodeOperationalState.IN_SERVICE.name())
               .get(HddsProtos.NodeState.DEAD.name()).intValue());
-      assertEquals(staleNode.getID(), deadNodeList.get(0).getID(),
+      assertEquals(staleNode.getUuid(), deadNodeList.get(0).getUuid(),
           "Dead node is not the expected ID");
     }
   }
@@ -897,7 +882,8 @@ public class TestSCMNodeManager {
     // than SCM should not be found in the cluster.
     DatanodeDetails node1 =
         HddsTestUtils.createRandomDatanodeAndRegister(nodeManager);
-    LogCapturer logCapturer = LogCapturer.captureLogs(SCMNodeManager.class);
+    GenericTestUtils.LogCapturer logCapturer = GenericTestUtils.LogCapturer
+        .captureLogs(SCMNodeManager.LOG);
     int scmMlv =
         nodeManager.getLayoutVersionManager().getMetadataLayoutVersion();
     int scmSlv =
@@ -945,7 +931,7 @@ public class TestSCMNodeManager {
       // should be instructed to finalize.
       verify(eventPublisher, times(1))
           .fireEvent(eq(DATANODE_COMMAND), captor.capture());
-      assertEquals(captor.getValue().getDatanodeId(), node1.getID());
+      assertEquals(captor.getValue().getDatanodeId(), node1.getUuid());
       assertEquals(captor.getValue().getCommand().getType(),
           finalizeNewLayoutVersionCommand);
     } else {
@@ -975,11 +961,11 @@ public class TestSCMNodeManager {
     verify(eventPublisher,
         times(1)).fireEvent(NEW_NODE, node1);
     for (int i = 0; i < 3; i++) {
-      nodeManager.addDatanodeCommand(node1.getID(), ReplicateContainerCommand
+      nodeManager.addDatanodeCommand(node1.getUuid(), ReplicateContainerCommand
           .toTarget(1, MockDatanodeDetails.randomDatanodeDetails()));
     }
     for (int i = 0; i < 5; i++) {
-      nodeManager.addDatanodeCommand(node1.getID(),
+      nodeManager.addDatanodeCommand(node1.getUuid(),
           new DeleteBlocksCommand(emptyList()));
     }
 
@@ -1035,7 +1021,7 @@ public class TestSCMNodeManager {
 
     // Add a a few more commands to the queue and check the counts are the sum.
     for (int i = 0; i < 5; i++) {
-      nodeManager.addDatanodeCommand(node1.getID(),
+      nodeManager.addDatanodeCommand(node1.getUuid(),
           new CloseContainerCommand(1, PipelineID.randomId()));
     }
     assertEquals(0, nodeManager.getTotalDatanodeCommandCount(
@@ -1057,8 +1043,8 @@ public class TestSCMNodeManager {
       throws AuthenticationException, IOException {
     SCMNodeManager nodeManager = createNodeManager(getConf());
 
-    DatanodeID datanode1 = DatanodeID.randomID();
-    DatanodeID datanode2 = DatanodeID.randomID();
+    UUID datanode1 = UUID.randomUUID();
+    UUID datanode2 = UUID.randomUUID();
     long containerID = 1;
 
     SCMCommand<?> closeContainerCommand =
@@ -1214,7 +1200,7 @@ public class TestSCMNodeManager {
       List<DatanodeDetails> healthyList = nodeManager.getNodes(
           NodeStatus.inServiceHealthy());
       assertEquals(1, healthyList.size(), "Expected one healthy node");
-      assertEquals(healthyNode.getID(), healthyList.get(0).getID(),
+      assertEquals(healthyNode.getUuid(), healthyList.get(0).getUuid(),
           "Healthy node is not the expected ID");
 
       assertEquals(2, nodeManager.getNodeCount(NodeStatus.inServiceStale()));
@@ -1245,15 +1231,15 @@ public class TestSCMNodeManager {
       assertEquals(1, nodeManager.getNodeCount(NodeStatus.inServiceDead()));
 
       assertEquals(1, healthyList.size(), "Expected one healthy node");
-      assertEquals(healthyNode.getID(), healthyList.get(0).getID(),
+      assertEquals(healthyNode.getUuid(), healthyList.get(0).getUuid(),
           "Healthy node is not the expected ID");
 
       assertEquals(1, staleList.size(), "Expected one stale node");
-      assertEquals(staleNode.getID(), staleList.get(0).getID(),
+      assertEquals(staleNode.getUuid(), staleList.get(0).getUuid(),
           "Stale node is not the expected ID");
 
       assertEquals(1, deadList.size(), "Expected one dead node");
-      assertEquals(deadNode.getID(), deadList.get(0).getID(),
+      assertEquals(deadNode.getUuid(), deadList.get(0).getUuid(),
           "Dead node is not the expected ID");
       /**
        * Cluster State : let us heartbeat all the nodes and verify that we get
@@ -1500,7 +1486,7 @@ public class TestSCMNodeManager {
       for (int x = 0; x < nodeCount; x++) {
         DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
         dnList.add(dn);
-        DatanodeID dnId = dn.getID();
+        UUID dnId = dn.getUuid();
         long free = capacity - used;
         String storagePath = testDir.getAbsolutePath() + "/" + dnId;
         StorageReportProto report = HddsTestUtils
@@ -1522,7 +1508,7 @@ public class TestSCMNodeManager {
   }
 
   private List<StorageReportProto> generateStorageReportProto(
-      int volumeCount, DatanodeID dnId, long capacity, long used, long remaining) {
+      int volumeCount, UUID dnId, long capacity, long used, long remaining) {
     List<StorageReportProto> reports = new ArrayList<>(volumeCount);
     boolean failed = true;
     for (int x = 0; x < volumeCount; x++) {
@@ -1552,7 +1538,7 @@ public class TestSCMNodeManager {
       long used, long remaining, int volumeCount, String totalCapacity,
           String scmUsedPerc, String nonScmUsedPerc) {
     DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
-    DatanodeID dnId = dn.getID();
+    UUID dnId = dn.getUuid();
     List<StorageReportProto> reports = volumeCount > 0 ?
         generateStorageReportProto(volumeCount, dnId, perCapacity,
             used, remaining) : null;
@@ -1586,7 +1572,7 @@ public class TestSCMNodeManager {
       EventQueue eventQueue = (EventQueue) scm.getEventQueue();
       DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
       dnList.add(dn);
-      DatanodeID dnId = dn.getID();
+      UUID dnId = dn.getUuid();
       long free = capacity - used;
       List<StorageReportProto> reports = new ArrayList<>(volumeCount);
       boolean failed = true;
@@ -1639,7 +1625,7 @@ public class TestSCMNodeManager {
       EventPublisher publisher = mock(EventPublisher.class);
       final long capacity = 2000;
       final long usedPerHeartbeat = 100;
-      DatanodeID dnId = datanodeDetails.getID();
+      UUID dnId = datanodeDetails.getUuid();
       for (int x = 0; x < heartbeatCount; x++) {
         long scmUsed = x * usedPerHeartbeat;
         long remaining = capacity - scmUsed;
@@ -1758,7 +1744,7 @@ public class TestSCMNodeManager {
         100, TimeUnit.MILLISECONDS);
 
     DatanodeDetails datanodeDetails = randomDatanodeDetails();
-    DatanodeID dnId = datanodeDetails.getID();
+    UUID dnId = datanodeDetails.getUuid();
     String storagePath = testDir.getAbsolutePath() + "/" + dnId;
     StorageReportProto report =
         HddsTestUtils.createStorageReport(dnId, storagePath, 100, 10, 90, null);
@@ -1772,7 +1758,7 @@ public class TestSCMNodeManager {
               Arrays.asList(report), emptyList()),
                   HddsTestUtils.getRandomPipelineReports());
       eq.fireEvent(DATANODE_COMMAND,
-          new CommandForDatanode<>(datanodeDetails,
+          new CommandForDatanode<>(datanodeDetails.getUuid(),
               new CloseContainerCommand(1L,
                   PipelineID.randomId())));
 
@@ -1817,7 +1803,7 @@ public class TestSCMNodeManager {
     try (SCMNodeManager nodeManager = createNodeManager(conf)) {
       for (int i = 0; i < nodeCount; i++) {
         DatanodeDetails node = createDatanodeDetails(
-            DatanodeID.randomID(), hostNames[i], ipAddress[i], null);
+            UUID.randomUUID().toString(), hostNames[i], ipAddress[i], null);
         nodeManager.register(node, null, null);
       }
 
@@ -1827,7 +1813,7 @@ public class TestSCMNodeManager {
       assertEquals(nodeCount, nodeManager.getNodeCount(NodeStatus.inServiceHealthy()));
       assertEquals(nodeCount, clusterMap.getNumOfLeafNode(""));
       assertEquals(4, clusterMap.getMaxLevel());
-      final List<DatanodeInfo> nodeList = nodeManager.getAllNodes();
+      List<DatanodeDetails> nodeList = nodeManager.getAllNodes();
       nodeList.forEach(node -> assertTrue(
           node.getNetworkLocation().startsWith("/rack1/ng")));
       nodeList.forEach(node -> assertNotNull(node.getParent()));
@@ -1860,7 +1846,7 @@ public class TestSCMNodeManager {
     try (SCMNodeManager nodeManager = createNodeManager(conf)) {
       for (int i = 0; i < nodeCount; i++) {
         DatanodeDetails node = createDatanodeDetails(
-            DatanodeID.randomID(), hostNames[i], ipAddress[i], null);
+            UUID.randomUUID().toString(), hostNames[i], ipAddress[i], null);
         nodeManager.register(node, null, null);
       }
 
@@ -1871,7 +1857,7 @@ public class TestSCMNodeManager {
           nodeManager.getNodeCount(NodeStatus.inServiceHealthy()));
       assertEquals(nodeCount, clusterMap.getNumOfLeafNode(""));
       assertEquals(3, clusterMap.getMaxLevel());
-      final List<DatanodeInfo> nodeList = nodeManager.getAllNodes();
+      List<DatanodeDetails> nodeList = nodeManager.getAllNodes();
       nodeList.forEach(node ->
           assertEquals("/rack1", node.getNetworkLocation()));
 
@@ -1898,7 +1884,7 @@ public class TestSCMNodeManager {
       final long capacity = 2000;
       final long used = 100;
       final long remaining = 1900;
-      DatanodeID dnId = datanodeDetails.getID();
+      UUID dnId = datanodeDetails.getUuid();
       String storagePath = testDir.getAbsolutePath() + "/" + dnId;
       StorageReportProto report = HddsTestUtils
           .createStorageReport(dnId, storagePath, capacity, used,
@@ -1967,7 +1953,7 @@ public class TestSCMNodeManager {
     try (SCMNodeManager nodeManager = createNodeManager(conf)) {
       for (int i = 0; i < nodeCount; i++) {
         DatanodeDetails node = createDatanodeDetails(
-            DatanodeID.randomID(), hostNames[i], ipAddress[i], null);
+            UUID.randomUUID().toString(), hostNames[i], ipAddress[i], null);
         nodeManager.register(node, null, null);
       }
       // test get node
@@ -2006,9 +1992,9 @@ public class TestSCMNodeManager {
 
     // use default IP address to resolve node
     try (SCMNodeManager nodeManager = createNodeManager(conf)) {
-      DatanodeID nodeId = DatanodeID.randomID();
+      String nodeUuid = UUID.randomUUID().toString();
       DatanodeDetails node = createDatanodeDetails(
-          nodeId, hostName, ipAddress, null);
+              nodeUuid, hostName, ipAddress, null);
       nodeManager.register(node, null, null);
 
       // verify network topology cluster has all the registered nodes
@@ -2018,7 +2004,7 @@ public class TestSCMNodeManager {
               nodeManager.getNodeCount(NodeStatus.inServiceHealthy()));
       assertEquals(1, clusterMap.getNumOfLeafNode(""));
       assertEquals(4, clusterMap.getMaxLevel());
-      final List<DatanodeInfo> nodeList = nodeManager.getAllNodes();
+      List<DatanodeDetails> nodeList = nodeManager.getAllNodes();
       assertEquals(1, nodeList.size());
 
       DatanodeDetails returnedNode = nodeList.get(0);
@@ -2032,13 +2018,13 @@ public class TestSCMNodeManager {
       String updatedIpAddress = "2.3.4.5";
       String updatedHostName = "host2";
       DatanodeDetails updatedNode = createDatanodeDetails(
-          nodeId, updatedHostName, updatedIpAddress, null);
+              nodeUuid, updatedHostName, updatedIpAddress, null);
       nodeManager.register(updatedNode, null, null);
 
       assertEquals(1, nodeManager.getNodeCount(NodeStatus.inServiceHealthy()));
       assertEquals(1, clusterMap.getNumOfLeafNode(""));
       assertEquals(4, clusterMap.getMaxLevel());
-      final List<DatanodeInfo> updatedNodeList = nodeManager.getAllNodes();
+      List<DatanodeDetails> updatedNodeList = nodeManager.getAllNodes();
       assertEquals(1, updatedNodeList.size());
 
       DatanodeDetails returnedUpdatedNode = updatedNodeList.get(0);
@@ -2051,65 +2037,5 @@ public class TestSCMNodeManager {
       assertEquals(emptyList(), nodeManager.getNodesByAddress(hostName));
       assertEquals(emptyList(), nodeManager.getNodesByAddress(ipAddress));
     }
-  }
-
-  private static Stream<Arguments> nodeStateTransitions() {
-    return Stream.of(
-        // start decommissioning or entering maintenance
-        Arguments.of(HddsProtos.NodeOperationalState.IN_SERVICE,
-                    HddsProtos.NodeOperationalState.DECOMMISSIONING, true),
-        Arguments.of(HddsProtos.NodeOperationalState.IN_SERVICE,
-                    HddsProtos.NodeOperationalState.ENTERING_MAINTENANCE, true),
-        // back to service (DataNodeAdminMonitor abort workflow, maintenance end time expired or node is dead)
-        Arguments.of(HddsProtos.NodeOperationalState.DECOMMISSIONING,
-                    HddsProtos.NodeOperationalState.IN_SERVICE, true),
-        Arguments.of(HddsProtos.NodeOperationalState.DECOMMISSIONED,
-                    HddsProtos.NodeOperationalState.IN_SERVICE, true),
-        Arguments.of(HddsProtos.NodeOperationalState.ENTERING_MAINTENANCE,
-                    HddsProtos.NodeOperationalState.IN_SERVICE, true),
-        Arguments.of(HddsProtos.NodeOperationalState.IN_MAINTENANCE,
-                    HddsProtos.NodeOperationalState.IN_SERVICE, true),
-        // there is no under/over replicated containers on the node, completed the admin workflow
-        Arguments.of(HddsProtos.NodeOperationalState.DECOMMISSIONING,
-                    HddsProtos.NodeOperationalState.DECOMMISSIONED, false),
-        Arguments.of(HddsProtos.NodeOperationalState.ENTERING_MAINTENANCE,
-                    HddsProtos.NodeOperationalState.IN_MAINTENANCE, false)
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource("nodeStateTransitions")
-  public void testNodeOperationalStateChange(
-      HddsProtos.NodeOperationalState oldState,
-      HddsProtos.NodeOperationalState newState,
-      boolean shouldNotify)
-      throws IOException, NodeNotFoundException, AuthenticationException {
-    OzoneConfiguration conf = new OzoneConfiguration();
-    SCMStorageConfig scmStorageConfig = mock(SCMStorageConfig.class);
-    when(scmStorageConfig.getClusterID()).thenReturn("xyz111");
-    EventPublisher eventPublisher = mock(EventPublisher.class);
-    HDDSLayoutVersionManager lvm = new HDDSLayoutVersionManager(scmStorageConfig.getLayoutVersion());
-    createNodeManager(getConf());
-    SCMNodeManager nodeManager = new SCMNodeManager(conf,
-        scmStorageConfig, eventPublisher, new NetworkTopologyImpl(conf),
-        scmContext, lvm);
-
-    DatanodeDetails datanode = MockDatanodeDetails.randomDatanodeDetails();
-    datanode.setPersistedOpState(oldState);
-    nodeManager.register(datanode, null, HddsTestUtils.getRandomPipelineReports());
-
-    nodeManager.setNodeOperationalState(datanode, newState, 0);
-    verify(eventPublisher, times(0)).fireEvent(SCMEvents.REPLICATION_MANAGER_NOTIFY, datanode);
-
-    DatanodeDetails reportedDatanode = MockDatanodeDetails.createDatanodeDetails(
-        datanode.getID());
-    reportedDatanode.setPersistedOpState(newState);
-
-    nodeManager.processHeartbeat(reportedDatanode);
-
-    verify(eventPublisher, times(shouldNotify ? 1 : 0)).fireEvent(
-        SCMEvents.REPLICATION_MANAGER_NOTIFY, reportedDatanode);
-
-    nodeManager.close();
   }
 }

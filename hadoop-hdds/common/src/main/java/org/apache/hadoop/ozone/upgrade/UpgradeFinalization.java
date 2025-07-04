@@ -167,7 +167,6 @@ public final class UpgradeFinalization {
         + "will not cancel finalization in " + component + ". Progress can be"
         + "monitored in the Ozone Manager's log.");
   }
-
   private UpgradeFinalization() {
     // no instances
   }

@@ -39,6 +39,7 @@ public class TestContainerLayoutVersion {
     assertEquals(1, FILE_PER_CHUNK.getVersion());
   }
 
+
   @Test
   public void testV2() {
     assertEquals(2, FILE_PER_BLOCK.getVersion());

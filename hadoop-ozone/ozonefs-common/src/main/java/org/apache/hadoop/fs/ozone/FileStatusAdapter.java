@@ -77,6 +77,7 @@ public final class FileStatusAdapter {
     this.isErasureCoded = isErasureCoded;
   }
 
+
   public Path getPath() {
     return path;
   }
@@ -145,7 +146,7 @@ public final class FileStatusAdapter {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append(getClass().getSimpleName())
-        .append('{')
+        .append("{")
         .append("path=").append(path)
         .append("; isDirectory=").append(isdir);
     if (isFile()) {
@@ -159,7 +160,7 @@ public final class FileStatusAdapter {
         .append("; group=").append(group)
         .append("; permission=").append(permission)
         .append("; isSymlink=").append(getSymlink())
-        .append('}');
+        .append("}");
     
     return sb.toString();
   }

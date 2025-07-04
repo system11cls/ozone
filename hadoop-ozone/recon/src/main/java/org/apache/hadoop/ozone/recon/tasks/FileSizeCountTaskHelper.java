@@ -32,7 +32,6 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.recon.ReconConstants;
 import org.apache.hadoop.ozone.recon.ReconUtils;
-import org.apache.hadoop.util.Time;
 import org.apache.ozone.recon.schema.generated.tables.daos.FileCountBySizeDao;
 import org.apache.ozone.recon.schema.generated.tables.pojos.FileCountBySize;
 import org.jooq.DSLContext;
@@ -91,7 +90,7 @@ public abstract class FileSizeCountTaskHelper {
                                                  String taskName) {
     LOG.info("Starting Reprocess for {}", taskName);
     Map<FileSizeCountKey, Long> fileSizeCountMap = new HashMap<>();
-    long startTime = Time.monotonicNow();
+    long startTime = System.currentTimeMillis();
     truncateTableIfNeeded(dslContext);
     boolean status = reprocessBucketLayout(
         bucketLayout, omMetadataManager, fileSizeCountMap, dslContext, fileCountBySizeDao, taskName);
@@ -99,7 +98,7 @@ public abstract class FileSizeCountTaskHelper {
       return buildTaskResult(taskName, false);
     }
     writeCountsToDB(fileSizeCountMap, dslContext, fileCountBySizeDao);
-    long endTime = Time.monotonicNow();
+    long endTime = System.currentTimeMillis();
     LOG.info("{} completed Reprocess in {} ms.", taskName, (endTime - startTime));
     return buildTaskResult(taskName, true);
   }
@@ -161,7 +160,7 @@ public abstract class FileSizeCountTaskHelper {
                                                      String taskName) {
     Iterator<OMDBUpdateEvent> eventIterator = events.getIterator();
     Map<FileSizeCountKey, Long> fileSizeCountMap = new HashMap<>();
-    long startTime = Time.monotonicNow();
+    long startTime = System.currentTimeMillis();
     while (eventIterator.hasNext()) {
       OMDBUpdateEvent<String, Object> omdbUpdateEvent = eventIterator.next();
       if (!tableName.equals(omdbUpdateEvent.getTable())) {
@@ -203,7 +202,7 @@ public abstract class FileSizeCountTaskHelper {
     }
     writeCountsToDB(fileSizeCountMap, dslContext, fileCountBySizeDao);
     LOG.debug("{} successfully processed in {} milliseconds", taskName,
-        (Time.monotonicNow() - startTime));
+        (System.currentTimeMillis() - startTime));
     return buildTaskResult(taskName, true);
   }
 

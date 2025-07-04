@@ -23,6 +23,7 @@ import static org.apache.ozone.recon.schema.SqlDbUtils.TABLE_EXISTS_CHECK;
 import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
+import org.apache.hadoop.ozone.recon.scm.ReconStorageContainerManagerFacade;
 import org.apache.ozone.recon.schema.ReconTaskSchemaDefinition;
 import org.jooq.DSLContext;
 import org.jooq.exception.DataAccessException;
@@ -40,7 +41,7 @@ import org.slf4j.LoggerFactory;
     type = ReconUpgradeAction.UpgradeActionType.FINALIZE)
 public class ReconTaskStatusTableUpgradeAction implements ReconUpgradeAction {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ReconTaskStatusTableUpgradeAction.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ReconTaskStatusTableUpgradeAction.class);
 
   /**
    * Utility function to add provided column to RECON_TASK_STATUS table as INTEGER type.
@@ -60,12 +61,12 @@ public class ReconTaskStatusTableUpgradeAction implements ReconUpgradeAction {
    */
   private void setColumnAsNonNullable(DSLContext dslContext, String columnName) {
     dslContext.alterTable(RECON_TASK_STATUS_TABLE_NAME)
-        .alterColumn(DSL.name(columnName)).setNotNull()
-        .execute();
+        .alterColumn(columnName).setNotNull().execute();
   }
 
   @Override
-  public void execute(DataSource dataSource) throws DataAccessException {
+  public void execute(ReconStorageContainerManagerFacade scmFacade) throws DataAccessException {
+    DataSource dataSource = scmFacade.getDataSource();
     try (Connection conn = dataSource.getConnection()) {
       if (!TABLE_EXISTS_CHECK.test(conn, RECON_TASK_STATUS_TABLE_NAME)) {
         return;
@@ -81,8 +82,8 @@ public class ReconTaskStatusTableUpgradeAction implements ReconUpgradeAction {
 
       //Handle previous table values with new columns default values
       int updatedRowCount = dslContext.update(DSL.table(RECON_TASK_STATUS_TABLE_NAME))
-          .set(DSL.field(DSL.name("last_task_run_status"), SQLDataType.INTEGER), 0)
-          .set(DSL.field(DSL.name("is_current_task_running"), SQLDataType.INTEGER), 0)
+          .set(DSL.field("last_task_run_status", SQLDataType.INTEGER), 0)
+          .set(DSL.field("is_current_task_running", SQLDataType.INTEGER), 0)
           .execute();
       LOG.info("Updated {} rows with default value for new columns", updatedRowCount);
 

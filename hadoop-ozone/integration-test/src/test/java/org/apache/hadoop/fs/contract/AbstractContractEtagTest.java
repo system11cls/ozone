@@ -27,7 +27,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.ratis.util.Preconditions;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -84,7 +83,7 @@ public abstract class AbstractContractEtagTest extends
     Assertions.assertThat(st)
         .describedAs("FileStatus %s", st)
         .isInstanceOf(EtagSource.class);
-    final String etag = Preconditions.assertInstanceOf(st, EtagSource.class).getEtag();
+    final String etag = ((EtagSource) st).getEtag();
     Assertions.assertThat(etag)
         .describedAs("Etag of %s", st)
         .isNotBlank();

@@ -19,7 +19,6 @@ package org.apache.hadoop.hdds.utils.db;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -32,13 +31,11 @@ public abstract class Proto2CodecTestBase<T> {
   public abstract Codec<T> getCodec();
 
   @Test
-  public void testInvalidProtocolBuffer() {
-    final CodecException exception =
-        assertThrows(CodecException.class,
+  public void testInvalidProtocolBuffer() throws Exception {
+    InvalidProtocolBufferException exception =
+        assertThrows(InvalidProtocolBufferException.class,
             () -> getCodec().fromPersistedFormat("random".getBytes(UTF_8)));
-    final InvalidProtocolBufferException cause = assertInstanceOf(
-        InvalidProtocolBufferException.class, exception.getCause());
-    assertThat(cause.getMessage())
+    assertThat(exception.getMessage())
         .contains("the input ended unexpectedly");
   }
 

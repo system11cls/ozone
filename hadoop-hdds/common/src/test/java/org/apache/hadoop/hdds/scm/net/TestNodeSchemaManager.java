@@ -27,8 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /** Test the node schema loader. */
+@Timeout(30)
 class TestNodeSchemaManager {
   private final ClassLoader classLoader =
       Thread.currentThread().getContextClassLoader();

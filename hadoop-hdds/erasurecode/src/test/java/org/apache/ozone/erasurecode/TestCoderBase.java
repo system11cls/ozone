@@ -24,7 +24,6 @@ import java.util.Arrays;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-
 /**
  * Test base of common utilities for tests not only raw coders but also block
  * coders.
@@ -482,7 +481,7 @@ public abstract class TestCoderBase {
       StringBuilder sb = new StringBuilder("Erasure coder test settings:\n");
       sb.append(" numDataUnits=").append(numDataUnits);
       sb.append(" numParityUnits=").append(numParityUnits);
-      sb.append(" chunkSize=").append(chunkSize).append('\n');
+      sb.append(" chunkSize=").append(chunkSize).append("\n");
 
       sb.append(" erasedDataIndexes=").
           append(Arrays.toString(erasedDataIndexes));
@@ -490,7 +489,7 @@ public abstract class TestCoderBase {
           append(Arrays.toString(erasedParityIndexes));
       sb.append(" usingDirectBuffer=").append(usingDirectBuffer);
       sb.append(" allowVerboseDump=").append(allowDump);
-      sb.append('\n');
+      sb.append("\n");
 
       System.out.println(sb.toString());
     }
