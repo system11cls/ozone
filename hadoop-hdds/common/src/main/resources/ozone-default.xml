@@ -153,7 +153,7 @@
   <property>
     <name>hdds.container.ratis.datanode.storage.dir</name>
     <value/>
-    <tag>OZONE, CONTAINER, STORAGE, MANAGEMENT, RATIS</tag>
+    <tag>OZONE, CONTAINER, STORAGE, MANAGEMENT, RATIS, REQUIRED</tag>
     <description>This directory is used for storing Ratis metadata like logs. If
       this is
       not set then default metadata dirs is used. A warning will be logged if

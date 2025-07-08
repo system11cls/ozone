@@ -107,6 +107,18 @@ public final class GenerateOzoneRequiredConfigurations extends GenericCli implem
             OzoneConfigKeys.OZONE_METADATA_DIRS)) {
           p.setValue(System.getProperty(OzoneConsts.JAVA_TMP_DIR));
         } else if (p.getName().equalsIgnoreCase(
+            OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATANODE_STORAGE_DIR)) {
+          File dirForDatanodeRatis = new File(System.getProperty(
+              OzoneConsts.JAVA_TMP_DIR + File.separator + "datanode ratis"));
+
+          if (dirForDatanodeRatis.mkdir()) {
+            p.setValue(System.getProperty(
+                OzoneConsts.JAVA_TMP_DIR + File.separator + "datanode ratis"));
+          } else {
+            p.setValue(System.getProperty(OzoneConsts.JAVA_TMP_DIR));
+          }
+
+        } else if (p.getName().equalsIgnoreCase(
             OMConfigKeys.OZONE_OM_ADDRESS_KEY)
             || p.getName().equalsIgnoreCase(ScmConfigKeys.OZONE_SCM_NAMES)
             || p.getName().equalsIgnoreCase(
