@@ -217,10 +217,10 @@ index 000000000..3051637a3
 +#endif  // ROCKSDB_LITE
 diff --git a/tools/raw_sst_file_iterator.h b/tools/raw_sst_file_iterator.h
 new file mode 100644
-index 000000000..eedb848b5
+index 000000000..58e34b260
 --- /dev/null
 +++ b/tools/raw_sst_file_iterator.h
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,45 @@
 +//  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
 +//  This source code is licensed under both the GPLv2 (found in the
 +//  COPYING file in the root directory) and Apache 2.0 License
@@ -253,7 +253,6 @@ index 000000000..eedb848b5
 +
 +  ~RawSstFileIterator(){
 +    delete iter_;
-+    delete ikey;
 +  }
 +
 + private:

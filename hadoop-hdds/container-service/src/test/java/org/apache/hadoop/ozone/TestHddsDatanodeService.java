@@ -1,32 +1,21 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone;
-
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +23,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.hdds.DFSConfigKeysLegacy;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -47,9 +39,23 @@ import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.apache.hadoop.ozone.container.keyvalue.ContainerTestVersionInfo;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.KeyValueContainerUtil;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.hadoop.util.ServicePlugin;
+
+import org.junit.jupiter.api.AfterEach;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -58,9 +64,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Test class for {@link HddsDatanodeService}.
  */
+
 public class TestHddsDatanodeService {
 
-  @TempDir
   private File testDir;
   private static final Logger LOG =
       LoggerFactory.getLogger(TestHddsDatanodeService.class);
@@ -85,6 +91,7 @@ public class TestHddsDatanodeService {
     conf.setStrings(ScmConfigKeys.OZONE_SCM_NAMES,
         serverAddresses.toArray(new String[0]));
 
+    testDir = GenericTestUtils.getRandomizedTestDir();
     conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, testDir.getPath());
     conf.set(OZONE_SCM_NAMES, "localhost");
     conf.setClass(OzoneConfigKeys.HDDS_DATANODE_PLUGINS_KEY, MockService.class,
@@ -98,7 +105,28 @@ public class TestHddsDatanodeService {
     conf.setBoolean(HDDS_CONTAINER_TOKEN_ENABLED, true);
 
     String volumeDir = testDir + OZONE_URI_DELIMITER + "disk1";
-    conf.set(ScmConfigKeys.HDDS_DATANODE_DIR_KEY, volumeDir);
+    conf.set(DFSConfigKeysLegacy.DFS_DATANODE_DATA_DIR_KEY, volumeDir);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    FileUtil.fullyDelete(testDir);
+  }
+
+  @Test
+  public void testStartup() {
+    service.start(conf);
+
+    assertNotNull(service.getDatanodeDetails());
+    assertNotNull(service.getDatanodeDetails().getHostName());
+    assertFalse(service.getDatanodeStateMachine().isDaemonStopped());
+    assertNotNull(service.getCRLStore());
+
+    service.stop();
+    // CRL store must be stopped when the service stops
+    assertNull(service.getCRLStore().getStore());
+    service.join();
+    service.close();
   }
 
   @ParameterizedTest
@@ -111,10 +139,6 @@ public class TestHddsDatanodeService {
         conf.get(DatanodeConfiguration.CONTAINER_SCHEMA_V3_ENABLED));
     service.start(conf);
 
-    assertNotNull(service.getDatanodeDetails());
-    assertNotNull(service.getDatanodeDetails().getHostName());
-    assertFalse(service.getDatanodeStateMachine().isDaemonStopped());
-
     // Get volumeSet and store volumes in temp folders
     // in order to access them after service.stop()
     MutableVolumeSet volumeSet = service
@@ -125,7 +149,7 @@ public class TestHddsDatanodeService {
     StorageVolume volume = volumeSet.getVolumesList().get(0);
 
     // Check instanceof and typecast
-    assertInstanceOf(HddsVolume.class, volume);
+    assertTrue(volume instanceof HddsVolume);
     HddsVolume hddsVolume = (HddsVolume) volume;
 
     StorageVolumeUtil.checkVolume(hddsVolume, clusterId,

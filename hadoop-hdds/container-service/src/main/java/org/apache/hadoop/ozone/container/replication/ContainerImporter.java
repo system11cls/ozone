@@ -1,25 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.replication;
 
-import jakarta.annotation.Nonnull;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,7 +30,6 @@ import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -43,6 +41,7 @@ import org.apache.hadoop.ozone.container.common.volume.VolumeChoosingPolicyFacto
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,12 +64,10 @@ public class ContainerImporter {
   private final Set<Long> importContainerProgress
       = Collections.synchronizedSet(new HashSet<>());
 
-  private final ConfigurationSource conf;
-
-  public ContainerImporter(@Nonnull ConfigurationSource conf,
-                           @Nonnull ContainerSet containerSet,
-                           @Nonnull ContainerController controller,
-                           @Nonnull MutableVolumeSet volumeSet) {
+  public ContainerImporter(@NotNull ConfigurationSource conf,
+                           @NotNull ContainerSet containerSet,
+                           @NotNull ContainerController controller,
+                           @NotNull MutableVolumeSet volumeSet) {
     this.containerSet = containerSet;
     this.controller = controller;
     this.volumeSet = volumeSet;
@@ -82,7 +79,6 @@ public class ContainerImporter {
     containerSize = (long) conf.getStorageSize(
         ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
         ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-    this.conf = conf;
   }
 
   public boolean isAllowedContainerImport(long containerID) {
@@ -95,17 +91,18 @@ public class ContainerImporter {
       throws IOException {
     if (!importContainerProgress.add(containerID)) {
       deleteFileQuietely(tarFilePath);
-      String log = "Container import in progress with container Id " + containerID;
-      LOG.warn(log);
-      throw new StorageContainerException(log,
+      LOG.warn("Container import in progress with container Id {}",
+          containerID);
+      throw new StorageContainerException("Container " +
+          "import in progress with container Id " + containerID,
           ContainerProtos.Result.CONTAINER_EXISTS);
     }
 
     try {
       if (containerSet.getContainer(containerID) != null) {
-        String log = "Container already exists with container Id " + containerID;
-        LOG.warn(log);
-        throw new StorageContainerException(log,
+        LOG.warn("Container already exists with container Id {}", containerID);
+        throw new StorageContainerException("Container already exists " +
+            "with container Id " + containerID,
             ContainerProtos.Result.CONTAINER_EXISTS);
       }
 
@@ -115,20 +112,20 @@ public class ContainerImporter {
       }
 
       KeyValueContainerData containerData;
-      TarContainerPacker packer = getPacker(compression);
+      TarContainerPacker packer = new TarContainerPacker(compression);
 
-      try (InputStream input = Files.newInputStream(tarFilePath)) {
+      try (FileInputStream input = new FileInputStream(tarFilePath.toFile())) {
         byte[] containerDescriptorYaml =
             packer.unpackContainerDescriptor(input);
-        containerData = getKeyValueContainerData(containerDescriptorYaml);
+        containerData = (KeyValueContainerData) ContainerDataYaml
+            .readContainer(containerDescriptorYaml);
       }
-      ContainerUtils.verifyChecksum(containerData, conf);
       containerData.setVolume(targetVolume);
 
-      try (InputStream input = Files.newInputStream(tarFilePath)) {
+      try (FileInputStream input = new FileInputStream(tarFilePath.toFile())) {
         Container container = controller.importContainer(
             containerData, input, packer);
-        containerSet.addContainerByOverwriteMissingContainer(container);
+        containerSet.addContainer(container);
       }
     } finally {
       importContainerProgress.remove(containerID);
@@ -157,19 +154,4 @@ public class ContainerImporter {
     return Paths.get(hddsVolume.getVolumeRootDir())
         .resolve(CONTAINER_COPY_TMP_DIR).resolve(CONTAINER_COPY_DIR);
   }
-
-  protected KeyValueContainerData getKeyValueContainerData(
-      byte[] containerDescriptorYaml) throws IOException {
-    return  (KeyValueContainerData) ContainerDataYaml
-        .readContainer(containerDescriptorYaml);
-  }
-
-  protected Set<Long> getImportContainerProgress() {
-    return this.importContainerProgress;
-  }
-
-  protected TarContainerPacker getPacker(CopyContainerCompression compression) {
-    return new TarContainerPacker(compression);
-  }
-
 }

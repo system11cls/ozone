@@ -1,32 +1,32 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.admin.reconfig;
+
+import org.apache.hadoop.conf.ReconfigurationTaskStatus;
+import org.apache.hadoop.conf.ReconfigurationUtil;
+import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.hdds.protocol.ReconfigureProtocol;
+import picocli.CommandLine.Command;
 
 import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.hadoop.conf.ReconfigurationTaskStatus;
-import org.apache.hadoop.conf.ReconfigurationUtil;
-import org.apache.hadoop.hdds.cli.HddsVersionProvider;
-import org.apache.hadoop.hdds.protocol.ReconfigureProtocol;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import picocli.CommandLine.Command;
 
 /**
  * Handler of ozone admin reconfig status command.
@@ -40,9 +40,9 @@ public class ReconfigureStatusSubcommand
     extends AbstractReconfigureSubCommand {
 
   @Override
-  protected void executeCommand(HddsProtos.NodeType nodeType, String address) {
+  protected void executeCommand(String address) {
     try (ReconfigureProtocol reconfigProxy = ReconfigureSubCommandUtil
-        .getSingleNodeReconfigureProxy(nodeType, address)) {
+        .getSingleNodeReconfigureProxy(address)) {
       String serverName = reconfigProxy.getServerName();
       ReconfigurationTaskStatus status = reconfigProxy.getReconfigureStatus();
       System.out.printf("%s: Reconfiguring status for node [%s]: ",

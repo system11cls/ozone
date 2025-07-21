@@ -1,36 +1,22 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -59,8 +45,20 @@ import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.tag.Unhealthy;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.Assert;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.TimeoutException;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
 
 /**
  * Test container closing.
@@ -84,10 +82,10 @@ public class TestCloseContainerByPipeline {
     conf = new OzoneConfiguration();
     conf.set(ScmConfigKeys.OZONE_SCM_PIPELINE_OWNER_CONTAINER_COUNT, "1");
     conf.setInt(OZONE_DATANODE_PIPELINE_LIMIT, 2);
-    conf.setInt(ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT, 15);
 
     cluster = MiniOzoneCluster.newBuilder(conf)
         .setNumDatanodes(10)
+        .setTotalPipelineNumLimit(15)
         .build();
     cluster.waitForClusterToBeReady();
     //the easiest way to create an open container is creating a key
@@ -133,11 +131,12 @@ public class TestCloseContainerByPipeline {
     Pipeline pipeline = cluster.getStorageContainerManager()
         .getPipelineManager().getPipeline(container.getPipelineID());
     List<DatanodeDetails> datanodes = pipeline.getNodes();
-    assertEquals(1, datanodes.size());
+    Assert.assertEquals(datanodes.size(), 1);
 
     DatanodeDetails datanodeDetails = datanodes.get(0);
     HddsDatanodeService datanodeService = null;
-    assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert
+        .assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
     for (HddsDatanodeService datanodeServiceItr : cluster.getHddsDatanodes()) {
       if (datanodeDetails.equals(datanodeServiceItr.getDatanodeDetails())) {
         datanodeService = datanodeServiceItr;
@@ -159,7 +158,8 @@ public class TestCloseContainerByPipeline {
         .waitFor(() -> isContainerClosed(cluster, containerID, datanodeDetails),
             500, 5 * 1000);
     // Make sure the closeContainerCommandHandler is Invoked
-    assertThat(closeContainerHandler.getInvocationCount()).isGreaterThan(lastInvocationCount);
+    Assert.assertTrue(
+        closeContainerHandler.getInvocationCount() > lastInvocationCount);
   }
 
   @Test
@@ -190,10 +190,11 @@ public class TestCloseContainerByPipeline {
     Pipeline pipeline = cluster.getStorageContainerManager()
         .getPipelineManager().getPipeline(container.getPipelineID());
     List<DatanodeDetails> datanodes = pipeline.getNodes();
-    assertEquals(1, datanodes.size());
+    Assert.assertEquals(datanodes.size(), 1);
 
     DatanodeDetails datanodeDetails = datanodes.get(0);
-    assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert
+        .assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
 
     // Send the order to close the container, give random pipeline id so that
     // the container will not be closed via RATIS
@@ -210,13 +211,13 @@ public class TestCloseContainerByPipeline {
     GenericTestUtils
         .waitFor(() -> isContainerClosed(cluster, containerID, datanodeDetails),
             500, 5 * 1000);
-    assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert.assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
 
     cluster.getStorageContainerManager().getPipelineManager()
         .closePipeline(pipeline, false);
     Thread.sleep(5000);
     // Pipeline close should not affect a container in CLOSED state
-    assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert.assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
   }
 
   @Test
@@ -246,11 +247,11 @@ public class TestCloseContainerByPipeline {
     Pipeline pipeline = cluster.getStorageContainerManager()
         .getPipelineManager().getPipeline(container.getPipelineID());
     List<DatanodeDetails> datanodes = pipeline.getNodes();
-    assertEquals(3, datanodes.size());
+    Assert.assertEquals(3, datanodes.size());
 
     List<DBHandle> metadataStores = new ArrayList<>(datanodes.size());
     for (DatanodeDetails details : datanodes) {
-      assertFalse(isContainerClosed(cluster, containerID, details));
+      Assert.assertFalse(isContainerClosed(cluster, containerID, details));
       //send the order to close the container
       SCMCommand<?> command = new CloseContainerCommand(
           containerID, pipeline.getId());
@@ -269,7 +270,8 @@ public class TestCloseContainerByPipeline {
     }
 
     // There should be as many rocks db as the number of datanodes in pipeline.
-    assertEquals(datanodes.size(), metadataStores.stream().distinct().count());
+    Assert.assertEquals(datanodes.size(),
+        metadataStores.stream().distinct().count());
 
     // Make sure that it is CLOSED
     for (DatanodeDetails datanodeDetails : datanodes) {
@@ -277,7 +279,8 @@ public class TestCloseContainerByPipeline {
           () -> isContainerClosed(cluster, containerID, datanodeDetails), 500,
           15 * 1000);
       //double check if it's really closed (waitFor also throws an exception)
-      assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
+      Assert.assertTrue(isContainerClosed(cluster,
+          containerID, datanodeDetails));
     }
   }
 
@@ -310,10 +313,11 @@ public class TestCloseContainerByPipeline {
     Pipeline pipeline = cluster.getStorageContainerManager()
         .getPipelineManager().getPipeline(container.getPipelineID());
     List<DatanodeDetails> datanodes = pipeline.getNodes();
-    assertEquals(1, datanodes.size());
+    Assert.assertEquals(datanodes.size(), 1);
 
     DatanodeDetails datanodeDetails = datanodes.get(0);
-    assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert
+        .assertFalse(isContainerClosed(cluster, containerID, datanodeDetails));
 
     // close the pipeline
     cluster.getStorageContainerManager()
@@ -324,7 +328,7 @@ public class TestCloseContainerByPipeline {
     GenericTestUtils.waitFor(
         () -> isContainerQuasiClosed(cluster, containerID, datanodeDetails),
         500, 5 * 1000);
-    assertTrue(
+    Assert.assertTrue(
         isContainerQuasiClosed(cluster, containerID, datanodeDetails));
 
     // Send close container command from SCM to datanode with forced flag as
@@ -338,7 +342,8 @@ public class TestCloseContainerByPipeline {
     GenericTestUtils
         .waitFor(() -> isContainerClosed(
             cluster, containerID, datanodeDetails), 500, 5 * 1000);
-    assertTrue(isContainerClosed(cluster, containerID, datanodeDetails));
+    Assert.assertTrue(
+        isContainerClosed(cluster, containerID, datanodeDetails));
   }
 
   private Boolean isContainerClosed(MiniOzoneCluster ozoneCluster,

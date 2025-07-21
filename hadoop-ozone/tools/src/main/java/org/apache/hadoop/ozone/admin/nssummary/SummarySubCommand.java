@@ -1,35 +1,37 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.admin.nssummary;
 
+import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import picocli.CommandLine;
+
+import java.util.HashMap;
+import java.util.concurrent.Callable;
+
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.getResponseMap;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.makeHttpCall;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.parseInputPath;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printEmptyPathRequest;
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printBucketReminder;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printKVSeparator;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printNewLines;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printPathNotFound;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printWithUnderline;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.concurrent.Callable;
-import org.apache.hadoop.hdds.cli.HddsVersionProvider;
-import org.apache.hadoop.hdds.server.JsonUtils;
-import picocli.CommandLine;
 
 /**
  * Namespace Summary Subcommand.
@@ -56,7 +58,7 @@ public class SummarySubCommand implements Callable<Void> {
 
   @Override
   public Void call() throws Exception {
-    if (path == null || path.isEmpty()) {
+    if (path == null || path.length() == 0) {
       printEmptyPathRequest();
       return null;
     }
@@ -69,21 +71,23 @@ public class SummarySubCommand implements Callable<Void> {
       printNewLines(1);
       return null;
     }
-    JsonNode summaryResponse = JsonUtils.readTree(response);
+    HashMap<String, Object> summaryResponse = getResponseMap(response);
 
-    if ("PATH_NOT_FOUND".equals(summaryResponse.path("status").asText())) {
+    if (summaryResponse.get("status").equals("PATH_NOT_FOUND")) {
       printPathNotFound();
     } else {
+      if (parent.isObjectStoreBucket(path) ||
+          !parent.bucketIsPresentInThePath(path)) {
+        printBucketReminder();
+      }
+
       printWithUnderline("Entity Type", false);
       printKVSeparator();
       System.out.println(summaryResponse.get("type"));
-
-      JsonNode countStatsNode = summaryResponse.path("countStats");
-
-      int numVol = countStatsNode.path("numVolume").asInt(-1);
-      int numBucket = countStatsNode.path("numBucket").asInt(-1);
-      int numDir = countStatsNode.path("numDir").asInt(-1);
-      int numKey = countStatsNode.path("numKey").asInt(-1);
+      int numVol = ((Double) summaryResponse.get("numVolume")).intValue();
+      int numBucket = ((Double) summaryResponse.get("numBucket")).intValue();
+      int numDir = ((Double) summaryResponse.get("numDir")).intValue();
+      int numKey = ((Double) summaryResponse.get("numKey")).intValue();
 
       if (numVol != -1) {
         printWithUnderline("Volumes", false);

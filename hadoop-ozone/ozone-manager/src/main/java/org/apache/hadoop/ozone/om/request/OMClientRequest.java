@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,34 +18,23 @@
 
 package org.apache.hadoop.ozone.om.request;
 
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.INVALID_KEY_NAME;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.UNAUTHORIZED;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.nio.file.InvalidPathException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.AuditAction;
 import org.apache.hadoop.ozone.audit.AuditEventStatus;
 import org.apache.hadoop.ozone.audit.AuditLogger;
+import org.apache.hadoop.ozone.audit.AuditMessage;
 import org.apache.hadoop.ozone.om.IOmMetadataReader;
 import org.apache.hadoop.ozone.om.OmMetadataReader;
 import org.apache.hadoop.ozone.om.OzoneAclUtils;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.OzonePrefixPathImpl;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OMAuditLogger;
 import org.apache.hadoop.ozone.om.lock.OMLockDetails;
 import org.apache.hadoop.ozone.om.protocolPB.grpc.GrpcClientConstants;
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
@@ -63,6 +53,16 @@ import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.nio.file.InvalidPathException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.INVALID_KEY_NAME;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.UNAUTHORIZED;
+
 /**
  * OMClientRequest provides methods which every write OM request should
  * implement.
@@ -76,12 +76,8 @@ public abstract class OMClientRequest implements RequestAuditor {
 
   private UserGroupInformation userGroupInformation;
   private InetAddress inetAddress;
-  private final OMLockDetails omLockDetails = new OMLockDetails();
-  private final OMAuditLogger.Builder auditBuilder = OMAuditLogger.newBuilder();
-
-  public OMAuditLogger.Builder getAuditBuilder() {
-    return auditBuilder;
-  }
+  private final ThreadLocal<OMLockDetails> omLockDetails =
+      ThreadLocal.withInitial(OMLockDetails::new);
 
   /**
    * Stores the result of request execution in
@@ -96,7 +92,7 @@ public abstract class OMClientRequest implements RequestAuditor {
   public OMClientRequest(OMRequest omRequest) {
     Preconditions.checkNotNull(omRequest);
     this.omRequest = omRequest;
-    this.omLockDetails.clear();
+    this.omLockDetails.get().clear();
   }
   /**
    * Perform pre-execute steps on a OMRequest.
@@ -138,15 +134,8 @@ public abstract class OMClientRequest implements RequestAuditor {
    *
    * @return the response that will be returned to the client.
    */
-  public abstract OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context);
-
-  /** For testing only. */
-  @VisibleForTesting
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, long transactionLogIndex) {
-    ExecutionContext context = ExecutionContext.of(transactionLogIndex,
-        TransactionInfo.getTermIndex(transactionLogIndex));
-    return validateAndUpdateCache(ozoneManager, context);
-  }
+  public abstract OMClientResponse validateAndUpdateCache(
+      OzoneManager ozoneManager, long transactionLogIndex);
 
   @VisibleForTesting
   public OMRequest getOmRequest() {
@@ -381,6 +370,7 @@ public abstract class OMClientRequest implements RequestAuditor {
    */
   @VisibleForTesting
   public UserGroupInformation createUGI() throws AuthenticationException {
+
     if (userGroupInformation != null) {
       return userGroupInformation;
     }
@@ -412,11 +402,6 @@ public abstract class OMClientRequest implements RequestAuditor {
     return ugi;
   }
 
-  @VisibleForTesting
-  public void setUGI(UserGroupInformation ugi) {
-    this.userGroupInformation = ugi;
-  }
-
   /**
    * Return InetAddress created from OMRequest userInfo. If userInfo is not
    * set, returns null.
@@ -442,6 +427,7 @@ public abstract class OMClientRequest implements RequestAuditor {
    * Return String created from OMRequest userInfo. If userInfo is not
    * set, returns null.
    * @return String
+   * @throws IOException
    */
   @VisibleForTesting
   public String getHostName() {
@@ -479,29 +465,27 @@ public abstract class OMClientRequest implements RequestAuditor {
   }
 
   /**
-   * Mark ready for log audit.
+   * Log the auditMessage.
    * @param auditLogger
-   * @param builder
+   * @param auditMessage
    */
-  protected void markForAudit(AuditLogger auditLogger, OMAuditLogger.Builder builder) {
-    builder.setLog(true);
-    builder.setAuditLogger(auditLogger);
+  protected void auditLog(AuditLogger auditLogger, AuditMessage auditMessage) {
+    auditLogger.logWrite(auditMessage);
   }
 
   @Override
-  public OMAuditLogger.Builder buildAuditMessage(AuditAction op,
+  public AuditMessage buildAuditMessage(AuditAction op,
       Map< String, String > auditMap, Throwable throwable,
       OzoneManagerProtocolProtos.UserInfo userInfo) {
-    auditBuilder.getMessageBuilder()
+    return new AuditMessage.Builder()
         .setUser(userInfo != null ? userInfo.getUserName() : null)
         .atIp(userInfo != null ? userInfo.getRemoteAddress() : null)
         .forOperation(op)
         .withParams(auditMap)
         .withResult(throwable != null ? AuditEventStatus.FAILURE :
             AuditEventStatus.SUCCESS)
-        .withException(throwable);
-    auditBuilder.setAuditMap(auditMap);
-    return auditBuilder;
+        .withException(throwable)
+        .build();
   }
 
   @Override
@@ -551,7 +535,7 @@ public abstract class OMClientRequest implements RequestAuditor {
     boolean isValid = true;
 
     // If keyName is empty string throw error.
-    if (path.isEmpty()) {
+    if (path.length() == 0) {
       throw new OMException("Invalid KeyPath, empty keyName" + path,
           INVALID_KEY_NAME);
     } else if (path.startsWith("/")) {
@@ -584,10 +568,10 @@ public abstract class OMClientRequest implements RequestAuditor {
   }
 
   public OMLockDetails getOmLockDetails() {
-    return omLockDetails;
+    return omLockDetails.get();
   }
 
   public void mergeOmLockDetails(OMLockDetails details) {
-    omLockDetails.merge(details);
+    omLockDetails.get().merge(details);
   }
 }

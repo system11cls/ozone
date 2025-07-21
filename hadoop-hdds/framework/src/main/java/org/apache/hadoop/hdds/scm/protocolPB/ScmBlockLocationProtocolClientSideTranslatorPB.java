@@ -1,33 +1,27 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.protocolPB;
 
-import static org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Status.OK;
-
-import com.google.common.base.Preconditions;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
@@ -37,27 +31,24 @@ import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationRequest;
+import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationResponse;
+import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Type;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.AllocateBlockResponse;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.AllocateScmBlockRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.AllocateScmBlockResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.DeleteScmKeyBlocksRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.DeleteScmKeyBlocksResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.GetClusterTreeRequestProto;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.GetClusterTreeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.KeyBlocks;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationRequest;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationResponse;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SortDatanodesRequestProto;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SortDatanodesResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Type;
+import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos
+    .SortDatanodesRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos
+    .SortDatanodesResponseProto;
 import org.apache.hadoop.hdds.scm.AddSCMRequest;
 import org.apache.hadoop.hdds.scm.ScmInfo;
 import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.hdds.scm.net.InnerNode;
-import org.apache.hadoop.hdds.scm.net.InnerNodeImpl;
-import org.apache.hadoop.hdds.scm.net.Node;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocol;
 import org.apache.hadoop.hdds.scm.proxy.SCMBlockLocationFailoverProxyProvider;
@@ -68,6 +59,12 @@ import org.apache.hadoop.ipc.ProtocolTranslator;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.common.DeleteBlockGroupResult;
+
+import com.google.common.base.Preconditions;
+import com.google.protobuf.RpcController;
+import com.google.protobuf.ServiceException;
+
+import static org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Status.OK;
 
 /**
  * This class is the client-side translator to translate the requests made on
@@ -98,7 +95,7 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
     this.failoverProxyProvider = proxyProvider;
     this.rpcProxy = (ScmBlockLocationProtocolPB) RetryProxy.create(
         ScmBlockLocationProtocolPB.class, failoverProxyProvider,
-        failoverProxyProvider.getRetryPolicy());
+        failoverProxyProvider.getSCMBlockLocationRetryPolicy());
   }
 
   /**
@@ -304,7 +301,7 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
   }
   /**
    * Sort the datanodes based on distance from client.
-   * @return list of datanodes;
+   * @return List<DatanodeDetails></>
    * @throws IOException
    */
   @Override
@@ -329,43 +326,6 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
         .map(node -> DatanodeDetails.getFromProtoBuf(node))
         .collect(Collectors.toList()));
     return results;
-  }
-
-  @Override
-  public InnerNode getNetworkTopology() throws IOException {
-    GetClusterTreeRequestProto request =
-        GetClusterTreeRequestProto.newBuilder().build();
-    SCMBlockLocationRequest wrapper = createSCMBlockRequest(Type.GetClusterTree)
-        .setGetClusterTreeRequest(request)
-        .build();
-
-    final SCMBlockLocationResponse wrappedResponse =
-        handleError(submitRequest(wrapper));
-    GetClusterTreeResponseProto resp =
-        wrappedResponse.getGetClusterTreeResponse();
-
-    return (InnerNode) setParent(
-        InnerNodeImpl.fromProtobuf(resp.getClusterTree()));
-  }
-
-  /**
-   * Sets the parent field for the clusterTree nodes recursively.
-   *
-   * @param node cluster tree without parents set.
-   * @return updated cluster tree with parents set.
-   */
-  private Node setParent(Node node) {
-    if (node instanceof InnerNodeImpl) {
-      InnerNodeImpl innerNode = (InnerNodeImpl) node;
-      if (innerNode.getChildrenMap() != null) {
-        for (Map.Entry<String, Node> child : innerNode.getChildrenMap()
-            .entrySet()) {
-          child.getValue().setParent(innerNode);
-          setParent(child.getValue());
-        }
-      }
-    }
-    return node;
   }
 
   @Override

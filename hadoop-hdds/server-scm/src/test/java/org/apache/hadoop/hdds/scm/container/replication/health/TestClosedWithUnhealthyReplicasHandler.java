@@ -1,39 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.hdds.scm.container.replication.health;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
-import java.util.Collections;
-import java.util.Set;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -50,6 +34,19 @@ import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import java.util.Collections;
+import java.util.Set;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link ClosedWithUnhealthyReplicasHandler}.
@@ -63,7 +60,7 @@ public class TestClosedWithUnhealthyReplicasHandler {
   @BeforeEach
   public void setup() {
     ecReplicationConfig = new ECReplicationConfig(3, 2);
-    replicationManager = mock(ReplicationManager.class);
+    replicationManager = Mockito.mock(ReplicationManager.class);
     handler = new ClosedWithUnhealthyReplicasHandler(replicationManager);
     requestBuilder = new ContainerCheckRequest.Builder()
         .setPendingOps(Collections.emptyList())
@@ -159,8 +156,9 @@ public class TestClosedWithUnhealthyReplicasHandler {
     // triggered one.
     ArgumentCaptor<Integer> replicaIndexCaptor =
         ArgumentCaptor.forClass(Integer.class);
-    verify(replicationManager, times(2)).sendDeleteCommand(eq(container), anyInt(), any(
-            DatanodeDetails.class), eq(true));
+    Mockito.verify(replicationManager, Mockito.times(2))
+        .sendDeleteCommand(Mockito.eq(container), Mockito.anyInt(), Mockito.any(
+            DatanodeDetails.class), Mockito.eq(true));
     // replica index that delete was sent for should either be 2 or 5
     replicaIndexCaptor.getAllValues()
         .forEach(index -> assertTrue(index == 2 || index == 5));

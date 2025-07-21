@@ -1,18 +1,18 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.om;
@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_SUPPORTED_OPERATION_WHEN_PREPARED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
@@ -52,11 +52,10 @@ import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse.PrepareStatus;
 import org.apache.ozone.test.LambdaTestUtils;
-import org.apache.ozone.test.tag.Flaky;
 import org.apache.ozone.test.tag.Slow;
 import org.apache.ozone.test.tag.Unhealthy;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.util.ExitUtils;
+import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -296,8 +295,11 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
               .stream()
               .anyMatch((vol) -> vol.getName().equals(volumeName)));
         } catch (ExecutionException ex) {
-          OMException cause = assertInstanceOf(OMException.class, ex.getCause());
-          assertEquals(NOT_SUPPORTED_OPERATION_WHEN_PREPARED, cause.getResult());
+          Throwable cause = ex.getCause();
+          assertTrue(cause instanceof OMException);
+          assertEquals(
+              NOT_SUPPORTED_OPERATION_WHEN_PREPARED,
+              ((OMException) cause).getResult());
         }
       }
     }
@@ -338,9 +340,11 @@ public class TestOzoneManagerPrepare extends TestOzoneManagerHA {
   }
 
   private boolean logFilesPresentInRatisPeer(OzoneManager om) {
-    final RaftServer.Division server = om.getOmRatisServer().getServerDivision();
-    final String ratisDir = server.getRaftServer().getProperties().get("raft.server.storage.dir");
-    final String groupIdDirName = server.getGroup().getGroupId().getUuid().toString();
+    String ratisDir = om.getOmRatisServer().getServer().getProperties()
+        .get("raft.server.storage.dir");
+    String groupIdDirName =
+        om.getOmRatisServer().getServer().getGroupIds().iterator()
+            .next().getUuid().toString();
     File logDir = Paths.get(ratisDir, groupIdDirName, "current")
         .toFile();
 

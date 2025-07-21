@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,6 +14,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.utils.db;
@@ -22,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
+
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.utils.db.cache.TableCache;
 import org.apache.ozone.rocksdiff.RocksDBCheckpointDiffer;
@@ -72,19 +75,6 @@ public interface DBStore extends Closeable, BatchOperationHandler {
   <KEY, VALUE> Table<KEY, VALUE> getTable(String name,
       Class<KEY> keyType, Class<VALUE> valueType,
       TableCache.CacheType cacheType) throws IOException;
-
-  /**
-   * Gets table store with implict key/value conversion.
-   *
-   * @param name - table name
-   * @param keyCodec - key codec
-   * @param valueCodec - value codec
-   * @param cacheType - cache type
-   * @return - Table Store
-   * @throws IOException
-   */
-  <KEY, VALUE> TypedTable<KEY, VALUE> getTable(
-      String name, Codec<KEY> keyCodec, Codec<VALUE> valueCodec, TableCache.CacheType cacheType) throws IOException;
 
   /**
    * Lists the Known list of Tables in a DB.
@@ -178,14 +168,6 @@ public interface DBStore extends Closeable, BatchOperationHandler {
   DBCheckpoint getCheckpoint(boolean flush) throws IOException;
 
   /**
-   * Get current snapshot of DB store as an artifact stored on
-   * the local filesystem with different parent path.
-   * @return An object that encapsulates the checkpoint information along with
-   * location.
-   */
-  DBCheckpoint getCheckpoint(String parentDir, boolean flush) throws IOException;
-
-  /**
    * Get DB Store location.
    * @return DB file location.
    */
@@ -194,7 +176,7 @@ public interface DBStore extends Closeable, BatchOperationHandler {
   /**
    * Get List of Index to Table Names.
    * (For decoding table from column family index)
-   * @return Map of Index -&gt; TableName
+   * @return Map of Index -> TableName
    */
   Map<Integer, String> getTableNames();
 

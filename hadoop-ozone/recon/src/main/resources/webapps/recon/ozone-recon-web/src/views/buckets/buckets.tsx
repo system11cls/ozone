@@ -28,10 +28,7 @@ import {
   LaptopOutlined,
   SaveOutlined
 } from '@ant-design/icons';
-import {
-  ColumnProps,
-  TablePaginationConfig
-} from 'antd/es/table';
+import { ColumnProps, TablePaginationConfig } from 'antd/es/table';
 import { ActionMeta, ValueType } from 'react-select';
 import CreatableSelect from "react-select/creatable";
 
@@ -43,17 +40,16 @@ import {
   IAcl,
   IBucket
 } from '@/types/om.types';
+import QuotaBar from '@/components/quotaBar/quotaBar';
+import { AclPanel } from '@/components/aclDrawer/aclDrawer';
 import AutoReloadPanel from '@/components/autoReloadPanel/autoReloadPanel';
 import { MultiSelect, IOption } from '@/components/multiSelect/multiSelect';
-import { AclPanel } from '@/components/aclDrawer/aclDrawer';
 import { ColumnSearch } from '@/utils/columnSearch';
 import { AutoReloadHelper } from '@/utils/autoReloadHelper';
 import { AxiosGetHelper } from "@/utils/axiosRequestHelper";
 import { nullAwareLocaleCompare, showDataFetchError } from '@/utils/common';
-import QuotaBar from '@/components/quotaBar/quotaBar';
 
 import './buckets.less';
-
 
 interface IBucketResponse {
   volumeName: string;
@@ -97,20 +93,20 @@ interface IBucketsState {
 
 const LIMIT_OPTIONS: IOption[] = [
   {
-    label: '1000',
-    value: '1000'
+    label: "1000",
+    value: "1000"
   },
   {
-    label: '5000',
-    value: '5000'
+    label: "5000",
+    value: "5000"
   },
   {
-    label: '10000',
-    value: '10000'
+    label: "10000",
+    value: "10000"
   },
   {
-    label: '20000',
-    value: '20000'
+    label: "20000",
+    value: "20000"
   }
 ]
 
@@ -119,7 +115,7 @@ const INITIAL_LIMIT_OPTION = LIMIT_OPTIONS[0]
 const renderIsVersionEnabled = (isVersionEnabled: boolean) => {
   return isVersionEnabled ?
     <CheckCircleOutlined style={{ color: '#1da57a' }} className='icon-success' /> :
-    <CloseCircleOutlined className='icon-neutral' />
+    <CloseCircleOutlined className='icon-neutral' />;
 };
 
 const renderStorageType = (bucketStorage: BucketStorage) => {
@@ -315,6 +311,7 @@ export class Buckets extends React.Component<Record<string, object>, IBucketsSta
       isVisible: true,
       render: (_: any, record: IBucket) => {
         return (
+          // eslint-disable-next-line jsx-a11y/anchor-is-valid
           <a
             key='acl'
             onClick={() => {
@@ -574,7 +571,7 @@ export class Buckets extends React.Component<Record<string, object>, IBucketsSta
               isLoading={loading}
               onChange={this._handleLimitChange}
               onCreateOption={this._onCreateOption}
-              isValidNewOption={(input, value, _option) => {
+              isValidNewOption={(input, _value, _option) => {
                 // Only number will be accepted
                 return !isNaN(parseInt(input))
               }}

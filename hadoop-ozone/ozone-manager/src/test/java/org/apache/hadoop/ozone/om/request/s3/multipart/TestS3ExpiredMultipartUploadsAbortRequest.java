@@ -1,30 +1,53 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.request.s3.multipart;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.google.common.base.Optional;
+import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.ReplicationFactor;
+import org.apache.hadoop.hdds.client.ReplicationType;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.utils.UniqueId;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.om.OMMetrics;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartUpload;
+import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
+import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .Status;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.WithObjectID;
+import org.apache.hadoop.ozone.om.request.util.OMMultipartUploadUtils;
+import org.apache.hadoop.ozone.om.response.OMClientResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadInfo;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadsBucket;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartUploadsExpiredAbortRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,32 +56,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.client.ReplicationFactor;
-import org.apache.hadoop.hdds.client.ReplicationType;
-import org.apache.hadoop.hdds.utils.UniqueId;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
-import org.apache.hadoop.ozone.om.OMMetrics;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
-import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmMultipartUpload;
-import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
-import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
-import org.apache.hadoop.ozone.om.request.util.OMMultipartUploadUtils;
-import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadsBucket;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartUploadsExpiredAbortRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests S3ExpiredMultipartUploadsAbortRequest.
@@ -160,7 +157,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
    * Tests removing MPUs from the multipart info table cache that have higher
    * updateID than the transactionID. Those MPUs should be ignored.
    * It is OK if updateID equals to or less than transactionID.
-   * See {@link #setUpdateID(long)}.
+   * See {@link WithObjectID#setUpdateID(long, boolean)}.
    *
    * @throws Exception
    */
@@ -225,7 +222,8 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
     OMClientResponse omClientResponse =
         expiredMultipartUploadsAbortRequest.validateAndUpdateCache(ozoneManager, transactionId);
 
-    assertEquals(Status.OK, omClientResponse.getOMResponse().getStatus());
+    Assertions.assertEquals(Status.OK,
+        omClientResponse.getOMResponse().getStatus());
 
     assertInMultipartInfoTable(Collections.singletonList(
         mpuDBKeyWithHigherUpdateId));
@@ -283,11 +281,11 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
     final int numParts = 5;
 
     OMMetrics metrics = ozoneManager.getMetrics();
-    assertEquals(0, metrics.getNumExpiredMPUAbortRequests());
-    assertEquals(0, metrics.getNumOpenKeyDeleteRequestFails());
-    assertEquals(0, metrics.getNumExpiredMPUSubmittedForAbort());
-    assertEquals(0, metrics.getNumExpiredMPUPartsAborted());
-    assertEquals(0, metrics.getNumExpiredMPUAbortRequestFails());
+    Assertions.assertEquals(0, metrics.getNumExpiredMPUAbortRequests());
+    Assertions.assertEquals(0, metrics.getNumOpenKeyDeleteRequestFails());
+    Assertions.assertEquals(0, metrics.getNumExpiredMPUSubmittedForAbort());
+    Assertions.assertEquals(0, metrics.getNumExpiredMPUPartsAborted());
+    Assertions.assertEquals(0, metrics.getNumExpiredMPUAbortRequestFails());
 
     List<String> existentMPUs =
         createMPUs(volume, bucket, key, numExistentMPUs, numParts,
@@ -301,12 +299,15 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
     assertNotInMultipartInfoTable(existentMPUs);
     assertNotInMultipartInfoTable(nonExistentMPUs);
 
-    assertEquals(1, metrics.getNumExpiredMPUAbortRequests());
-    assertEquals(0, metrics.getNumExpiredMPUAbortRequestFails());
-    assertEquals(numExistentMPUs + numNonExistentMPUs,
+    Assertions.assertEquals(1, metrics.getNumExpiredMPUAbortRequests());
+    Assertions.assertEquals(0,
+        metrics.getNumExpiredMPUAbortRequestFails());
+    Assertions.assertEquals(numExistentMPUs + numNonExistentMPUs,
         metrics.getNumExpiredMPUSubmittedForAbort());
-    assertEquals(numExistentMPUs, metrics.getNumExpiredMPUAborted());
-    assertEquals(numExistentMPUs * numParts, metrics.getNumExpiredMPUPartsAborted());
+    Assertions.assertEquals(numExistentMPUs,
+        metrics.getNumExpiredMPUAborted());
+    Assertions.assertEquals(numExistentMPUs * numParts,
+        metrics.getNumExpiredMPUPartsAborted());
   }
 
   /**
@@ -324,7 +325,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
         expiredMultipartUploadsAbortRequest.preExecute(ozoneManager);
 
     // Will not be equal, as UserInfo will be set.
-    assertNotEquals(originalOMRequest, modifiedOmRequest);
+    Assertions.assertNotEquals(originalOMRequest, modifiedOmRequest);
 
     return modifiedOmRequest;
   }
@@ -358,7 +359,8 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
         expiredMultipartUploadsAbortRequest.validateAndUpdateCache(
             ozoneManager, 100L);
 
-    assertEquals(Status.OK, omClientResponse.getOMResponse().getStatus());
+    Assertions.assertEquals(Status.OK,
+        omClientResponse.getOMResponse().getStatus());
   }
 
   private OMRequest createAbortExpiredMPURequest(String volumeName,
@@ -443,12 +445,11 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
       S3InitiateMultipartUploadRequest s3InitiateMultipartUploadRequest =
           new S3InitiateMultipartUploadRequestWithFSO(initiateMPURequest,
               BucketLayout.FILE_SYSTEM_OPTIMIZED);
-      s3InitiateMultipartUploadRequest.setUGI(UserGroupInformation.getLoginUser());
 
       OMClientResponse omClientResponse = s3InitiateMultipartUploadRequest
           .validateAndUpdateCache(ozoneManager, trxnLogIndex);
 
-      assertSame(omClientResponse.getOMResponse().getStatus(),
+      Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
           Status.OK);
 
       trxnLogIndex++;
@@ -462,7 +463,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
       String mpuOpenKey = OMMultipartUploadUtils
           .getMultipartOpenKey(volume, bucket, keyName, multipartUploadID,
               omMetadataManager, getBucketLayout());
-      assertNotNull(omMetadataManager.getOpenKeyTable(
+      Assertions.assertNotNull(omMetadataManager.getOpenKeyTable(
           getBucketLayout()).get(mpuOpenKey));
 
       mpuKeys.add(mpuKey);
@@ -478,13 +479,10 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
                 commitMultipartRequest, BucketLayout.FILE_SYSTEM_OPTIMIZED);
 
         // Add key to open key table to be used in MPU commit processing
-        OmKeyInfo omKeyInfo = OMRequestTestUtils.createOmKeyInfo(volume, bucket, keyName,
-                RatisReplicationConfig.getInstance(ONE), new OmKeyLocationInfoGroup(0L, new ArrayList<>(), true))
-            .setObjectID(parentID + j)
-            .setParentObjectID(parentID)
-            .setUpdateID(trxnLogIndex)
-            .build();
-
+        OmKeyInfo omKeyInfo = OMRequestTestUtils.createOmKeyInfo(volume,
+            bucket, keyName, HddsProtos.ReplicationType.RATIS,
+            HddsProtos.ReplicationFactor.ONE, parentID + j, parentID,
+            trxnLogIndex, Time.now(), true);
         String fileName = OzoneFSUtils.getFileName(keyName);
         OMRequestTestUtils.addFileToKeyTable(true, false,
             fileName, omKeyInfo, clientID, trxnLogIndex, omMetadataManager);
@@ -494,13 +492,13 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
                 ozoneManager, trxnLogIndex);
         trxnLogIndex++;
 
-        assertSame(commitResponse.getOMResponse().getStatus(),
+        Assertions.assertSame(commitResponse.getOMResponse().getStatus(),
             Status.OK);
 
         // MPU part open key should be deleted after commit
         String partKey = omMetadataManager.getOpenFileName(volumeId, bucketId,
             parentID, fileName, clientID);
-        assertNull(
+        Assertions.assertNull(
             omMetadataManager.getOpenKeyTable(getBucketLayout()).get(partKey));
       }
     }
@@ -533,7 +531,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
       OMClientResponse omClientResponse = s3InitiateMultipartUploadRequest
           .validateAndUpdateCache(ozoneManager, trxnLogIndex);
 
-      assertSame(omClientResponse.getOMResponse().getStatus(),
+      Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
           Status.OK);
 
       trxnLogIndex++;
@@ -547,7 +545,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
       String mpuOpenKey = OMMultipartUploadUtils
           .getMultipartOpenKey(volume, bucket, keyName, multipartUploadID,
               omMetadataManager, getBucketLayout());
-      assertNotNull(omMetadataManager.getOpenKeyTable(
+      Assertions.assertNotNull(omMetadataManager.getOpenKeyTable(
           getBucketLayout()).get(mpuOpenKey));
 
       mpuKeys.add(mpuKey);
@@ -564,19 +562,22 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
         // Add key to open key table to be used in MPU commit processing
         OMRequestTestUtils.addKeyToTable(
             true, true,
-            volume, bucket, keyName, clientID, RatisReplicationConfig.getInstance(ONE), omMetadataManager);
+            volume, bucket, keyName, clientID, HddsProtos.ReplicationType.RATIS,
+            HddsProtos.ReplicationFactor.ONE, omMetadataManager);
 
         OMClientResponse commitResponse =
             s3MultipartUploadCommitPartRequest.validateAndUpdateCache(
                 ozoneManager, trxnLogIndex);
         trxnLogIndex++;
 
-        assertSame(commitResponse.getOMResponse().getStatus(), Status.OK);
+        Assertions.assertSame(commitResponse.getOMResponse().getStatus(),
+            Status.OK);
 
         // MPU part open key should be deleted after commit
         String partKey = omMetadataManager.getOpenKey(volume, bucket, keyName,
             clientID);
-        assertNull(omMetadataManager.getOpenKeyTable(getBucketLayout()).get(partKey));
+        Assertions.assertNull(
+            omMetadataManager.getOpenKeyTable(getBucketLayout()).get(partKey));
       }
     }
 
@@ -602,7 +603,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
   private void assertInMultipartInfoTable(List<String> mpuKeys)
       throws Exception {
     for (String mpuKey: mpuKeys) {
-      assertTrue(omMetadataManager.getMultipartInfoTable()
+      Assertions.assertTrue(omMetadataManager.getMultipartInfoTable()
           .isExist(mpuKey));
     }
   }
@@ -610,7 +611,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
   private void assertNotInMultipartInfoTable(List<String> mpuKeys)
       throws Exception {
     for (String mpuKey: mpuKeys) {
-      assertFalse(omMetadataManager.getMultipartInfoTable()
+      Assertions.assertFalse(omMetadataManager.getMultipartInfoTable()
           .isExist(mpuKey));
     }
   }
@@ -618,7 +619,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
   private void assertNotInOpenKeyTable(List<String> mpuOpenKeys)
       throws Exception {
     for (String mpuOpenKey: mpuOpenKeys) {
-      assertFalse(omMetadataManager.getOpenKeyTable(
+      Assertions.assertFalse(omMetadataManager.getOpenKeyTable(
           getBucketLayout()).isExist(mpuOpenKey));
     }
   }
@@ -626,7 +627,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
   private void assertInOpenKeyTable(List<String> mpuOpenKeys)
       throws Exception {
     for (String mpuOpenKey: mpuOpenKeys) {
-      assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout())
+      Assertions.assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout())
           .isExist(mpuOpenKey));
     }
   }
@@ -658,7 +659,7 @@ public class TestS3ExpiredMultipartUploadsAbortRequest
     for (String mpuOpenKey: mpuOpenKeys) {
       omMetadataManager.getOpenKeyTable(getBucketLayout())
           .addCacheEntry(new CacheKey<>(mpuOpenKey),
-              CacheValue.get(100L));
+              new CacheValue<>(Optional.absent(), 100L));
       omMetadataManager.getOpenKeyTable(getBucketLayout())
           .delete(mpuOpenKey);
     }

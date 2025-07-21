@@ -1,38 +1,33 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.protocol.commands;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Proto2Utils;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Test ECReconstructionContainersCommand.
@@ -42,20 +37,23 @@ public class TestReconstructionECContainersCommands {
   @Test
   public void testExceptionIfSourceAndMissingNotSameLength() {
     ECReplicationConfig ecReplicationConfig = new ECReplicationConfig(3, 2);
-    final ByteString missingContainerIndexes = Proto2Utils.unsafeByteString(new byte[]{1, 2});
+    byte[] missingContainerIndexes = {1, 2};
 
     List<DatanodeDetails> targetDns = new ArrayList<>();
     targetDns.add(MockDatanodeDetails.randomDatanodeDetails());
 
-    assertThrows(IllegalArgumentException.class,
+    Assertions.assertThrows(IllegalArgumentException.class,
         () -> new ReconstructECContainersCommand(1L, Collections.emptyList(),
         targetDns, missingContainerIndexes, ecReplicationConfig));
   }
 
   @Test
   public void protobufConversion() {
-    byte[] missingIndexes = {1, 2};
-    final ByteString missingContainerIndexes = Proto2Utils.unsafeByteString(missingIndexes);
+    byte[] missingContainerIndexes = {1, 2};
+    List<Long> srcNodesIndexes = new ArrayList<>();
+    for (int i = 0; i < srcNodesIndexes.size(); i++) {
+      srcNodesIndexes.add(i + 1L);
+    }
     ECReplicationConfig ecReplicationConfig = new ECReplicationConfig(3, 2);
     final List<DatanodeDetails> dnDetails = getDNDetails(5);
 
@@ -68,10 +66,6 @@ public class TestReconstructionECContainersCommands {
     ReconstructECContainersCommand reconstructECContainersCommand =
         new ReconstructECContainersCommand(1L, sources, targets,
             missingContainerIndexes, ecReplicationConfig);
-
-    assertThat(reconstructECContainersCommand.toString())
-        .contains("missingIndexes: " + Arrays.toString(missingIndexes));
-
     StorageContainerDatanodeProtocolProtos.ReconstructECContainersCommandProto
         proto = reconstructECContainersCommand.getProto();
 
@@ -82,25 +76,27 @@ public class TestReconstructionECContainersCommands {
     List<DatanodeDetails> targetDnsFromProto = proto.getTargetsList().stream()
         .map(a -> DatanodeDetails.getFromProtoBuf(a))
         .collect(Collectors.toList());
-    assertEquals(1L, proto.getContainerID());
-    assertEquals(sources, srcDnsFromProto);
-    assertEquals(targets, targetDnsFromProto);
-    assertEquals(missingContainerIndexes, proto.getMissingContainerIndexes());
-    assertEquals(ecReplicationConfig,
+    Assertions.assertEquals(1L, proto.getContainerID());
+    Assertions.assertEquals(sources, srcDnsFromProto);
+    Assertions.assertEquals(targets, targetDnsFromProto);
+    Assertions.assertArrayEquals(missingContainerIndexes,
+        proto.getMissingContainerIndexes().toByteArray());
+    Assertions.assertEquals(ecReplicationConfig,
         new ECReplicationConfig(proto.getEcReplicationConfig()));
 
     ReconstructECContainersCommand fromProtobuf =
         ReconstructECContainersCommand.getFromProtobuf(proto);
 
-    assertEquals(reconstructECContainersCommand.getContainerID(),
+    Assertions.assertEquals(reconstructECContainersCommand.getContainerID(),
         fromProtobuf.getContainerID());
-    assertEquals(reconstructECContainersCommand.getSources(),
+    Assertions.assertEquals(reconstructECContainersCommand.getSources(),
         fromProtobuf.getSources());
-    assertEquals(reconstructECContainersCommand.getTargetDatanodes(),
+    Assertions.assertEquals(reconstructECContainersCommand.getTargetDatanodes(),
         fromProtobuf.getTargetDatanodes());
-    assertEquals(reconstructECContainersCommand.getMissingContainerIndexes(),
+    Assertions.assertArrayEquals(
+        reconstructECContainersCommand.getMissingContainerIndexes(),
         fromProtobuf.getMissingContainerIndexes());
-    assertEquals(
+    Assertions.assertEquals(
         reconstructECContainersCommand.getEcReplicationConfig(),
         fromProtobuf.getEcReplicationConfig());
   }

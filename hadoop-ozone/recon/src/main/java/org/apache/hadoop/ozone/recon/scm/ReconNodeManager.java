@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,11 +18,6 @@
 
 package org.apache.hadoop.ozone.recon.scm;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.reregisterCommand;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,26 +25,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMVersionRequestProto;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.net.NetworkTopology;
-import org.apache.hadoop.hdds.scm.net.NetworkTopology.InvalidTopologyException;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.node.SCMNodeManager;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
-import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.db.Table;
@@ -58,8 +52,13 @@ import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
 import org.apache.hadoop.ozone.protocol.commands.RegisteredCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReregisterCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
-import org.apache.hadoop.ozone.recon.ReconContext;
 import org.apache.hadoop.util.Time;
+
+import com.google.common.collect.ImmutableSet;
+
+import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.reregisterCommand;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +71,6 @@ public class ReconNodeManager extends SCMNodeManager {
       .getLogger(ReconNodeManager.class);
 
   private Table<UUID, DatanodeDetails> nodeDB;
-  private ReconContext reconContext;
   private static final Set<Type> ALLOWED_COMMANDS =
       ImmutableSet.of(reregisterCommand);
 
@@ -100,13 +98,6 @@ public class ReconNodeManager extends SCMNodeManager {
     this.reconDatanodeOutdatedTime = reconStaleDatanodeMultiplier *
         HddsServerUtil.getReconHeartbeatInterval(conf);
     this.nodeDB = nodeDB;
-  }
-
-  public ReconNodeManager(OzoneConfiguration conf, SCMStorageConfig scmStorageConfig, EventQueue eventQueue,
-                          NetworkTopology clusterMap, Table<UUID, DatanodeDetails> table,
-                          HDDSLayoutVersionManager scmLayoutVersionManager, ReconContext reconContext) {
-    this(conf, scmStorageConfig, eventQueue, clusterMap, table, scmLayoutVersionManager);
-    this.reconContext = reconContext;
     loadExistingNodes();
   }
 
@@ -153,7 +144,6 @@ public class ReconNodeManager extends SCMNodeManager {
    * @param datanodeDetails DatanodeDetails
    * @return last heartbeat time
    */
-  @Override
   public long getLastHeartbeat(DatanodeDetails datanodeDetails) {
     return datanodeHeartbeatMap.getOrDefault(datanodeDetails.getUuid(), 0L);
   }
@@ -202,6 +192,17 @@ public class ReconNodeManager extends SCMNodeManager {
         EMPTY_DATANODE_DETAILS).getRevision();
   }
 
+  /**
+   * Returns the build date of the given node.
+   *
+   * @param datanodeDetails DatanodeDetails
+   * @return buildDate
+   */
+  public String getBuildDate(DatanodeDetails datanodeDetails) {
+    return inMemDatanodeDetails.getOrDefault(datanodeDetails.getUuid(),
+        EMPTY_DATANODE_DETAILS).getBuildDate();
+  }
+
   @Override
   public void onMessage(CommandForDatanode commandForDatanode,
                         EventPublisher ignored) {
@@ -219,12 +220,13 @@ public class ReconNodeManager extends SCMNodeManager {
    * Send heartbeat to indicate the datanode is alive and doing well.
    *
    * @param datanodeDetails - DatanodeDetailsProto.
+   * @param layoutInfo - Layout Version Proto
    * @return SCMheartbeat response.
    */
   @Override
-  public List<SCMCommand<?>> processHeartbeat(DatanodeDetails datanodeDetails,
-      CommandQueueReportProto queueReport) {
-    List<SCMCommand<?>> cmds = new ArrayList<>();
+  public List<SCMCommand> processHeartbeat(DatanodeDetails datanodeDetails,
+      LayoutVersionProto layoutInfo, CommandQueueReportProto queueReport) {
+    List<SCMCommand> cmds = new ArrayList<>();
     long currentTime = Time.now();
     if (needUpdate(datanodeDetails, currentTime)) {
       cmds.add(new ReregisterCommand());
@@ -235,7 +237,8 @@ public class ReconNodeManager extends SCMNodeManager {
     }
     // Update heartbeat map with current time
     datanodeHeartbeatMap.put(datanodeDetails.getUuid(), Time.now());
-    cmds.addAll(super.processHeartbeat(datanodeDetails, queueReport));
+    cmds.addAll(super.processHeartbeat(datanodeDetails,
+        layoutInfo, queueReport));
     return cmds.stream()
         .filter(c -> ALLOWED_COMMANDS.contains(c.getType()))
         .collect(toList());
@@ -275,23 +278,8 @@ public class ReconNodeManager extends SCMNodeManager {
             datanodeDetails.getUuid());
       }
     }
-    try {
-      RegisteredCommand registeredCommand = super.register(datanodeDetails, nodeReport, pipelineReportsProto,
-          layoutInfo);
-      reconContext.updateHealthStatus(new AtomicBoolean(true));
-      reconContext.getErrors().remove(ReconContext.ErrorCode.INVALID_NETWORK_TOPOLOGY);
-      return registeredCommand;
-    } catch (InvalidTopologyException invalidTopologyException) {
-      LOG.error("InvalidTopologyException error occurred : {}", invalidTopologyException.getMessage());
-      reconContext.updateHealthStatus(new AtomicBoolean(false));
-      reconContext.getErrors().add(ReconContext.ErrorCode.INVALID_NETWORK_TOPOLOGY);
-      return RegisteredCommand.newBuilder()
-          .setErrorCode(
-              StorageContainerDatanodeProtocolProtos.SCMRegisteredResponseProto.ErrorCode.errorNodeNotPermitted)
-          .setDatanode(datanodeDetails)
-          .setClusterID(reconContext.getClusterId())
-          .build();
-    }
+    return super.register(datanodeDetails, nodeReport, pipelineReportsProto,
+        layoutInfo);
   }
 
   public void updateNodeOperationalStateFromScm(HddsProtos.Node scmNode,
@@ -334,62 +322,5 @@ public class ReconNodeManager extends SCMNodeManager {
       }
       return nodeCount;
     }
-  }
-
-  /**
-   * Remove an existing node from the NodeDB. Explicit removal from admin user.
-   * First this API call removes the node info from NodeManager memory and
-   * if successful, then remove the node finally from NODES table as well.
-   *
-   * @param datanodeDetails Datanode details.
-   */
-  @Override
-  public void removeNode(DatanodeDetails datanodeDetails) throws NodeNotFoundException, IOException {
-    try {
-      super.removeNode(datanodeDetails);
-      nodeDB.delete(datanodeDetails.getUuid());
-    } catch (IOException ioException) {
-      LOG.error("Node {} deletion fails from Node DB.", datanodeDetails.getUuid());
-      throw ioException;
-    }
-    datanodeHeartbeatMap.remove(datanodeDetails.getUuid());
-    inMemDatanodeDetails.remove(datanodeDetails.getUuid());
-    LOG.info("Removed existing node {} from Node DB and NodeManager data structures in memory ",
-        datanodeDetails.getUuid());
-  }
-
-  @VisibleForTesting
-  public ReconContext getReconContext() {
-    return reconContext;
-  }
-
-  @Override
-  protected void sendFinalizeToDatanodeIfNeeded(DatanodeDetails datanodeDetails,
-      LayoutVersionProto layoutVersionReport) {
-    // Recon should do nothing here.
-    int scmSlv = getLayoutVersionManager().getSoftwareLayoutVersion();
-    int scmMlv = getLayoutVersionManager().getMetadataLayoutVersion();
-    int dnSlv = layoutVersionReport.getSoftwareLayoutVersion();
-    int dnMlv = layoutVersionReport.getMetadataLayoutVersion();
-
-    if (dnSlv > scmSlv) {
-      LOG.error("Invalid data node reporting to Recon : {}. " +
-              "DataNode SoftwareLayoutVersion = {}, Recon/SCM " +
-              "SoftwareLayoutVersion = {}",
-          datanodeDetails.getHostName(), dnSlv, scmSlv);
-    }
-
-    if (scmMlv == scmSlv) {
-      // Recon metadata is finalised.
-      if (dnMlv < scmMlv) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Data node {} reports a lower MLV than Recon "
-                  + "DataNode MetadataLayoutVersion = {}, Recon/SCM "
-                  + "MetadataLayoutVersion = {}. SCM needs to finalize this DN",
-              datanodeDetails.getHostName(), dnMlv, scmMlv);
-        }
-      }
-    }
-
   }
 }

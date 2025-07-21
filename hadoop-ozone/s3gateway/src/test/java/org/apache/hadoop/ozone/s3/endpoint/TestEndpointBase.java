@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,23 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.ozone.s3.endpoint;
-
-import static org.apache.hadoop.ozone.s3.util.S3Consts.CUSTOM_METADATA_HEADER_PREFIX;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
-import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.s3.exception.OS3Exception;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests the s3 EndpointBase class methods.
+ */
+package org.apache.hadoop.ozone.s3.endpoint;
+
+import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.s3.exception.OS3Exception;
+
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.hadoop.ozone.s3.util.S3Consts.CUSTOM_METADATA_HEADER_PREFIX;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+/**
  * Test methods of the EndpointBase.
  */
 public class TestEndpointBase {
@@ -60,13 +67,14 @@ public class TestEndpointBase {
 
     Map<String, String> filteredCustomMetadata =
             endpointBase.getCustomMetadataFromHeaders(s3requestHeaders);
-    assertThat(filteredCustomMetadata).containsKey("custom-key1");
+    assertTrue(filteredCustomMetadata.containsKey("custom-key1"));
     assertEquals(
             "custom-value1", filteredCustomMetadata.get("custom-key1"));
-    assertThat(filteredCustomMetadata).containsKey("custom-key2");
+    assertTrue(filteredCustomMetadata.containsKey("custom-key2"));
     assertEquals(
             "custom-value2", filteredCustomMetadata.get("custom-key2"));
-    assertThat(filteredCustomMetadata).doesNotContainKey(OzoneConsts.GDPR_FLAG);
+    assertFalse(
+            filteredCustomMetadata.containsKey(OzoneConsts.GDPR_FLAG));
   }
 
   /**
@@ -93,7 +101,7 @@ public class TestEndpointBase {
         .getCustomMetadataFromHeaders(s3requestHeaders),
         "getCustomMetadataFromHeaders should fail." +
             " Expected OS3Exception not thrown");
-    assertThat(e.getCode()).contains("MetadataTooLarge");
+    assertTrue(e.getCode().contains("MetadataTooLarge"));
   }
 
 }

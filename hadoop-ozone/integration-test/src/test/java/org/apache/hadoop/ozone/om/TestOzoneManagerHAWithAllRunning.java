@@ -1,68 +1,33 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om;
 
-import static java.util.UUID.randomUUID;
-import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
-import static org.apache.hadoop.ozone.OzoneAcl.AclScope.DEFAULT;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.DIRECTORY_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.FILE_ALREADY_EXISTS;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PARTIAL_DELETE;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.GROUP;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.USER;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.READ;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.WRITE;
-import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import com.google.protobuf.ServiceException;
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.net.InetSocketAddress;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import javax.management.MBeanInfo;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneTestUtils;
-import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.VolumeArgs;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.exceptions.OMNotLeaderException;
 import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFailoverProxyProvider;
 import org.apache.hadoop.ozone.om.ha.OMProxyInfo;
 import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
@@ -82,7 +47,37 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServer;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import javax.management.MBeanInfo;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.net.InetSocketAddress;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
+
+import static java.util.UUID.randomUUID;
+import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
+import static org.apache.hadoop.ozone.OzoneAcl.AclScope.DEFAULT;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.DIRECTORY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.FILE_ALREADY_EXISTS;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PARTIAL_DELETE;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.USER;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.READ;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.WRITE;
+import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Ozone Manager HA tests where all OMs are running throughout all tests.
@@ -336,7 +331,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     omFailoverProxyProvider.performFailover(null);
 
     String newProxyNodeId = omFailoverProxyProvider.getCurrentProxyOMNodeId();
-    assertNotEquals(leaderOMNodeId, newProxyNodeId);
+    Assertions.assertNotEquals(leaderOMNodeId, newProxyNodeId);
 
     // Once another request is sent to this new proxy node, the leader
     // information must be returned via the response and a failover must
@@ -378,7 +373,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
       }
     }
     assertNotNull(followerOM);
-    assertSame(followerOM.getOmRatisServer().checkLeaderStatus(),
+    Assertions.assertSame(followerOM.getOmRatisServer().checkLeaderStatus(),
         OzoneManagerRatisServer.RaftServerStatus.NOT_LEADER);
 
     OzoneManagerProtocolProtos.OMRequest writeRequest =
@@ -390,10 +385,10 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
 
     OzoneManagerProtocolServerSideTranslatorPB omServerProtocol =
         followerOM.getOmServerProtocol();
-    ServiceException ex = assertThrows(ServiceException.class,
+    Exception ex = assertThrows(Exception.class,
         () -> omServerProtocol.submitRequest(null, writeRequest));
-    assertThat(ex).hasCauseInstanceOf(OMNotLeaderException.class)
-        .hasMessageEndingWith("Suggested leader is OM:" + leaderOMNodeId + "[" + leaderOMAddress + "].");
+    GenericTestUtils.assertExceptionContains("Suggested leader is OM:" +
+        leaderOMNodeId + "[" + leaderOMAddress + "]", ex);
   }
 
   @Test
@@ -463,7 +458,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneManagerRatisServer ozoneManagerRatisServer =
         getCluster().getOzoneManager(currentLeaderNodeId).getOmRatisServer();
 
-    final RaftServer raftServer = ozoneManagerRatisServer.getServerDivision().getRaftServer();
+    RaftServer raftServer = ozoneManagerRatisServer.getServer();
 
     ClientId clientId = ClientId.randomId();
     long callId = 2000L;
@@ -561,7 +556,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl defaultUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     OzoneObj ozoneObj = buildBucketObj(ozoneBucket);
 
@@ -573,7 +568,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl defaultUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     OzoneObj ozoneObj = buildBucketObj(ozoneBucket);
 
@@ -586,7 +581,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl defaultUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     OzoneObj ozoneObj = buildBucketObj(ozoneBucket);
 
@@ -608,7 +603,9 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     if (givenAcl.getType().equals(existingAcl.getType())
         && givenAcl.getName().equals(existingAcl.getName())
         && givenAcl.getAclScope().equals(existingAcl.getAclScope())) {
-      return givenAcl.equals(existingAcl);
+      BitSet bitSet = (BitSet) givenAcl.getAclBitSet().clone();
+      bitSet.and(existingAcl.getAclBitSet());
+      return bitSet.equals(existingAcl.getAclBitSet());
     }
     return false;
   }
@@ -618,7 +615,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl userAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     String key = createKey(ozoneBucket);
 
@@ -632,7 +629,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl userAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     String key = createKey(ozoneBucket);
 
@@ -647,7 +644,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneBucket ozoneBucket = setupBucket();
     String remoteUserName = "remoteUser";
     OzoneAcl userAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     String key = createKey(ozoneBucket);
 
@@ -663,7 +660,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     String remoteUserName = "remoteUser";
     String prefixName = RandomStringUtils.randomAlphabetic(5) + "/";
     OzoneAcl defaultUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     OzoneObj ozoneObj = buildPrefixObj(ozoneBucket, prefixName);
 
@@ -676,29 +673,29 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     String remoteUserName = "remoteUser";
     String prefixName = RandomStringUtils.randomAlphabetic(5) + "/";
     OzoneAcl userAcl = new OzoneAcl(USER, remoteUserName,
-        ACCESS, READ);
+        READ, ACCESS);
     OzoneAcl userAcl1 = new OzoneAcl(USER, "remote",
-        ACCESS, READ);
+        READ, ACCESS);
 
     OzoneObj ozoneObj = buildPrefixObj(ozoneBucket, prefixName);
 
     ObjectStore objectStore = getObjectStore();
 
     boolean result = objectStore.addAcl(ozoneObj, userAcl);
-    assertTrue(result);
+    Assertions.assertTrue(result);
 
     result = objectStore.addAcl(ozoneObj, userAcl1);
-    assertTrue(result);
+    Assertions.assertTrue(result);
 
     result = objectStore.removeAcl(ozoneObj, userAcl);
-    assertTrue(result);
+    Assertions.assertTrue(result);
 
     // try removing already removed acl.
     result = objectStore.removeAcl(ozoneObj, userAcl);
-    assertFalse(result);
+    Assertions.assertFalse(result);
 
     result = objectStore.removeAcl(ozoneObj, userAcl1);
-    assertTrue(result);
+    Assertions.assertTrue(result);
 
   }
 
@@ -708,7 +705,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     String remoteUserName = "remoteUser";
     String prefixName = RandomStringUtils.randomAlphabetic(5) + "/";
     OzoneAcl defaultUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, READ);
+        READ, DEFAULT);
 
     OzoneObj ozoneObj = buildPrefixObj(ozoneBucket, prefixName);
 
@@ -724,15 +721,15 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj srcObj = buildBucketObj(srcBucket);
 
     // Add ACL to the LINK and verify that it is added to the source bucket
-    OzoneAcl acl1 = new OzoneAcl(USER, "remoteUser1", DEFAULT, READ);
+    OzoneAcl acl1 = new OzoneAcl(USER, "remoteUser1", READ, DEFAULT);
     boolean addAcl = getObjectStore().addAcl(linkObj, acl1);
-    assertTrue(addAcl);
+    Assertions.assertTrue(addAcl);
     assertEqualsAcls(srcObj, linkObj);
 
     // Add ACL to the SOURCE and verify that it from link
-    OzoneAcl acl2 = new OzoneAcl(USER, "remoteUser2", DEFAULT, WRITE);
+    OzoneAcl acl2 = new OzoneAcl(USER, "remoteUser2", WRITE, DEFAULT);
     boolean addAcl2 = getObjectStore().addAcl(srcObj, acl2);
-    assertTrue(addAcl2);
+    Assertions.assertTrue(addAcl2);
     assertEqualsAcls(srcObj, linkObj);
 
   }
@@ -746,10 +743,10 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj srcObj = buildBucketObj(srcBucket);
     // As by default create will add some default acls in RpcClient.
     List<OzoneAcl> acls = getObjectStore().getAcl(linkObj);
-    assertFalse(acls.isEmpty());
+    Assertions.assertTrue(acls.size() > 0);
     // Remove an existing acl.
     boolean removeAcl = getObjectStore().removeAcl(linkObj, acls.get(0));
-    assertTrue(removeAcl);
+    Assertions.assertTrue(removeAcl);
     assertEqualsAcls(srcObj, linkObj);
 
     // case2 : test remove src acl
@@ -759,10 +756,10 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj srcObj2 = buildBucketObj(srcBucket2);
     // As by default create will add some default acls in RpcClient.
     List<OzoneAcl> acls2 = getObjectStore().getAcl(srcObj2);
-    assertFalse(acls2.isEmpty());
+    Assertions.assertTrue(acls2.size() > 0);
     // Remove an existing acl.
     boolean removeAcl2 = getObjectStore().removeAcl(srcObj2, acls.get(0));
-    assertTrue(removeAcl2);
+    Assertions.assertTrue(removeAcl2);
     assertEqualsAcls(srcObj2, linkObj2);
 
   }
@@ -777,16 +774,16 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
 
     // Set ACL to the LINK and verify that it is set to the source bucket
     List<OzoneAcl> acl1 = Collections.singletonList(
-        new OzoneAcl(USER, "remoteUser1", DEFAULT, READ));
+        new OzoneAcl(USER, "remoteUser1", READ, DEFAULT));
     boolean setAcl1 = getObjectStore().setAcl(linkObj, acl1);
-    assertTrue(setAcl1);
+    Assertions.assertTrue(setAcl1);
     assertEqualsAcls(srcObj, linkObj);
 
     // Set ACL to the SOURCE and verify that it from link
     List<OzoneAcl> acl2 = Collections.singletonList(
-        new OzoneAcl(USER, "remoteUser2", DEFAULT, WRITE));
+        new OzoneAcl(USER, "remoteUser2", WRITE, DEFAULT));
     boolean setAcl2 = getObjectStore().setAcl(srcObj, acl2);
-    assertTrue(setAcl2);
+    Assertions.assertTrue(setAcl2);
     assertEqualsAcls(srcObj, linkObj);
 
   }
@@ -800,12 +797,12 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj srcObj = buildKeyObj(srcBucket, key);
 
     String user1 = "remoteUser1";
-    OzoneAcl acl1 = new OzoneAcl(USER, user1, DEFAULT, READ);
+    OzoneAcl acl1 = new OzoneAcl(USER, user1, READ, DEFAULT);
     testAddAcl(user1, linkObj, acl1);  // case1: set link acl
     assertEqualsAcls(srcObj, linkObj);
 
     String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
+    OzoneAcl acl2 = new OzoneAcl(USER, user2, READ, DEFAULT);
     testAddAcl(user2, srcObj, acl2);  // case2: set src acl
     assertEqualsAcls(srcObj, linkObj);
 
@@ -821,7 +818,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj linkObj = buildKeyObj(linkedBucket, key);
     OzoneObj srcObj = buildKeyObj(srcBucket, key);
     String user = "remoteUser1";
-    OzoneAcl acl = new OzoneAcl(USER, user, DEFAULT, READ);
+    OzoneAcl acl = new OzoneAcl(USER, user, READ, DEFAULT);
     testRemoveAcl(user, linkObj, acl);
     assertEqualsAcls(srcObj, linkObj);
 
@@ -832,7 +829,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj linkObj2 = buildKeyObj(linkedBucket2, key2);
     OzoneObj srcObj2 = buildKeyObj(srcBucket2, key2);
     String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
+    OzoneAcl acl2 = new OzoneAcl(USER, user2, READ, DEFAULT);
     testRemoveAcl(user2, srcObj2, acl2);
     assertEqualsAcls(srcObj2, linkObj2);
 
@@ -847,85 +844,12 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     OzoneObj srcObj = buildKeyObj(srcBucket, key);
 
     String user1 = "remoteUser1";
-    OzoneAcl acl1 = new OzoneAcl(USER, user1, DEFAULT, READ);
+    OzoneAcl acl1 = new OzoneAcl(USER, user1, READ, DEFAULT);
     testSetAcl(user1, linkObj, acl1);  // case1: set link acl
     assertEqualsAcls(srcObj, linkObj);
 
     String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
-    testSetAcl(user2, srcObj, acl2);  // case2: set src acl
-    assertEqualsAcls(srcObj, linkObj);
-
-  }
-
-  @Test
-  void testLinkBucketAddPrefixAcl() throws Exception {
-    OzoneBucket srcBucket = setupBucket();
-    OzoneBucket linkedBucket = linkBucket(srcBucket);
-    String prefix = createPrefixName();
-    OzoneObj linkObj = buildPrefixObj(linkedBucket, prefix);
-    OzoneObj srcObj = buildPrefixObj(srcBucket, prefix);
-    createPrefix(linkObj);
-
-    String user1 = "remoteUser1";
-    OzoneAcl acl1 = new OzoneAcl(USER, user1, DEFAULT, READ);
-    testAddAcl(user1, linkObj, acl1);  // case1: set link acl
-    assertEqualsAcls(srcObj, linkObj);
-
-    String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
-    testAddAcl(user2, srcObj, acl2);  // case2: set src acl
-    assertEqualsAcls(srcObj, linkObj);
-
-  }
-
-  @Test
-  void testLinkBucketRemovePrefixAcl() throws Exception {
-
-    // CASE 1: from link bucket
-    OzoneBucket srcBucket = setupBucket();
-    OzoneBucket linkedBucket = linkBucket(srcBucket);
-    String prefix = createPrefixName();
-    OzoneObj linkObj = buildPrefixObj(linkedBucket, prefix);
-    OzoneObj srcObj = buildPrefixObj(srcBucket, prefix);
-    createPrefix(linkObj);
-
-    String user = "remoteUser1";
-    OzoneAcl acl = new OzoneAcl(USER, user, DEFAULT, READ);
-    testRemoveAcl(user, linkObj, acl);
-    assertEqualsAcls(srcObj, linkObj);
-
-    // CASE 2: from src bucket
-    OzoneBucket srcBucket2 = setupBucket();
-    OzoneBucket linkedBucket2 = linkBucket(srcBucket2);
-    String prefix2 = createPrefixName();
-    OzoneObj linkObj2 = buildPrefixObj(linkedBucket2, prefix2);
-    OzoneObj srcObj2 = buildPrefixObj(srcBucket2, prefix2);
-    createPrefix(srcObj2);
-
-    String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
-    testRemoveAcl(user2, srcObj2, acl2);
-    assertEqualsAcls(srcObj2, linkObj2);
-
-  }
-
-  @Test
-  void testLinkBucketSetPrefixAcl() throws Exception {
-    OzoneBucket srcBucket = setupBucket();
-    OzoneBucket linkedBucket = linkBucket(srcBucket);
-    String prefix = createPrefixName();
-    OzoneObj linkObj = buildPrefixObj(linkedBucket, prefix);
-    OzoneObj srcObj = buildPrefixObj(srcBucket, prefix);
-    createPrefix(linkObj);
-
-    String user1 = "remoteUser1";
-    OzoneAcl acl1 = new OzoneAcl(USER, user1, DEFAULT, READ);
-    testSetAcl(user1, linkObj, acl1);  // case1: set link acl
-    assertEqualsAcls(srcObj, linkObj);
-
-    String user2 = "remoteUser2";
-    OzoneAcl acl2 = new OzoneAcl(USER, user2, DEFAULT, READ);
+    OzoneAcl acl2 = new OzoneAcl(USER, user2, READ, DEFAULT);
     testSetAcl(user2, srcObj, acl2);  // case2: set src acl
     assertEqualsAcls(srcObj, linkObj);
 
@@ -962,7 +886,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
     if (linkObj.getResourceType() == OzoneObj.ResourceType.BUCKET) {
       linkObj = getSourceBucketObj(linkObj);
     }
-    assertEquals(getObjectStore().getAcl(srcObj),
+    Assertions.assertEquals(getObjectStore().getAcl(srcObj),
         getObjectStore().getAcl(linkObj));
   }
 
@@ -994,23 +918,23 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
         OzoneObj.ResourceType.PREFIX.name())) {
       List<OzoneAcl> acls = objectStore.getAcl(ozoneObj);
 
-      assertFalse(acls.isEmpty());
+      Assertions.assertTrue(acls.size() > 0);
     }
 
     OzoneAcl modifiedUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, WRITE);
+        WRITE, DEFAULT);
 
     List<OzoneAcl> newAcls = Collections.singletonList(modifiedUserAcl);
     boolean setAcl = objectStore.setAcl(ozoneObj, newAcls);
-    assertTrue(setAcl);
+    Assertions.assertTrue(setAcl);
 
     // Get acls and check whether they are reset or not.
     List<OzoneAcl> getAcls = objectStore.getAcl(ozoneObj);
 
-    assertEquals(newAcls.size(), getAcls.size());
+    Assertions.assertEquals(newAcls.size(), getAcls.size());
     int i = 0;
     for (OzoneAcl ozoneAcl : newAcls) {
-      assertTrue(compareAcls(getAcls.get(i++), ozoneAcl));
+      Assertions.assertTrue(compareAcls(getAcls.get(i++), ozoneAcl));
     }
 
   }
@@ -1019,62 +943,75 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
       OzoneAcl userAcl) throws Exception {
     ObjectStore objectStore = getObjectStore();
     boolean addAcl = objectStore.addAcl(ozoneObj, userAcl);
-    assertTrue(addAcl);
+    Assertions.assertTrue(addAcl);
 
     List<OzoneAcl> acls = objectStore.getAcl(ozoneObj);
 
-    assertTrue(containsAcl(userAcl, acls));
+    Assertions.assertTrue(containsAcl(userAcl, acls));
 
     // Add an already existing acl.
     addAcl = objectStore.addAcl(ozoneObj, userAcl);
-    assertFalse(addAcl);
+    Assertions.assertFalse(addAcl);
 
     // Add an acl by changing acl type with same type, name and scope.
     userAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, WRITE);
+        WRITE, DEFAULT);
     addAcl = objectStore.addAcl(ozoneObj, userAcl);
-    assertTrue(addAcl);
+    Assertions.assertTrue(addAcl);
+  }
+
+  private void testAddLinkAcl(String remoteUserName, OzoneObj ozoneObj,
+      OzoneAcl userAcl) throws Exception {
+    ObjectStore objectStore = getObjectStore();
+    boolean addAcl = objectStore.addAcl(ozoneObj, userAcl);
+    Assertions.assertTrue(addAcl);
+
+    List<OzoneAcl> acls = objectStore.getAcl(ozoneObj);
+
+    Assertions.assertTrue(containsAcl(userAcl, acls));
+
+    // Add an already existing acl.
+    addAcl = objectStore.addAcl(ozoneObj, userAcl);
+    Assertions.assertFalse(addAcl);
+
+    // Add an acl by changing acl type with same type, name and scope.
+    userAcl = new OzoneAcl(USER, remoteUserName,
+        WRITE, DEFAULT);
+    addAcl = objectStore.addAcl(ozoneObj, userAcl);
+    Assertions.assertTrue(addAcl);
   }
 
   private void testRemoveAcl(String remoteUserName, OzoneObj ozoneObj,
       OzoneAcl userAcl) throws Exception {
     ObjectStore objectStore = getObjectStore();
 
-    // Other than prefix, by default create will add some default acls in RpcClient.
-    List<OzoneAcl> acls;
-    if (ozoneObj.getResourceType().equals(OzoneObj.ResourceType.PREFIX)) {
-      objectStore.addAcl(ozoneObj, userAcl);
-      // Add another arbitrary group ACL since the prefix will be removed when removing
-      // the last ACL for the prefix and PREFIX_NOT_FOUND will be thrown
-      OzoneAcl groupAcl = new OzoneAcl(GROUP, "arbitrary-group", ACCESS, READ);
-      objectStore.addAcl(ozoneObj, groupAcl);
-    }
-    acls = objectStore.getAcl(ozoneObj);
+    // As by default create will add some default acls in RpcClient.
+    List<OzoneAcl> acls = objectStore.getAcl(ozoneObj);
 
-    assertFalse(acls.isEmpty());
+    Assertions.assertTrue(acls.size() > 0);
 
     // Remove an existing acl.
     boolean removeAcl = objectStore.removeAcl(ozoneObj, acls.get(0));
-    assertTrue(removeAcl);
+    Assertions.assertTrue(removeAcl);
 
     // Trying to remove an already removed acl.
     removeAcl = objectStore.removeAcl(ozoneObj, acls.get(0));
-    assertFalse(removeAcl);
+    Assertions.assertFalse(removeAcl);
 
     boolean addAcl = objectStore.addAcl(ozoneObj, userAcl);
-    assertTrue(addAcl);
+    Assertions.assertTrue(addAcl);
 
     // Just changed acl type here to write, rest all is same as defaultUserAcl.
     OzoneAcl modifiedUserAcl = new OzoneAcl(USER, remoteUserName,
-        DEFAULT, WRITE);
+        WRITE, DEFAULT);
     addAcl = objectStore.addAcl(ozoneObj, modifiedUserAcl);
-    assertTrue(addAcl);
+    Assertions.assertTrue(addAcl);
 
     removeAcl = objectStore.removeAcl(ozoneObj, modifiedUserAcl);
-    assertTrue(removeAcl);
+    Assertions.assertTrue(removeAcl);
 
     removeAcl = objectStore.removeAcl(ozoneObj, userAcl);
-    assertTrue(removeAcl);
+    Assertions.assertTrue(removeAcl);
   }
 
   @Test
@@ -1118,7 +1055,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
           return true;
         }
       } catch (IOException ex) {
-        fail("test failed during transactionInfo read");
+        Assertions.fail("test failed during transactionInfo read");
       }
       return false;
     }, 1000, 100000);
@@ -1147,7 +1084,7 @@ class TestOzoneManagerHAWithAllRunning extends TestOzoneManagerHA {
           return true;
         }
       } catch (IOException ex) {
-        fail("test failed during transactionInfo read");
+        Assertions.fail("test failed during transactionInfo read");
       }
       return false;
     }, 1000, 100000);

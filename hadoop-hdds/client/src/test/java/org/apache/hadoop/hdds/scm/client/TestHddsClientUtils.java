@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,18 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.client;
 
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_CLIENT_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
@@ -36,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.commons.lang3.StringUtils;
+
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationException;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -45,6 +34,24 @@ import org.apache.hadoop.hdds.scm.ha.SCMNodeInfo;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.ha.ConfUtils;
+
+import org.apache.commons.lang3.StringUtils;
+
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_CLIENT_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -98,6 +105,7 @@ public class TestHddsClientUtils {
     conf.set(ScmConfigKeys.OZONE_SCM_NODE_ID_KEY, "scm1");
 
     int port = 9880;
+    int i = 1;
     for (String nodeId : nodes) {
       conf.setInt(ConfUtils.addKeySuffixes(OZONE_SCM_CLIENT_PORT_KEY,
           scmServiceId, nodeId), port);
@@ -122,8 +130,8 @@ public class TestHddsClientUtils {
         HddsUtils.getScmAddressForClients(conf).iterator();
     assertTrue(scmAddrIterator.hasNext());
     InetSocketAddress scmAddr = scmAddrIterator.next();
-    assertEquals(address, scmAddr.getHostString());
-    assertEquals(port, scmAddr.getPort());
+    assertThat(scmAddr.getHostString(), is(address));
+    assertThat(scmAddr.getPort(), is(port));
   }
 
   @Test
@@ -224,13 +232,17 @@ public class TestHddsClientUtils {
     invalidNames.add(tooShort);
 
     for (String name : invalidNames) {
-      assertThrows(IllegalArgumentException.class, () -> HddsClientUtils.verifyResourceName(name),
-          "Did not reject invalid string [" + name + "] as a name");
+      try {
+        HddsClientUtils.verifyResourceName(name);
+        fail("Did not reject invalid string [" + name + "] as a name");
+      } catch (IllegalArgumentException e) {
+        // throwing up on an invalid name. we're good
+      }
     }
   }
 
   @Test
-  void testVerifyKeyName() throws IllegalArgumentException {
+  public void testVerifyKeyName() {
     List<String> invalidNames = new ArrayList<>();
     invalidNames.add("#");
     invalidNames.add("ab^cd");
@@ -249,8 +261,12 @@ public class TestHddsClientUtils {
 
 
     for (String name : invalidNames) {
-      assertThrows(IllegalArgumentException.class, () -> HddsClientUtils.verifyKeyName(name),
-          "Did not reject invalid string [" + name + "] as a name");
+      try {
+        HddsClientUtils.verifyKeyName(name);
+        fail("Did not reject invalid string [" + name + "] as a name");
+      } catch (IllegalArgumentException e) {
+        // throwing up on an invalid name. it's working.
+      }
     }
 
     List<String> validNames = new ArrayList<>();
@@ -272,7 +288,13 @@ public class TestHddsClientUtils {
     validNames.add("dollar$");
 
     for (String name : validNames) {
-      HddsClientUtils.verifyKeyName(name);
+      try {
+        HddsClientUtils.verifyKeyName(name);
+        // not throwing up on a valid name. it's working.
+      } catch (IllegalArgumentException e) {
+        // throwing up on an valid name. it's not working.
+        fail("Rejected valid string [" + name + "] as a name");
+      }
     }
   }
 

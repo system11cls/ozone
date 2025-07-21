@@ -1,28 +1,40 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * contributor license agreements. See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership. The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * <p>http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * <p>Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.ha;
 
-import static org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol.RequestType.SEQUENCE_ID;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SEQUENCE_ID_BATCH_SIZE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SEQUENCE_ID_BATCH_SIZE_DEFAULT;
-
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
+import org.apache.hadoop.hdds.scm.exceptions.SCMException;
+import org.apache.hadoop.hdds.scm.metadata.DBTransactionBuffer;
+import org.apache.hadoop.hdds.scm.container.ContainerID;
+import org.apache.hadoop.hdds.scm.container.ContainerInfo;
+import org.apache.hadoop.hdds.scm.metadata.Replicate;
+import org.apache.hadoop.hdds.scm.metadata.SCMMetadataStore;
+import org.apache.hadoop.hdds.security.x509.certificate.CertInfo;
+import org.apache.hadoop.hdds.utils.UniqueId;
+import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
+import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.math.BigInteger;
 import java.security.cert.X509Certificate;
 import java.time.LocalDate;
@@ -32,20 +44,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.hdds.scm.metadata.DBTransactionBuffer;
-import org.apache.hadoop.hdds.scm.metadata.Replicate;
-import org.apache.hadoop.hdds.scm.metadata.SCMMetadataStore;
-import org.apache.hadoop.hdds.utils.UniqueId;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
-import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol.RequestType.SEQUENCE_ID;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SEQUENCE_ID_BATCH_SIZE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SEQUENCE_ID_BATCH_SIZE_DEFAULT;
 
 /**
  * After SCM starts, set lastId = 0, nextId = lastId + 1.
@@ -329,7 +331,13 @@ public class SequenceIdGenerator {
 
         final StateManager impl = new StateManagerImpl(table, buffer);
 
-        return ratisServer.getProxyHandler(SEQUENCE_ID, StateManager.class, impl);
+        final SCMHAInvocationHandler invocationHandler
+            = new SCMHAInvocationHandler(SEQUENCE_ID, impl, ratisServer);
+
+        return (StateManager) Proxy.newProxyInstance(
+            SCMHAInvocationHandler.class.getClassLoader(),
+            new Class<?>[]{StateManager.class},
+            invocationHandler);
       }
     }
   }
@@ -422,6 +430,16 @@ public class SequenceIdGenerator {
         }
       }
 
+      try (TableIterator<BigInteger,
+          ? extends KeyValue<BigInteger, CertInfo>> iterator =
+               scmMetadataStore.getRevokedCertsV2Table().iterator()) {
+        while (iterator.hasNext()) {
+          X509Certificate cert =
+              iterator.next().getValue().getX509Certificate();
+          largestCertId = Long.max(
+              cert.getSerialNumber().longValueExact(), largestCertId);
+        }
+      }
       sequenceIdTable.put(CERTIFICATE_ID, largestCertId);
       LOG.info("upgrade {} to {}", CERTIFICATE_ID,
           sequenceIdTable.get(CERTIFICATE_ID));

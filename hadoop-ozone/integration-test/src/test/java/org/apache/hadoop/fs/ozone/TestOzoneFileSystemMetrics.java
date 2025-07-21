@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,70 +18,88 @@
 
 package org.apache.hadoop.fs.ozone;
 
-import static org.apache.hadoop.hdds.StringUtils.string2Bytes;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.io.IOException;
-import java.net.URI;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
-import org.apache.hadoop.ozone.om.OmConfig;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.ozone.test.NonHATests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.IOException;
+
+import static org.apache.hadoop.hdds.StringUtils.string2Bytes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test OM Metrics for OzoneFileSystem operations.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Timeout(300)
-public abstract class TestOzoneFileSystemMetrics implements NonHATests.TestCase {
-
-  private OzoneClient client;
-  private FileSystem fs;
-  private OzoneBucket bucket;
-  private OmConfig originalOmConfig;
+public class TestOzoneFileSystemMetrics {
+  private static MiniOzoneCluster cluster = null;
+  private static OzoneClient client;
+  private static FileSystem fs;
+  private static OzoneBucket bucket;
 
   enum TestOps {
     File,
     Directory,
     Key
   }
-
+  /**
+   * Create a MiniDFSCluster for testing.
+   * <p>
+   * Ozone is made active by setting OZONE_ENABLED = true
+   *
+   * @throws IOException
+   */
   @BeforeAll
-  void init() throws Exception {
-    client = cluster().newClient();
-
-    OmConfig omConfig = cluster().getOzoneManager().getConfig();
-    originalOmConfig = omConfig.copy();
-    omConfig.setFileSystemPathEnabled(true);
+  public static void init() throws Exception {
+    OzoneConfiguration conf = new OzoneConfiguration();
+    conf.set(OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT,
+        BucketLayout.LEGACY.name());
+    conf.setBoolean(OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS, true);
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(3)
+        .setChunkSize(2) // MB
+        .setBlockSize(8) // MB
+        .setStreamBufferFlushSize(2) // MB
+        .setStreamBufferMaxSize(4) // MB
+        .build();
+    cluster.waitForClusterToBeReady();
+    client = cluster.newClient();
 
     // create a volume and a bucket to be used by OzoneFileSystem
-    bucket = TestDataUtil.createVolumeAndBucket(client, BucketLayout.LEGACY);
+    bucket = TestDataUtil.createVolumeAndBucket(client);
 
     // Set the fs.defaultFS and start the filesystem
     String uri = String.format("%s://%s.%s/",
         OzoneConsts.OZONE_URI_SCHEME, bucket.getName(), bucket.getVolumeName());
-    fs =  FileSystem.get(URI.create(uri), cluster().getConf());
+    conf.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, uri);
+    fs =  FileSystem.get(conf);
   }
 
+  /**
+   * Shutdown MiniDFSCluster.
+   */
   @AfterAll
-  void cleanup() {
-    IOUtils.closeQuietly(client, fs);
-    cluster().getOzoneManager().getConfig().setFrom(originalOmConfig);
+  public static void shutdown() throws IOException {
+    IOUtils.closeQuietly(client);
+    fs.close();
+    cluster.shutdown();
   }
 
   @Test
@@ -99,7 +118,7 @@ public abstract class TestOzoneFileSystemMetrics implements NonHATests.TestCase 
   }
 
   private void testOzoneFileCommit(TestOps op) throws Exception {
-    long numKeysBeforeCreate = cluster()
+    long numKeysBeforeCreate = cluster
         .getOzoneManager().getMetrics().getNumKeys();
 
     int fileLen = 30 * 1024 * 1024;
@@ -128,15 +147,15 @@ public abstract class TestOzoneFileSystemMetrics implements NonHATests.TestCase 
       throw new IOException("Execution should never reach here." + op);
     }
 
-    long numKeysAfterCommit = cluster()
+    long numKeysAfterCommit = cluster
         .getOzoneManager().getMetrics().getNumKeys();
-    assertThat(numKeysAfterCommit).isGreaterThan(0);
+    assertTrue(numKeysAfterCommit > 0);
     assertEquals(numKeysBeforeCreate + 2, numKeysAfterCommit);
     fs.delete(parentDir, true);
 
-    long numKeysAfterDelete = cluster()
+    long numKeysAfterDelete = cluster
         .getOzoneManager().getMetrics().getNumKeys();
-    assertThat(numKeysAfterDelete).isGreaterThanOrEqualTo(0);
+    assertTrue(numKeysAfterDelete >= 0);
     assertEquals(numKeysBeforeCreate, numKeysAfterDelete);
   }
 }

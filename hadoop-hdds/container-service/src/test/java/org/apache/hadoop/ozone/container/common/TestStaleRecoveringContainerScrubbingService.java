@@ -1,46 +1,22 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.CLOSED;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.RECOVERING;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -59,22 +35,50 @@ import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.keyvalue.statemachine.background.StaleRecoveringContainerScrubbingService;
 import org.apache.ozone.test.TestClock;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
+
+import java.io.File;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.CLOSED;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.RECOVERING;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests to stale recovering container scrubbing service.
  */
+@RunWith(Parameterized.class)
 public class TestStaleRecoveringContainerScrubbingService {
 
-  @TempDir
-  private Path tempDir;
+  @Rule
+  public final TemporaryFolder tempDir = new TemporaryFolder();
   private String datanodeUuid;
   private OzoneConfiguration conf;
   private HddsVolume hddsVolume;
 
-  private ContainerLayoutVersion layout;
-  private String schemaVersion;
+  private final ContainerLayoutVersion layout;
+  private final String schemaVersion;
   private String clusterID;
   private int containerIdNum = 0;
   private MutableVolumeSet volumeSet;
@@ -82,18 +86,22 @@ public class TestStaleRecoveringContainerScrubbingService {
   private final TestClock testClock =
       new TestClock(Instant.now(), ZoneOffset.UTC);
 
-  private void initVersionInfo(ContainerTestVersionInfo versionInfo)
-      throws IOException {
+  public TestStaleRecoveringContainerScrubbingService(
+      ContainerTestVersionInfo versionInfo) {
     this.layout = versionInfo.getLayout();
     this.schemaVersion = versionInfo.getSchemaVersion();
     conf = new OzoneConfiguration();
     ContainerTestVersionInfo.setTestSchemaVersion(schemaVersion, conf);
-    init();
   }
 
-  private void init() throws IOException {
-    File volumeDir =
-        Files.createDirectory(tempDir.resolve("volumeDir")).toFile();
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerTestVersionInfo.versionParameters();
+  }
+
+  @Before
+  public void init() throws IOException {
+    File volumeDir = tempDir.newFolder();
     conf.set(ScmConfigKeys.HDDS_DATANODE_DIR_KEY, volumeDir.getAbsolutePath());
     conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, volumeDir.getAbsolutePath());
     datanodeUuid = UUID.randomUUID().toString();
@@ -105,11 +113,11 @@ public class TestStaleRecoveringContainerScrubbingService {
     volumeSet = mock(MutableVolumeSet.class);
 
     volumeChoosingPolicy = mock(RoundRobinVolumeChoosingPolicy.class);
-    when(volumeChoosingPolicy.chooseVolume(anyList(), anyLong()))
+    Mockito.when(volumeChoosingPolicy.chooseVolume(anyList(), anyLong()))
         .thenReturn(hddsVolume);
   }
 
-  @AfterEach
+  @After
   public void cleanup() throws IOException {
     BlockUtils.shutdownCache(conf);
   }
@@ -142,11 +150,11 @@ public class TestStaleRecoveringContainerScrubbingService {
     return createdIds;
   }
 
-  @ContainerTestVersionInfo.ContainerTest
-  public void testScrubbingStaleRecoveringContainers(
-      ContainerTestVersionInfo versionInfo) throws Exception {
-    initVersionInfo(versionInfo);
-    ContainerSet containerSet = newContainerSet(10, testClock);
+  @Test
+  public void testScrubbingStaleRecoveringContainers()
+      throws Exception {
+    ContainerSet containerSet = new ContainerSet(10);
+    containerSet.setClock(testClock);
     StaleRecoveringContainerScrubbingService srcss =
         new StaleRecoveringContainerScrubbingService(
             50, TimeUnit.MILLISECONDS, 10,
@@ -154,14 +162,14 @@ public class TestStaleRecoveringContainerScrubbingService {
             containerSet);
     testClock.fastForward(1000L);
     Map<Long, ContainerProtos.ContainerDataProto.State> containerStateMap =
-        new HashMap<>();
+            new HashMap<>();
     containerStateMap.putAll(createTestContainers(containerSet, 5, CLOSED)
             .stream().collect(Collectors.toMap(i -> i, i -> CLOSED)));
 
     testClock.fastForward(1000L);
     srcss.runPeriodicalTaskNow();
     //closed container should not be scrubbed
-    assertEquals(5, containerSet.containerCount());
+    Assert.assertTrue(containerSet.containerCount() == 5);
 
     containerStateMap.putAll(createTestContainers(containerSet, 5,
             RECOVERING).stream()
@@ -169,9 +177,9 @@ public class TestStaleRecoveringContainerScrubbingService {
     testClock.fastForward(1000L);
     srcss.runPeriodicalTaskNow();
     //recovering container should be scrubbed since recovering timeout
-    assertEquals(10, containerSet.containerCount());
+    Assert.assertEquals(10, containerSet.containerCount());
     for (Container<?> entry : containerSet) {
-      assertEquals(entry.getContainerState(),
+      Assert.assertEquals(entry.getContainerState(),
               containerStateMap.get(entry.getContainerData().getContainerID()));
     }
 
@@ -183,9 +191,9 @@ public class TestStaleRecoveringContainerScrubbingService {
     testClock.fastForward(1000L);
     srcss.runPeriodicalTaskNow();
     //recovering container should not be scrubbed
-    assertEquals(15, containerSet.containerCount());
+    Assert.assertEquals(15, containerSet.containerCount());
     for (Container<?> entry : containerSet) {
-      assertEquals(entry.getContainerState(),
+      Assert.assertEquals(entry.getContainerState(),
               containerStateMap.get(entry.getContainerData().getContainerID()));
     }
   }

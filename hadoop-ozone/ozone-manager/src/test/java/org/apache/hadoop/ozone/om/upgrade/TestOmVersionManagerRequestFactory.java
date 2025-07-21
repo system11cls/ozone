@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,25 +19,28 @@
 package org.apache.hadoop.ozone.om.upgrade;
 
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateKey;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Set;
+
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeyCreateRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.ozone.test.UnhealthyTest;
 import org.apache.ozone.test.tag.Unhealthy;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.experimental.categories.Category;
 import org.reflections.Reflections;
 
 /**
  * Test OmVersionFactory.
  */
-@Unhealthy("Ignored since this is incompatible" +
+@Category(UnhealthyTest.class) @Unhealthy("Ignored since this is incompatible" +
     " with HDDS-2939 work. Potentially revisit later.")
 public class TestOmVersionManagerRequestFactory {
 
@@ -53,7 +57,7 @@ public class TestOmVersionManagerRequestFactory {
     // Try getting v1 of 'CreateKey'.
     Class<? extends OMClientRequest> requestType =
         omVersionManager.getHandler(CreateKey.name());
-    assertEquals(requestType, OMKeyCreateRequest.class);
+    Assertions.assertEquals(requestType, OMKeyCreateRequest.class);
   }
 
   @Test
@@ -68,10 +72,13 @@ public class TestOmVersionManagerRequestFactory {
       if (Modifier.isAbstract(requestClass.getModifiers())) {
         continue;
       }
+      Method getRequestTypeMethod = requestClass.getMethod(
+          "getRequestType");
+      Assertions.assertNotNull(getRequestTypeMethod);
 
       Constructor<? extends OMClientRequest> constructorWithOmRequestArg =
           requestClass.getDeclaredConstructor(OMRequest.class);
-      assertNotNull(constructorWithOmRequestArg);
+      Assertions.assertNotNull(constructorWithOmRequestArg);
     }
   }
 }

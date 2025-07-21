@@ -1,37 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.recon.api.filters;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.Sets;
-import java.security.Principal;
-import java.util.HashSet;
-import java.util.Set;
-import javax.servlet.FilterChain;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.Path;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.recon.ReconConfigKeys;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
@@ -43,10 +29,20 @@ import org.apache.hadoop.ozone.recon.api.PipelineEndpoint;
 import org.apache.hadoop.ozone.recon.api.TaskStatusService;
 import org.apache.hadoop.ozone.recon.api.UtilizationEndpoint;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
+
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.Path;
+import java.security.Principal;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Tests the admin filter on recon endpoints which should only be accessible
@@ -67,7 +63,7 @@ public class TestAdminFilter {
     Set<Class<?>> allEndpoints =
         reflections.getTypesAnnotatedWith(Path.class);
 
-    assertThat(allEndpoints).isNotEmpty();
+    Assertions.assertFalse(allEndpoints.isEmpty());
 
     // If an endpoint is added, it must either require admin privileges by being
     // marked with the `@AdminOnly` annotation, or be added to this set to exclude it.
@@ -85,19 +81,19 @@ public class TestAdminFilter {
     nonAdminEndpoints.add(PipelineEndpoint.class);
     nonAdminEndpoints.add(TaskStatusService.class);
 
-    assertThat(allEndpoints).containsAll(nonAdminEndpoints);
+    Assertions.assertTrue(allEndpoints.containsAll(nonAdminEndpoints));
 
     Set<Class<?>> adminEndpoints = Sets.difference(allEndpoints,
         nonAdminEndpoints);
 
     for (Class<?> endpoint: nonAdminEndpoints) {
-      assertFalse(endpoint.isAnnotationPresent(AdminOnly.class),
+      Assertions.assertFalse(endpoint.isAnnotationPresent(AdminOnly.class),
           String.format("Endpoint class %s has been declared as non admin " +
               "in this test, but is marked as @AdminOnly.", endpoint));
     }
 
     for (Class<?> endpoint: adminEndpoints) {
-      assertTrue(endpoint.isAnnotationPresent(AdminOnly.class),
+      Assertions.assertTrue(endpoint.isAnnotationPresent(AdminOnly.class),
           String.format("Endpoint class %s must be marked as @AdminOnly " +
               "or explicitly declared as non admin in this test.", endpoint));
     }
@@ -172,21 +168,21 @@ public class TestAdminFilter {
 
   private void testAdminFilterWithPrincipal(OzoneConfiguration conf,
       String principalToUse, boolean shouldPass) throws Exception {
-    Principal mockPrincipal = mock(Principal.class);
-    when(mockPrincipal.getName()).thenReturn(principalToUse);
-    HttpServletRequest mockRequest = mock(HttpServletRequest.class);
-    when(mockRequest.getUserPrincipal()).thenReturn(mockPrincipal);
+    Principal mockPrincipal = Mockito.mock(Principal.class);
+    Mockito.when(mockPrincipal.getName()).thenReturn(principalToUse);
+    HttpServletRequest mockRequest = Mockito.mock(HttpServletRequest.class);
+    Mockito.when(mockRequest.getUserPrincipal()).thenReturn(mockPrincipal);
 
-    HttpServletResponse mockResponse = mock(HttpServletResponse.class);
-    FilterChain mockFilterChain = mock(FilterChain.class);
+    HttpServletResponse mockResponse = Mockito.mock(HttpServletResponse.class);
+    FilterChain mockFilterChain = Mockito.mock(FilterChain.class);
 
     new ReconAdminFilter(conf).doFilter(mockRequest, mockResponse,
         mockFilterChain);
 
     if (shouldPass) {
-      verify(mockFilterChain).doFilter(mockRequest, mockResponse);
+      Mockito.verify(mockFilterChain).doFilter(mockRequest, mockResponse);
     } else {
-      verify(mockResponse).setStatus(HttpServletResponse.SC_FORBIDDEN);
+      Mockito.verify(mockResponse).setStatus(HttpServletResponse.SC_FORBIDDEN);
     }
   }
 }

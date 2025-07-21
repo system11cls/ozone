@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +18,21 @@
 
 package org.apache.hadoop.ozone.client;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.crypto.key.KeyProvider;
+
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.crypto.key.KeyProvider;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
-import org.apache.hadoop.ozone.OzoneFsServerDefaults;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -47,9 +46,11 @@ import org.apache.hadoop.ozone.om.helpers.TenantUserList;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.ozone.snapshot.CancelSnapshotDiffResponse;
-import org.apache.hadoop.ozone.snapshot.ListSnapshotResponse;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import org.apache.hadoop.security.token.Token;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,7 @@ public class ObjectStore {
   private static final Logger LOG =
       LoggerFactory.getLogger(ObjectStore.class);
 
+  private final ConfigurationSource conf;
   /**
    * The proxy used for connecting to the cluster and perform
    * client operations.
@@ -74,6 +76,7 @@ public class ObjectStore {
    * Cache size to be used for listVolume calls.
    */
   private int listCacheSize;
+  private final String defaultS3Volume;
   private BucketLayout s3BucketLayout;
 
   /**
@@ -82,8 +85,10 @@ public class ObjectStore {
    * @param proxy ClientProtocol proxy.
    */
   public ObjectStore(ConfigurationSource conf, ClientProtocol proxy) {
+    this.conf = conf;
     this.proxy = TracingUtil.createProxy(proxy, ClientProtocol.class, conf);
     this.listCacheSize = HddsClientUtils.getListCacheSize(conf);
+    defaultS3Volume = HddsClientUtils.getDefaultS3VolumeName(conf);
     s3BucketLayout = OmUtils.validateBucketLayout(
         conf.getTrimmed(
             OzoneConfigKeys.OZONE_S3G_DEFAULT_BUCKET_LAYOUT_KEY,
@@ -93,7 +98,9 @@ public class ObjectStore {
   @VisibleForTesting
   protected ObjectStore() {
     // For the unit test
+    this.conf = new OzoneConfiguration();
     proxy = null;
+    defaultS3Volume = HddsClientUtils.getDefaultS3VolumeName(conf);
   }
 
   @VisibleForTesting
@@ -207,7 +214,7 @@ public class ObjectStore {
    * Set secretKey for accessId.
    * @param accessId
    * @param secretKey
-   * @return {@code S3SecretValue <accessId, secretKey>} pair
+   * @return S3SecretValue <accessId, secretKey> pair
    * @throws IOException
    */
   public S3SecretValue setS3Secret(String accessId, String secretKey)
@@ -380,10 +387,6 @@ public class ObjectStore {
    */
   public void deleteVolume(String volumeName) throws IOException {
     proxy.deleteVolume(volumeName);
-  }
-
-  public OzoneFsServerDefaults getServerDefaults() throws IOException {
-    return proxy.getServerDefaults();
   }
 
   public KeyProvider getKeyProvider() throws IOException {
@@ -563,21 +566,6 @@ public class ObjectStore {
   }
 
   /**
-   * Rename snapshot.
-   *
-   * @param volumeName vol to be used
-   * @param bucketName bucket to be used
-   * @param snapshotOldName Old name of the snapshot
-   * @param snapshotNewName New name of the snapshot
-   *
-   * @throws IOException
-   */
-  public void renameSnapshot(String volumeName,
-      String bucketName, String snapshotOldName, String snapshotNewName) throws IOException {
-    proxy.renameSnapshot(volumeName, bucketName, snapshotOldName, snapshotNewName);
-  }
-
-  /**
    * Delete snapshot.
    * @param volumeName vol to be used
    * @param bucketName bucket to be used
@@ -609,66 +597,14 @@ public class ObjectStore {
    * @param bucketName     bucket name
    * @param snapshotPrefix snapshot prefix to match
    * @param prevSnapshot   snapshots will be listed after this snapshot name
-   * @return an iterator of snapshots for volume/bucket snapshot path.
+   * @return list of snapshots for volume/bucket snapshot path.
    * @throws IOException
    */
-  public Iterator<OzoneSnapshot> listSnapshot(String volumeName,
-                                              String bucketName,
-                                              String snapshotPrefix,
-                                              String prevSnapshot) throws IOException {
-    return new SnapshotIterator(volumeName, bucketName, snapshotPrefix, prevSnapshot);
-  }
-
-  /**
-   * An Iterator to iterate over {@link OzoneSnapshot} list.
-   */
-  private final class SnapshotIterator implements Iterator<OzoneSnapshot> {
-
-    private final String volumeName;
-    private final String bucketName;
-    private final String snapshotPrefix;
-    private String lastSnapshot = null;
-
-    private Iterator<OzoneSnapshot> currentIterator;
-
-    SnapshotIterator(String volumeName,
-                     String bucketName,
-                     String snapshotPrefix,
-                     String prevSnapshot) throws IOException {
-      this.volumeName = volumeName;
-      this.bucketName = bucketName;
-      this.snapshotPrefix = snapshotPrefix;
-      // Initialized the currentIterator and continuationToken.
-      getNextListOfSnapshots(prevSnapshot);
-    }
-
-    @Override
-    public boolean hasNext() {
-      if (!currentIterator.hasNext() && StringUtils.isNotEmpty(lastSnapshot)) {
-        try {
-          // fetch the next page if lastSnapshot is not null.
-          getNextListOfSnapshots(lastSnapshot);
-        } catch (IOException e) {
-          LOG.error("Error retrieving next batch of list results", e);
-        }
-      }
-      return currentIterator.hasNext();
-    }
-
-    @Override
-    public OzoneSnapshot next() {
-      if (hasNext()) {
-        return currentIterator.next();
-      }
-      throw new NoSuchElementException();
-    }
-
-    private void getNextListOfSnapshots(String startSnapshot) throws IOException {
-      ListSnapshotResponse response =
-          proxy.listSnapshot(volumeName, bucketName, snapshotPrefix, startSnapshot, listCacheSize);
-      currentIterator = response.getSnapshotInfos().stream().map(OzoneSnapshot::fromSnapshotInfo).iterator();
-      lastSnapshot = response.getLastSnapshot();
-    }
+  public Iterator<? extends OzoneSnapshot> listSnapshot(
+      String volumeName, String bucketName, String snapshotPrefix,
+      String prevSnapshot) throws IOException {
+    return new SnapshotIterator(
+        volumeName, bucketName, snapshotPrefix, prevSnapshot);
   }
 
   /**
@@ -681,6 +617,72 @@ public class ObjectStore {
   public String printCompactionLogDag(String fileNamePrefix,
                                       String graphType) throws IOException {
     return proxy.printCompactionLogDag(fileNamePrefix, graphType);
+  }
+
+  /**
+   * An Iterator to iterate over {@link OzoneSnapshot} list.
+   */
+  private class SnapshotIterator implements Iterator<OzoneSnapshot> {
+
+    private String volumeName = null;
+    private String bucketName = null;
+    private String snapshotPrefix = null;
+
+    private Iterator<OzoneSnapshot> currentIterator;
+    private OzoneSnapshot currentValue;
+
+    /**
+     * Creates an Iterator to iterate over all snapshots after
+     * prevSnapshot of specified bucket. If prevSnapshot is null it iterates
+     * from the first snapshot. The returned snapshots match snapshot prefix.
+     * @param snapshotPrefix snapshot prefix to match
+     * @param prevSnapshot snapshots will be listed after this snapshot name
+     */
+    SnapshotIterator(String volumeName, String bucketName,
+                     String snapshotPrefix, String prevSnapshot)
+        throws IOException {
+      this.volumeName = volumeName;
+      this.bucketName = bucketName;
+      this.snapshotPrefix = snapshotPrefix;
+      this.currentValue = null;
+      this.currentIterator = getNextListOfSnapshots(prevSnapshot).iterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+      // IMPORTANT: Without this logic, remote iteration will not work.
+      // Removing this will break the listSnapshot call if we try to
+      // list more than 1000 (ozone.client.list.cache ) snapshots.
+      if (!currentIterator.hasNext() && currentValue != null) {
+        try {
+          currentIterator = getNextListOfSnapshots(currentValue.getName())
+              .iterator();
+        } catch (IOException e) {
+          LOG.error("Error retrieving next batch of list results", e);
+        }
+      }
+      return currentIterator.hasNext();
+    }
+
+    @Override
+    public OzoneSnapshot next() {
+      if (hasNext()) {
+        currentValue = currentIterator.next();
+        return currentValue;
+      }
+      throw new NoSuchElementException();
+    }
+
+    /**
+     * Returns the next set of snapshot list using proxy.
+     * @param prevSnapshot previous snapshot, this will be excluded from result
+     * @return {@code List<OzoneSnapshot>}
+     */
+    private List<OzoneSnapshot> getNextListOfSnapshots(String prevSnapshot)
+        throws IOException {
+      return proxy.listSnapshot(volumeName, bucketName, snapshotPrefix,
+          prevSnapshot, listCacheSize);
+    }
   }
 
   /**

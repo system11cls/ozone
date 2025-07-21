@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,12 +19,14 @@
 package org.apache.hadoop.ozone.om.upgrade;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_SUPPORTED_OPERATION;
+import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.INITIAL_VERSION;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Set;
+
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.upgrade.AbstractLayoutVersionManager;
@@ -36,6 +39,8 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Class to manage layout versions and features for Ozone Manager.
@@ -93,7 +98,7 @@ public final class OMLayoutVersionManager
         .forPackages(packageName)
         .setScanners(new TypeAnnotationsScanner(), new SubTypesScanner())
         .setExpandSuperTypes(false)
-        .setParallel(true));
+        .useParallelExecutor());
     Set<Class<?>> typesAnnotatedWith =
         reflections.getTypesAnnotatedWith(UpgradeActionOm.class);
     typesAnnotatedWith.forEach(actionClass -> {
@@ -122,6 +127,35 @@ public final class OMLayoutVersionManager
     });
   }
 
+  private void registerOzoneManagerRequests(String packageName) {
+    try {
+      for (Class<? extends OMClientRequest> reqClass :
+          getRequestClasses(packageName)) {
+        try {
+          Method getRequestTypeMethod = reqClass.getMethod(
+              "getRequestType");
+          String type = (String) getRequestTypeMethod.invoke(null);
+          LOG.debug("Registering {} with OmVersionFactory.",
+              reqClass.getSimpleName());
+          BelongsToLayoutVersion annotation =
+              reqClass.getAnnotation(BelongsToLayoutVersion.class);
+          if (annotation == null) {
+            registerRequestType(type, INITIAL_VERSION.layoutVersion(),
+                reqClass);
+          } else {
+            registerRequestType(type, annotation.value().layoutVersion(),
+                reqClass);
+          }
+        } catch (NoSuchMethodException nsmEx) {
+          LOG.warn("Found a class {} with request type not defined. ",
+              reqClass.getSimpleName());
+        }
+      }
+    } catch (Exception ex) {
+      LOG.error("Exception registering OM client request.", ex);
+    }
+  }
+
   @VisibleForTesting
   public static Set<Class<? extends OMClientRequest>> getRequestClasses(
       String packageName) {
@@ -129,7 +163,7 @@ public final class OMLayoutVersionManager
         .setUrls(ClasspathHelper.forPackage(packageName))
         .setScanners(new SubTypesScanner())
         .setExpandSuperTypes(false)
-        .setParallel(true));
+        .useParallelExecutor());
     Set<Class<? extends OMClientRequest>> validRequests = new HashSet<>();
 
     Set<Class<? extends OMClientRequest>> subTypes =
@@ -140,6 +174,13 @@ public final class OMLayoutVersionManager
       }
     }
     return validRequests;
+  }
+
+  private void registerRequestType(String type, int version,
+                                   Class<? extends OMClientRequest> reqClass) {
+    VersionFactoryKey key = new VersionFactoryKey.Builder()
+        .key(type).version(version).build();
+    requestFactory.register(this, key, reqClass);
   }
 
   /**

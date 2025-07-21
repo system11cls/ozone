@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,14 +14,21 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.utils.db;
 
-import static org.apache.hadoop.hdds.utils.db.DBConfigFromFile.getOptionsFileNameFromDB;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.DBOptions;
+import org.rocksdb.RocksDB;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,16 +38,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.commons.io.FileUtils;
+
 import org.apache.hadoop.hdds.StringUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.DBOptions;
-import org.rocksdb.RocksDB;
+
+import static org.apache.hadoop.hdds.utils.db.DBConfigFromFile.getOptionsFileNameFromDB;
 
 /**
  * DBConf tests.
@@ -82,10 +84,10 @@ public class TestDBConfigFromFile {
 
     // Some Random Values Defined in the test.db.ini, we verify that we are
     // able to get values that are defined in the test.db.ini.
-    assertNotNull(options);
-    assertEquals(551615L, options.maxManifestFileSize());
-    assertEquals(1000L, options.keepLogFileNum());
-    assertEquals(1048576, options.writableFileMaxBufferSize());
+    Assertions.assertNotNull(options);
+    Assertions.assertEquals(551615L, options.maxManifestFileSize());
+    Assertions.assertEquals(1000L, options.keepLogFileNum());
+    Assertions.assertEquals(1048576, options.writableFileMaxBufferSize());
   }
 
   @Test
@@ -107,6 +109,6 @@ public class TestDBConfigFromFile {
         columnFamilyDescriptors);
 
     // This has to return a Null, since we have config defined for badfile.db
-    assertNull(options);
+    Assertions.assertNull(options);
   }
 }

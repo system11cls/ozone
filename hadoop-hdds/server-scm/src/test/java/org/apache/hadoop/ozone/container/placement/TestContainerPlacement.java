@@ -1,40 +1,37 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.container.placement;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.container.MockNodeManager;
 import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementCapacity;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementMetrics;
 import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRandom;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.junit.jupiter.api.Assertions;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -76,15 +73,16 @@ public class TestContainerPlacement {
     DescriptiveStatistics beforeRandom = computeStatistics(nodeManagerRandom);
 
     //Assert that our initial layout of clusters are similar.
-    assertEquals(beforeCapacity.getStandardDeviation(), beforeRandom.getStandardDeviation(), 0.001);
+    assertEquals(beforeCapacity.getStandardDeviation(), beforeRandom
+        .getStandardDeviation(), 0.001);
 
     SCMContainerPlacementCapacity capacityPlacer = new
         SCMContainerPlacementCapacity(nodeManagerCapacity,
         new OzoneConfiguration(),
-        null, true, mock(SCMContainerPlacementMetrics.class));
+        null, true, null);
     SCMContainerPlacementRandom randomPlacer = new
         SCMContainerPlacementRandom(nodeManagerRandom, new OzoneConfiguration(),
-        null, true, mock(SCMContainerPlacementMetrics.class));
+        null, true, null);
 
     for (int x = 0; x < opsCount; x++) {
       long containerSize = random.nextInt(10) * OzoneConsts.GB;
@@ -113,14 +111,15 @@ public class TestContainerPlacement {
     // This is a very bold claim, and needs large number of I/O operations.
     // The claim in this assertion is that we improved the data distribution
     // of this cluster in relation to the start state of the cluster.
-    assertThat(beforeCapacity.getStandardDeviation())
-        .isGreaterThan(postCapacity.getStandardDeviation());
+    Assertions.assertTrue(beforeCapacity.getStandardDeviation() >
+        postCapacity.getStandardDeviation());
 
     // This asserts that Capacity placement yields a better placement
     // algorithm than random placement, since both cluster started at an
     // identical state.
-    assertThat(postRandom.getStandardDeviation())
-        .isGreaterThan(postCapacity.getStandardDeviation());
+
+    Assertions.assertTrue(postRandom.getStandardDeviation() >
+        postCapacity.getStandardDeviation());
   }
 
   private void deleteContainer(MockNodeManager nodeManager,

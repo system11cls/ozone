@@ -1,26 +1,30 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.lease;
 
+import org.apache.hadoop.util.Time;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.hadoop.util.Time;
 
 /**
  * This class represents the lease created on a resource. Callback can be
@@ -45,9 +49,9 @@ public class Lease<T> {
   private boolean expired;
 
   /**
-   * Function to be called in case of timeout.
+   * Functions to be called in case of timeout.
    */
-  private Callable<Void> callback;
+  private List<Callable<Void>> callbacks;
 
 
   /**
@@ -59,7 +63,11 @@ public class Lease<T> {
    *        Lease lifetime in milliseconds
    */
   public Lease(T resource, long timeout) {
-    this(resource, timeout, null);
+    this.resource = resource;
+    this.leaseTimeout = new AtomicLong(timeout);
+    this.callbacks = Collections.synchronizedList(new ArrayList<>());
+    this.creationTime = Time.monotonicNow();
+    this.expired = false;
   }
 
   /**
@@ -73,11 +81,8 @@ public class Lease<T> {
    *        Callback registered to be triggered when lease expire
    */
   public Lease(T resource, long timeout, Callable<Void> callback) {
-    this.resource = resource;
-    this.leaseTimeout = new AtomicLong(timeout);
-    this.callback = callback;
-    this.creationTime = Time.monotonicNow();
-    this.expired = false;
+    this(resource, timeout);
+    callbacks.add(callback);
   }
 
   /**
@@ -171,15 +176,15 @@ public class Lease<T> {
    *
    * @return callbacks to be executed
    */
-  Callable<Void> getCallback() {
-    return callback;
+  List<Callable<Void>> getCallbacks() {
+    return callbacks;
   }
 
   /**
    * Expires/Invalidates the lease.
    */
   void invalidate() {
-    callback = null;
+    callbacks = null;
     expired = true;
   }
 

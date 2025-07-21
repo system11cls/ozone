@@ -1,29 +1,31 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.lease;
 
-import static org.apache.hadoop.ozone.lease.Lease.messageForResource;
-
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.apache.hadoop.ozone.lease.Lease.messageForResource;
+
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -266,10 +268,10 @@ public class LeaseManager<T> {
             long remainingTime = lease.getRemainingTime();
             if (remainingTime <= 0) {
               //Lease has timed out
-              Callable<Void> leaseCallback = lease.getCallback();
+              List<Callable<Void>> leaseCallbacks = lease.getCallbacks();
               release(resource);
               executorService.execute(
-                  new LeaseCallbackExecutor<>(resource, leaseCallback));
+                  new LeaseCallbackExecutor<>(resource, leaseCallbacks));
             } else {
               sleepTime = Math.min(remainingTime, sleepTime);
             }
@@ -280,7 +282,7 @@ public class LeaseManager<T> {
 
         try {
           // ignore return value, just used for wait
-          boolean ignored = semaphore.tryAcquire(sleepTime, TimeUnit.MILLISECONDS);
+          boolean b = semaphore.tryAcquire(sleepTime, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
           LOG.warn("Lease manager is interrupted. Shutting down...", e);
           Thread.currentThread().interrupt();

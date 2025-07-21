@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,15 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.container.balancer;
 
-import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.NODEGROUP_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.scm.container.MockNodeManager;
@@ -36,6 +28,17 @@ import org.apache.hadoop.hdds.scm.net.NodeSchema;
 import org.apache.hadoop.hdds.scm.net.NodeSchemaManager;
 import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.NODEGROUP_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests for all the implementations of FindTargetStrategy.
@@ -75,13 +78,16 @@ public class TestFindTargetStrategy {
 
     Object[] sortedPotentialTargetArray = potentialTargets.toArray();
 
-    assertEquals(3, sortedPotentialTargetArray.length);
+    Assertions.assertEquals(sortedPotentialTargetArray.length, 3);
 
     //make sure after sorting target for source, the potentialTargets is
     //sorted in descending order of usage
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[0]).getDatanodeDetails(), dui3.getDatanodeDetails());
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[1]).getDatanodeDetails(), dui2.getDatanodeDetails());
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[2]).getDatanodeDetails(), dui1.getDatanodeDetails());
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[0])
+        .getDatanodeDetails(), dui3.getDatanodeDetails());
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[1])
+        .getDatanodeDetails(), dui2.getDatanodeDetails());
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[2])
+        .getDatanodeDetails(), dui1.getDatanodeDetails());
 
   }
 
@@ -112,8 +118,10 @@ public class TestFindTargetStrategy {
     List<DatanodeDetails> newPotentialTargets = new ArrayList<>(1);
     newPotentialTargets.add(dui1.getDatanodeDetails());
     findTargetGreedyByUsageInfo.resetPotentialTargets(newPotentialTargets);
-    assertEquals(1, findTargetGreedyByUsageInfo.getPotentialTargets().size());
-    assertEquals(dui1, findTargetGreedyByUsageInfo.getPotentialTargets().iterator().next());
+    Assertions.assertEquals(1,
+        findTargetGreedyByUsageInfo.getPotentialTargets().size());
+    Assertions.assertEquals(dui1,
+        findTargetGreedyByUsageInfo.getPotentialTargets().iterator().next());
   }
 
   /**
@@ -198,21 +206,26 @@ public class TestFindTargetStrategy {
         findTargetGreedyByNetworkTopology.getPotentialTargets();
 
     Object[] sortedPotentialTargetArray = potentialTargets.toArray();
-    assertEquals(5, sortedPotentialTargetArray.length);
+    Assertions.assertEquals(sortedPotentialTargetArray.length, 5);
 
     // although target1 has the highest usage, it has the nearest network
     // topology distance to source, so it should be at the head of the
     // sorted PotentialTargetArray
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[0]).getDatanodeDetails(), target1);
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[0])
+        .getDatanodeDetails(), target1);
 
     // these targets have same network topology distance to source,
     // so they should be sorted by usage
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[1]).getDatanodeDetails(), target4);
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[2]).getDatanodeDetails(), target3);
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[3]).getDatanodeDetails(), target2);
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[1])
+        .getDatanodeDetails(), target4);
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[2])
+        .getDatanodeDetails(), target3);
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[3])
+        .getDatanodeDetails(), target2);
 
     //target5 has the lowest usage , but it has the farthest distance to source
     //so it should be at the tail of the sorted PotentialTargetArray
-    assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[4]).getDatanodeDetails(), target5);
+    Assertions.assertEquals(((DatanodeUsageInfo)sortedPotentialTargetArray[4])
+        .getDatanodeDetails(), target5);
   }
 }

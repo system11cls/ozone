@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,33 +18,32 @@
 
 package org.apache.hadoop.ozone.recon.tasks;
 
-import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.initializeNewOmMetadataManager;
-import static org.apache.hadoop.ozone.recon.tasks.OMDBUpdateEvent.OMDBUpdateAction.PUT;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.codec.OMDBDefinition;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmPrefixInfo;
+import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmPrefixInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.initializeNewOmMetadataManager;
+import static org.apache.hadoop.ozone.recon.tasks.OMDBUpdateEvent.OMDBUpdateAction.PUT;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 /**
  * Test class for OmUpdateEventValidator.
@@ -51,7 +51,7 @@ import org.slf4j.Logger;
 public class TestOmUpdateEventValidator {
 
   private OmUpdateEventValidator eventValidator;
-  private final OMDBDefinition omdbDefinition = OMDBDefinition.get();
+  private OMDBDefinition omdbDefinition;
   private OMMetadataManager omMetadataManager;
   private Logger logger;
   @TempDir
@@ -61,10 +61,11 @@ public class TestOmUpdateEventValidator {
   public void setUp() throws IOException {
     omMetadataManager = initializeNewOmMetadataManager(
         temporaryFolder.toFile());
+    omdbDefinition = new OMDBDefinition();
     eventValidator = new OmUpdateEventValidator(omdbDefinition);
     // Create a mock logger
     logger = mock(Logger.class);
-    OmUpdateEventValidator.setLogger(logger);
+    eventValidator.setLogger(logger);
   }
 
   @Test
@@ -95,7 +96,7 @@ public class TestOmUpdateEventValidator {
         mock(SnapshotInfo.class), "key1", PUT));
 
     // Verify that no log message is printed
-    verify(logger, never()).warn(anyString());
+    verify(logger, Mockito.never()).warn(Mockito.anyString());
   }
 
   @Test
@@ -137,7 +138,7 @@ public class TestOmUpdateEventValidator {
     // Assert that the captured log messages are not empty
     List<String> logMessages = captor.getAllValues();
     for (String logMessage : logMessages) {
-      assertThat(logMessage).isNotEmpty();
+      assertFalse(logMessage.isEmpty(), "Warning message is empty");
     }
   }
 

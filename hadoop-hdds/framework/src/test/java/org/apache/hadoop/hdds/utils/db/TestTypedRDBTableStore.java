@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,23 +14,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.utils.db;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,18 +27,23 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import org.apache.commons.lang3.RandomStringUtils;
+
+
 import org.apache.hadoop.hdds.StringUtils;
-import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedDBOptions;
 import org.apache.ozone.test.GenericTestUtils;
+import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
+
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 import org.rocksdb.RocksDB;
 import org.rocksdb.Statistics;
 import org.rocksdb.StatsLevel;
@@ -112,12 +105,12 @@ public class TestTypedRDBTableStore {
           RandomStringUtils.random(10);
       String value = RandomStringUtils.random(10);
       testTable.put(key, value);
-      assertFalse(testTable.isEmpty());
+      Assertions.assertFalse(testTable.isEmpty());
       String readValue = testTable.get(key);
-      assertEquals(value, readValue);
+      Assertions.assertEquals(value, readValue);
     }
     try (Table secondTable = rdbStore.getTable("Second")) {
-      assertTrue(secondTable.isEmpty());
+      Assertions.assertTrue(secondTable.isEmpty());
     }
   }
 
@@ -149,21 +142,21 @@ public class TestTypedRDBTableStore {
     //Assert we find only expected keys in the Table.
     try (Table<String, String> testTable = createTypedTable(
         "Fourth")) {
-      for (String deletedKey : deletedKeys) {
-        testTable.put(deletedKey, value);
-        testTable.delete(deletedKey);
+      for (int x = 0; x < deletedKeys.size(); x++) {
+        testTable.put(deletedKeys.get(x), value);
+        testTable.delete(deletedKeys.get(x));
       }
 
-      for (String validKey : validKeys) {
-        testTable.put(validKey, value);
+      for (int x = 0; x < validKeys.size(); x++) {
+        testTable.put(validKeys.get(x), value);
       }
 
-      for (String validKey : validKeys) {
-        assertNotNull(testTable.get(validKey));
+      for (int x = 0; x < validKeys.size(); x++) {
+        Assertions.assertNotNull(testTable.get(validKeys.get(0)));
       }
 
-      for (String deletedKey : deletedKeys) {
-        assertNull(testTable.get(deletedKey));
+      for (int x = 0; x < deletedKeys.size(); x++) {
+        Assertions.assertNull(testTable.get(deletedKeys.get(0)));
       }
     }
   }
@@ -185,7 +178,7 @@ public class TestTypedRDBTableStore {
       rdbStore.commitBatchOperation(batch);
 
       //then
-      assertNotNull(testTable.get(key));
+      Assertions.assertNotNull(testTable.get(key));
     }
   }
 
@@ -207,13 +200,17 @@ public class TestTypedRDBTableStore {
       rdbStore.commitBatchOperation(batch);
 
       //then
-      assertNull(testTable.get(key));
+      Assertions.assertNull(testTable.get(key));
     }
   }
 
   private static boolean consume(Table.KeyValue keyValue) {
     count++;
-    assertNotNull(assertDoesNotThrow(keyValue::getKey));
+    try {
+      Assertions.assertNotNull(keyValue.getKey());
+    } catch (IOException ex) {
+      Assertions.fail(ex.toString());
+    }
     return true;
   }
 
@@ -238,10 +235,10 @@ public class TestTypedRDBTableStore {
           localCount++;
         }
 
-        assertEquals(iterCount, localCount);
+        Assertions.assertEquals(iterCount, localCount);
         iter.seekToFirst();
         iter.forEachRemaining(TestTypedRDBTableStore::consume);
-        assertEquals(iterCount, count);
+        Assertions.assertEquals(iterCount, count);
 
       }
     }
@@ -249,12 +246,12 @@ public class TestTypedRDBTableStore {
 
   @Test
   public void testIteratorOnException() throws Exception {
-    RDBTable rdbTable = mock(RDBTable.class);
-    when(rdbTable.iterator((CodecBuffer) null))
+    RDBTable rdbTable = Mockito.mock(RDBTable.class);
+    Mockito.when(rdbTable.iterator((CodecBuffer) null))
         .thenThrow(new IOException());
     try (Table<String, String> testTable = new TypedTable<>(rdbTable,
         codecRegistry, String.class, String.class)) {
-      assertThrows(IOException.class, testTable::iterator);
+      Assertions.assertThrows(IOException.class, testTable::iterator);
     }
   }
 
@@ -274,7 +271,7 @@ public class TestTypedRDBTableStore {
       // As we have added to cache, so get should return value even if it
       // does not exist in DB.
       for (int x = 0; x < iterCount; x++) {
-        assertEquals(Integer.toString(1),
+        Assertions.assertEquals(Integer.toString(1),
             testTable.get(Integer.toString(1)));
       }
 
@@ -304,10 +301,10 @@ public class TestTypedRDBTableStore {
       // does not exist in DB.
       for (int x = 0; x < iterCount; x++) {
         if (x % 2 == 0) {
-          assertEquals(Integer.toString(x),
+          Assertions.assertEquals(Integer.toString(x),
               testTable.get(Integer.toString(x)));
         } else {
-          assertNull(testTable.get(Integer.toString(x)));
+          Assertions.assertNull(testTable.get(Integer.toString(x)));
         }
       }
 
@@ -325,10 +322,10 @@ public class TestTypedRDBTableStore {
       //Check remaining values
       for (int x = 6; x < iterCount; x++) {
         if (x % 2 == 0) {
-          assertEquals(Integer.toString(x),
+          Assertions.assertEquals(Integer.toString(x),
               testTable.get(Integer.toString(x)));
         } else {
-          assertNull(testTable.get(Integer.toString(x)));
+          Assertions.assertNull(testTable.get(Integer.toString(x)));
         }
       }
 
@@ -344,13 +341,13 @@ public class TestTypedRDBTableStore {
           RandomStringUtils.random(10);
       String value = RandomStringUtils.random(10);
       testTable.put(key, value);
-      assertTrue(testTable.isExist(key));
+      Assertions.assertTrue(testTable.isExist(key));
 
       String invalidKey = key + RandomStringUtils.random(1);
-      assertFalse(testTable.isExist(invalidKey));
+      Assertions.assertFalse(testTable.isExist(invalidKey));
 
       testTable.delete(key);
-      assertFalse(testTable.isExist(key));
+      Assertions.assertFalse(testTable.isExist(key));
     }
   }
 
@@ -362,13 +359,13 @@ public class TestTypedRDBTableStore {
           RandomStringUtils.random(10);
       String value = RandomStringUtils.random(10);
       testTable.put(key, value);
-      assertNotNull(testTable.getIfExist(key));
+      Assertions.assertNotNull(testTable.getIfExist(key));
 
       String invalidKey = key + RandomStringUtils.random(1);
-      assertNull(testTable.getIfExist(invalidKey));
+      Assertions.assertNull(testTable.getIfExist(invalidKey));
 
       testTable.delete(key);
-      assertNull(testTable.getIfExist(key));
+      Assertions.assertNull(testTable.getIfExist(key));
     }
   }
 
@@ -381,11 +378,11 @@ public class TestTypedRDBTableStore {
       String value = RandomStringUtils.random(10);
       testTable.addCacheEntry(new CacheKey<>(key),
           CacheValue.get(1L, value));
-      assertTrue(testTable.isExist(key));
+      Assertions.assertTrue(testTable.isExist(key));
 
       testTable.addCacheEntry(new CacheKey<>(key),
           CacheValue.get(1L));
-      assertFalse(testTable.isExist(key));
+      Assertions.assertFalse(testTable.isExist(key));
     }
   }
 
@@ -403,7 +400,7 @@ public class TestTypedRDBTableStore {
       }
       long keyCount = testTable.getEstimatedKeyCount();
       // The result should be larger than zero but not exceed(?) numKeys
-      assertThat(keyCount).isGreaterThan(0).isLessThanOrEqualTo(numKeys);
+      Assertions.assertTrue(keyCount > 0 && keyCount <= numKeys);
     }
   }
 
@@ -417,11 +414,11 @@ public class TestTypedRDBTableStore {
       byte[] value = new byte[] {4, 5, 6};
       testTable.put(key, value);
       byte[] actualValue = testTable.get(key);
-      assertArrayEquals(value, testTable.get(key));
-      assertNotSame(value, actualValue);
+      Assertions.assertArrayEquals(value, testTable.get(key));
+      Assertions.assertNotSame(value, actualValue);
       testTable.addCacheEntry(new CacheKey<>(key),
               CacheValue.get(1L, value));
-      assertSame(value, testTable.get(key));
+      Assertions.assertSame(value, testTable.get(key));
     }
   }
 }

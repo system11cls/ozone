@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +18,15 @@
 
 package org.apache.hadoop.ozone.debug;
 
-import java.io.IOException;
-import org.apache.hadoop.hdds.cli.DebugSubcommand;
+import org.apache.hadoop.hdds.cli.SubcommandWithParent;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientException;
 import org.apache.hadoop.ozone.shell.Handler;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
 import org.kohsuke.MetaInfServices;
 import picocli.CommandLine;
+
+import java.io.IOException;
 
 /**
  * Handler to generate image for current compaction DAG in the OM leader node.
@@ -33,9 +36,9 @@ import picocli.CommandLine;
     name = "print-log-dag",
     aliases = "pld",
     description = "Create an image of the current compaction log DAG in OM.")
-@MetaInfServices(DebugSubcommand.class)
+@MetaInfServices(SubcommandWithParent.class)
 public class CompactionLogDagPrinter extends Handler
-    implements DebugSubcommand {
+    implements SubcommandWithParent {
 
   @CommandLine.Option(names = {"-f", "--file-name-prefix"},
       description = "Prefix to be use in image file name. (optional)")
@@ -54,8 +57,13 @@ public class CompactionLogDagPrinter extends Handler
   private String graphType;
 
   @Override
+  public Class<?> getParentType() {
+    return OzoneDebug.class;
+  }
+
+  @Override
   protected void execute(OzoneClient client, OzoneAddress address)
-      throws IOException {
+      throws IOException, OzoneClientException {
     String message = client.getObjectStore()
         .printCompactionLogDag(fileNamePrefix, graphType);
     System.out.println(message);

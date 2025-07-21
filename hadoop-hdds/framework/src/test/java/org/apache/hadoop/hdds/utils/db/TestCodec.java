@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,31 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.utils.db;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.utils.db.CodecTestUtil.gc;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Consumer;
-import org.apache.hadoop.hdds.utils.db.RDBBatchOperation.Bytes;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hadoop.hdds.utils.db.RDBBatchOperation.Bytes;
+
+import java.io.IOException;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.utils.db.CodecTestUtil.gc;
 
 /**
  * Test {@link Codec} implementations.
@@ -75,9 +72,9 @@ public final class TestCodec {
   static void runTestShorts(short original) {
     final ShortCodec codec = ShortCodec.get();
     final byte[] bytes = Shorts.toByteArray(original);
-    assertArrayEquals(bytes, codec.toPersistedFormat(original));
-    assertEquals(original, Shorts.fromByteArray(bytes));
-    assertEquals(original, codec.fromPersistedFormat(bytes));
+    Assertions.assertArrayEquals(bytes, codec.toPersistedFormat(original));
+    Assertions.assertEquals(original, Shorts.fromByteArray(bytes));
+    Assertions.assertEquals(original, codec.fromPersistedFormat(bytes));
   }
 
   @Test
@@ -104,9 +101,9 @@ public final class TestCodec {
   static void runTestInts(int original) {
     final IntegerCodec codec = IntegerCodec.get();
     final byte[] bytes = Ints.toByteArray(original);
-    assertArrayEquals(bytes, codec.toPersistedFormat(original));
-    assertEquals(original, Ints.fromByteArray(bytes));
-    assertEquals(original, codec.fromPersistedFormat(bytes));
+    Assertions.assertArrayEquals(bytes, codec.toPersistedFormat(original));
+    Assertions.assertEquals(original, Ints.fromByteArray(bytes));
+    Assertions.assertEquals(original, codec.fromPersistedFormat(bytes));
   }
 
   @Test
@@ -133,27 +130,27 @@ public final class TestCodec {
   static void runTestLongs(long original) {
     final LongCodec codec = LongCodec.get();
     final byte[] bytes = Longs.toByteArray(original);
-    assertArrayEquals(bytes, codec.toPersistedFormat(original));
-    assertEquals(original, Longs.fromByteArray(bytes));
-    assertEquals(original, codec.fromPersistedFormat(bytes));
+    Assertions.assertArrayEquals(bytes, codec.toPersistedFormat(original));
+    Assertions.assertEquals(original, Longs.fromByteArray(bytes));
+    Assertions.assertEquals(original, codec.fromPersistedFormat(bytes));
   }
 
   @Test
   public void testStringCodec() throws Exception {
-    assertFalse(StringCodec.get().isFixedLength());
+    Assertions.assertFalse(StringCodec.get().isFixedLength());
     runTestStringCodec("");
 
     for (int i = 0; i < NUM_LOOPS; i++) {
       final String original = "test" + ThreadLocalRandom.current().nextLong();
       final int serializedSize = runTestStringCodec(original);
-      assertEquals(original.length(), serializedSize);
+      Assertions.assertEquals(original.length(), serializedSize);
     }
 
     final String alphabets = "AbcdEfghIjklmnOpqrstUvwxyz";
     for (int i = 0; i < NUM_LOOPS; i++) {
       final String original = i == 0 ? alphabets : alphabets.substring(0, i);
       final int serializedSize = runTestStringCodec(original);
-      assertEquals(original.length(), serializedSize);
+      Assertions.assertEquals(original.length(), serializedSize);
     }
 
     final String[] docs = {
@@ -163,7 +160,7 @@ public final class TestCodec {
     };
     for (String original : docs) {
       final int serializedSize = runTestStringCodec(original);
-      assertThat(original.length()).isLessThan(serializedSize);
+      Assertions.assertTrue(original.length() < serializedSize);
     }
 
     final String multiByteChars = "官方发行包包括了源代码包和二进制代码包";
@@ -171,7 +168,7 @@ public final class TestCodec {
       final String original = i == 0 ? multiByteChars
           : multiByteChars.substring(0, i);
       final int serializedSize = runTestStringCodec(original);
-      assertEquals(3 * original.length(), serializedSize);
+      Assertions.assertEquals(3 * original.length(), serializedSize);
     }
 
     gc();
@@ -185,7 +182,7 @@ public final class TestCodec {
 
   @Test
   public void testFixedLengthStringCodec() throws Exception {
-    assertTrue(FixedLengthStringCodec.get().isFixedLength());
+    Assertions.assertTrue(FixedLengthStringCodec.get().isFixedLength());
     runTestFixedLengthStringCodec("");
 
     for (int i = 0; i < NUM_LOOPS; i++) {
@@ -201,9 +198,9 @@ public final class TestCodec {
 
 
     final String multiByteChars = "Ozone 是 Hadoop 的分布式对象存储系统，具有易扩展和冗余存储的特点。";
-    assertThrows(IOException.class,
+    Assertions.assertThrows(IOException.class,
         tryCatch(() -> runTestFixedLengthStringCodec(multiByteChars)));
-    assertThrows(IllegalStateException.class,
+    Assertions.assertThrows(IllegalStateException.class,
         tryCatch(() -> FixedLengthStringCodec.string2Bytes(multiByteChars)));
 
     gc();
@@ -213,7 +210,7 @@ public final class TestCodec {
   public void testByteStringCodec() throws Exception {
     for (int i = 0; i < 2; i++) {
       try (CodecBuffer empty = CodecBuffer.getEmptyBuffer()) {
-        assertTrue(empty.isDirect());
+        Assertions.assertTrue(empty.isDirect());
       }
     }
 
@@ -300,9 +297,9 @@ public final class TestCodec {
         CodecBuffer.Allocator.HEAP)) {
       final Bytes fromBuffer = new Bytes(buffer);
 
-      assertEquals(fromArray.hashCode(), fromBuffer.hashCode());
-      assertEquals(fromArray, fromBuffer);
-      assertEquals(fromBuffer, fromArray);
+      Assertions.assertEquals(fromArray.hashCode(), fromBuffer.hashCode());
+      Assertions.assertEquals(fromArray, fromBuffer);
+      Assertions.assertEquals(fromBuffer, fromArray);
     }
   }
 }

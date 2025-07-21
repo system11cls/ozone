@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,10 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.utils.db;
 
-import jakarta.annotation.Nonnull;
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 /**
@@ -30,9 +30,6 @@ import java.io.IOException;
 public interface Codec<T> {
   byte[] EMPTY_BYTE_ARRAY = {};
 
-  /** @return the class of the {@link T}. */
-  Class<T> getTypeClass();
-
   /**
    * Does this {@link Codec} support the {@link CodecBuffer} methods?
    * If this method returns true, this class must implement both
@@ -43,6 +40,14 @@ public interface Codec<T> {
    */
   default boolean supportCodecBuffer() {
     return false;
+  }
+
+  /**
+   * @return an upper bound, which should be obtained without serialization,
+   *         of the serialized size of the given object.
+   */
+  default int getSerializedSizeUpperBound(T object) {
+    throw new UnsupportedOperationException();
   }
 
   /**

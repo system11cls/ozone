@@ -1,30 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common.volume;
-
-import static org.apache.hadoop.hdds.fs.MockSpaceUsagePersistence.inMemory;
-import static org.apache.hadoop.hdds.fs.MockSpaceUsageSource.fixed;
-import static org.apache.hadoop.ozone.OzoneConsts.CONTAINER_DB_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +26,7 @@ import java.time.Duration;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -45,9 +37,17 @@ import org.apache.hadoop.hdds.fs.SpaceUsagePersistence;
 import org.apache.hadoop.hdds.fs.SpaceUsageSource;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
-import org.apache.hadoop.metrics2.MetricsCollector;
-import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
+
+import static org.apache.hadoop.hdds.fs.MockSpaceUsagePersistence.inMemory;
+import static org.apache.hadoop.hdds.fs.MockSpaceUsageSource.fixed;
+import static org.apache.hadoop.ozone.OzoneConsts.CONTAINER_DB_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
 import org.apache.hadoop.ozone.container.common.helpers.DatanodeVersionFile;
 import org.apache.hadoop.ozone.container.common.utils.DatanodeStoreCache;
@@ -246,7 +246,7 @@ public class TestHddsVolume {
     HddsVolume volume = volumeBuilder.build();
 
     assertEquals(initialUsedSpace, savedUsedSpace.get());
-    assertEquals(expectedUsedSpace, volume.getCurrentUsage().getUsedSpace());
+    assertEquals(expectedUsedSpace, volume.getUsedSpace());
 
     // Shutdown the volume.
     volume.shutdown();
@@ -262,12 +262,10 @@ public class TestHddsVolume {
     StorageSize size = StorageSize.parse(RESERVED_SPACE);
     long reservedSpaceInBytes = (long) size.getUnit().toBytes(size.getValue());
 
-    SpaceUsageSource reportedUsage = volume.getCurrentUsage();
-
     assertEquals(spaceUsage.getCapacity(),
-        reportedUsage.getCapacity() + reservedSpaceInBytes);
+        volume.getCapacity() + reservedSpaceInBytes);
     assertEquals(spaceUsage.getAvailable(),
-        reportedUsage.getAvailable() + reservedSpaceInBytes);
+        volume.getAvailable() + reservedSpaceInBytes);
   }
 
   /**
@@ -300,9 +298,8 @@ public class TestHddsVolume {
 
     HddsVolume volume = volumeBuilder.build();
 
-    SpaceUsageSource usage = volume.getCurrentUsage();
-    assertEquals(400, usage.getCapacity());
-    assertEquals(100, usage.getAvailable());
+    assertEquals(400, volume.getCapacity());
+    assertEquals(100, volume.getAvailable());
 
     // Shutdown the volume.
     volume.shutdown();
@@ -328,9 +325,8 @@ public class TestHddsVolume {
 
     HddsVolume volume = volumeBuilder.build();
 
-    SpaceUsageSource usage = volume.getCurrentUsage();
-    assertEquals(400, usage.getCapacity());
-    assertEquals(190, usage.getAvailable());
+    assertEquals(400, volume.getCapacity());
+    assertEquals(190, volume.getAvailable());
 
     // Shutdown the volume.
     volume.shutdown();
@@ -355,9 +351,8 @@ public class TestHddsVolume {
 
     HddsVolume volume = volumeBuilder.build();
 
-    SpaceUsageSource usage = volume.getCurrentUsage();
-    assertEquals(400, usage.getCapacity());
-    assertEquals(300, usage.getAvailable());
+    assertEquals(400, volume.getCapacity());
+    assertEquals(300, volume.getAvailable());
 
     // Shutdown the volume.
     volume.shutdown();
@@ -382,9 +377,8 @@ public class TestHddsVolume {
 
     HddsVolume volume = volumeBuilder.build();
 
-    SpaceUsageSource usage = volume.getCurrentUsage();
-    assertEquals(400, usage.getCapacity());
-    assertEquals(0, usage.getAvailable());
+    assertEquals(400, volume.getCapacity());
+    assertEquals(0, volume.getAvailable());
 
     // Shutdown the volume.
     volume.shutdown();
@@ -510,9 +504,13 @@ public class TestHddsVolume {
     VolumeInfoMetrics volumeInfoMetrics = volume.getVolumeInfoStats();
 
     try {
-      // In case of failed volume, metrics should not throw
-      MetricsCollector collector = new MetricsCollectorImpl();
-      volumeInfoMetrics.getMetrics(collector, true);
+      // In case of failed volume all stats should return 0.
+      assertEquals(0, volumeInfoMetrics.getUsed());
+      assertEquals(0, volumeInfoMetrics.getAvailable());
+      assertEquals(0, volumeInfoMetrics.getCapacity());
+      assertEquals(0, volumeInfoMetrics.getReserved());
+      assertEquals(0, volumeInfoMetrics.getTotalCapacity());
+      assertEquals(0, volumeInfoMetrics.getCommitted());
     } finally {
       // Shutdown the volume.
       volume.shutdown();

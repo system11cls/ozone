@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,17 +18,6 @@
 
 package org.apache.hadoop.ozone.om;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -43,10 +33,22 @@ import org.apache.hadoop.ozone.container.ContainerTestHelper;
 import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.service.KeyDeletingService;
 import org.apache.ozone.test.GenericTestUtils;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
 
 /**
  * Test OM's {@link KeyDeletingService}.
@@ -65,15 +67,17 @@ public class TestKeyPurging {
   @BeforeEach
   public void setup() throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration();
-    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 200, TimeUnit.MILLISECONDS);
     conf.setTimeDuration(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, 100,
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
+    // TODO enable when RATIS-788 is fixed
+    conf.setBoolean(OMConfigKeys.OZONE_OM_RATIS_ENABLE_KEY, false);
     conf.setQuietMode(false);
 
     cluster = MiniOzoneCluster.newBuilder(conf)
         .setNumDatanodes(3)
+        .setHbInterval(200)
         .build();
     cluster.waitForClusterToBeReady();
     client = OzoneClientFactory.getRpcClient(conf);
@@ -130,13 +134,13 @@ public class TestKeyPurging {
         () -> keyDeletingService.getDeletedKeyCount().get() >= NUM_KEYS,
         1000, 10000);
 
-    assertThat(keyDeletingService.getRunCount().get()).isGreaterThan(1);
+    assertTrue(keyDeletingService.getRunCount().get() > 1);
 
     GenericTestUtils.waitFor(
         () -> {
           try {
             return keyManager.getPendingDeletionKeys(Integer.MAX_VALUE)
-                .getKeyBlocksList().isEmpty();
+                .getKeyBlocksList().size() == 0;
           } catch (IOException e) {
             return false;
           }

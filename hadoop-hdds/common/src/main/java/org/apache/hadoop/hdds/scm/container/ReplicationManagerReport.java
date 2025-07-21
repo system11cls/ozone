@@ -1,21 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.container;
+
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 
 /**
  * This class is used by ReplicationManager. Each time ReplicationManager runs,
@@ -131,6 +132,11 @@ public class ReplicationManagerReport {
     incrementAndSample(stat.toString(), container);
   }
 
+  public void incrementAndSample(HddsProtos.LifeCycleState stat,
+      ContainerID container) {
+    incrementAndSample(stat.toString(), container);
+  }
+
   public void setComplete() {
     reportTimeStamp = System.currentTimeMillis();
   }
@@ -145,6 +151,7 @@ public class ReplicationManagerReport {
 
   /**
    * Return a map of all stats and their value as a long.
+   * @return
    */
   public Map<String, Long> getStats() {
     Map<String, Long> result = new HashMap<>();
@@ -157,6 +164,7 @@ public class ReplicationManagerReport {
   /**
    * Return a map of all samples, with the stat as the key and the samples
    * for the stat as a List of Long.
+   * @return
    */
   public Map<String, List<Long>> getSamples() {
     Map<String, List<Long>> result = new HashMap<>();
@@ -231,6 +239,10 @@ public class ReplicationManagerReport {
           + " is not expected to have existing samples");
     }
     containerSample.put(stat, sample);
+  }
+
+  public List<ContainerID> getSample(HddsProtos.LifeCycleState stat) {
+    return getSample(stat.toString());
   }
 
   public List<ContainerID> getSample(HealthState stat) {

@@ -1,47 +1,21 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_RETRY_INTERVAL_KEY;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS_WILDCARD;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY;
-import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_KEY_DELETING_LIMIT_PER_TASK;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.io.IOException;
-import java.net.ConnectException;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -55,20 +29,47 @@ import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
-import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.VolumeArgs;
+import org.apache.hadoop.ozone.client.OzoneClientFactory;
+
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.rpc.RpcClient;
 import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFailoverProxyProvider;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServerConfig;
-import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.IOException;
+import java.net.ConnectException;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.UUID;
+import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_RETRY_INTERVAL_KEY;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS_WILDCARD;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY;
+
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_KEY_DELETING_LIMIT_PER_TASK;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_SERVER_FAILURE_TIMEOUT_DURATION_DEFAULT;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Base class for Ozone Manager HA tests.
@@ -77,8 +78,12 @@ import org.junit.jupiter.api.Timeout;
 public abstract class TestOzoneManagerHA {
 
   private static MiniOzoneHAClusterImpl cluster = null;
+  private static MiniOzoneCluster.Builder clusterBuilder = null;
   private static ObjectStore objectStore;
   private static OzoneConfiguration conf;
+  private static String clusterId;
+  private static String scmId;
+  private static String omId;
   private static String omServiceId;
   private static int numOfOMs = 3;
   private static final int LOG_PURGE_GAP = 50;
@@ -104,6 +109,10 @@ public abstract class TestOzoneManagerHA {
 
   public OzoneConfiguration getConf() {
     return conf;
+  }
+
+  public MiniOzoneCluster.Builder getClusterBuilder() {
+    return clusterBuilder;
   }
 
   public String getOmServiceId() {
@@ -140,7 +149,10 @@ public abstract class TestOzoneManagerHA {
   @BeforeAll
   public static void init() throws Exception {
     conf = new OzoneConfiguration();
+    clusterId = UUID.randomUUID().toString();
+    scmId = UUID.randomUUID().toString();
     omServiceId = "om-service-test1";
+    omId = UUID.randomUUID().toString();
     conf.setBoolean(OZONE_ACL_ENABLED, true);
     conf.set(OzoneConfigKeys.OZONE_ADMINISTRATORS,
         OZONE_ADMINISTRATORS_WILDCARD);
@@ -173,11 +185,14 @@ public abstract class TestOzoneManagerHA {
     conf.set(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, "10s");
     conf.set(OZONE_KEY_DELETING_LIMIT_PER_TASK, "2");
 
-    MiniOzoneHAClusterImpl.Builder clusterBuilder = MiniOzoneCluster.newHABuilder(conf)
+    clusterBuilder = MiniOzoneCluster.newOMHABuilder(conf)
+        .setClusterId(clusterId)
+        .setScmId(scmId)
         .setOMServiceId(omServiceId)
+        .setOmId(omId)
         .setNumOfOzoneManagers(numOfOMs);
 
-    cluster = clusterBuilder.build();
+    cluster = (MiniOzoneHAClusterImpl) clusterBuilder.build();
     cluster.waitForClusterToBeReady();
     client = OzoneClientFactory.getRpcClient(omServiceId, conf);
     objectStore = client.getObjectStore();
@@ -211,14 +226,6 @@ public abstract class TestOzoneManagerHA {
         ReplicationFactor.ONE, new HashMap<>());
     ozoneOutputStream.write(data.getBytes(UTF_8), 0, data.length());
     ozoneOutputStream.close();
-  }
-
-  public static String createPrefixName() {
-    return "prefix" + RandomStringUtils.randomNumeric(5) + OZONE_URI_DELIMITER;
-  }
-
-  public static void createPrefix(OzoneObj prefixObj) throws IOException {
-    assertTrue(objectStore.setAcl(prefixObj, Collections.emptyList()));
   }
 
   protected OzoneBucket setupBucket() throws Exception {
@@ -332,11 +339,12 @@ public abstract class TestOzoneManagerHA {
         // ConnectException. Otherwise, we would get a RemoteException from the
         // last running OM as it would fail to get a quorum.
         if (e instanceof RemoteException) {
-          assertThat(e).hasMessageContaining("is not the leader");
+          GenericTestUtils.assertExceptionContains("OMNotLeaderException", e);
         } else if (e instanceof ConnectException) {
-          assertThat(e).hasMessageContaining("Connection refused");
+          GenericTestUtils.assertExceptionContains("Connection refused", e);
         } else {
-          assertThat(e).hasMessageContaining("Could not determine or connect to OM Leader");
+          GenericTestUtils.assertExceptionContains(
+              "Could not determine or connect to OM Leader", e);
         }
       } else {
         throw e;
@@ -440,11 +448,12 @@ public abstract class TestOzoneManagerHA {
         // ConnectException. Otherwise, we would get a RemoteException from the
         // last running OM as it would fail to get a quorum.
         if (e instanceof RemoteException) {
-          assertThat(e).hasMessageContaining("is not the leader");
+          GenericTestUtils.assertExceptionContains("OMNotLeaderException", e);
         } else if (e instanceof ConnectException) {
-          assertThat(e).hasMessageContaining("Connection refused");
+          GenericTestUtils.assertExceptionContains("Connection refused", e);
         } else {
-          assertThat(e).hasMessageContaining("Could not determine or connect to OM Leader");
+          GenericTestUtils.assertExceptionContains(
+              "Could not determine or connect to OM Leader", e);
         }
       } else {
         throw e;
@@ -455,6 +464,9 @@ public abstract class TestOzoneManagerHA {
   protected void waitForLeaderToBeReady()
       throws InterruptedException, TimeoutException {
     // Wait for Leader Election timeout
-    cluster.waitForLeaderOM();
+    int timeout = OZONE_OM_RATIS_SERVER_FAILURE_TIMEOUT_DURATION_DEFAULT
+        .toIntExact(TimeUnit.MILLISECONDS);
+    GenericTestUtils.waitFor(() ->
+        getCluster().getOMLeader() != null, 500, timeout);
   }
 }

@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,10 +18,17 @@
 
 package org.apache.hadoop.ozone.util;
 
-import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.OZONE_SHUTDOWN_TIMEOUT_MINIMUM;
-import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.OZONE_SHUTDOWN_TIME_UNIT_DEFAULT;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.hadoop.hdds.HddsUtils;
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+import org.apache.hadoop.hdds.annotation.InterfaceStability;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,19 +36,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.hadoop.hdds.HddsUtils;
-import org.apache.hadoop.hdds.annotation.InterfaceAudience;
-import org.apache.hadoop.hdds.annotation.InterfaceStability;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.OZONE_SHUTDOWN_TIMEOUT_MINIMUM;
+import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.OZONE_SHUTDOWN_TIME_UNIT_DEFAULT;
 
 /**
  * The <code>ShutdownHookManager</code> enables running shutdownHook
@@ -118,7 +122,9 @@ public final class ShutdownHookManager {
    * This is exposed purely for testing: do not invoke it.
    * @return the number of shutdown hooks which timed out.
    */
-  private int executeShutdown() {
+  @InterfaceAudience.Private
+  @VisibleForTesting
+  int executeShutdown() {
     int timeouts = 0;
     for (HookEntry entry: getShutdownHooksInOrder()) {
       Future<?> future = EXECUTOR.submit(entry.getHook());
@@ -184,7 +190,9 @@ public final class ShutdownHookManager {
    * {@link org.apache.hadoop.ozone.conf.OzoneServiceConfig
    * #OZONE_SHUTDOWN_TIMEOUT_MINIMUM}
    */
-  private static long getShutdownTimeout(ConfigurationSource conf) {
+  @InterfaceAudience.Private
+  @VisibleForTesting
+  static long getShutdownTimeout(ConfigurationSource conf) {
     long duration = HddsUtils.getShutDownTimeOut(conf);
     if (duration < OZONE_SHUTDOWN_TIMEOUT_MINIMUM) {
       duration = OZONE_SHUTDOWN_TIMEOUT_MINIMUM;
@@ -196,7 +204,9 @@ public final class ShutdownHookManager {
    * Private structure to store ShutdownHook, its priority and timeout
    * settings.
    */
-  private static class HookEntry {
+  @InterfaceAudience.Private
+  @VisibleForTesting
+  static class HookEntry {
     private final Runnable hook;
     private final int priority;
     private final long timeout;
@@ -250,9 +260,12 @@ public final class ShutdownHookManager {
   private final Set<HookEntry> hooks =
       Collections.synchronizedSet(new HashSet<>());
 
-  private final AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
+  private AtomicBoolean shutdownInProgress = new AtomicBoolean(false);
 
-  private ShutdownHookManager() {
+  //private to constructor to ensure singularity
+  @VisibleForTesting
+  @InterfaceAudience.Private
+  ShutdownHookManager() {
   }
 
   /**
@@ -261,13 +274,21 @@ public final class ShutdownHookManager {
    *
    * @return the list of shutdownHooks in order of execution.
    */
-  private List<HookEntry > getShutdownHooksInOrder() {
-    List<HookEntry> list;
+  @InterfaceAudience.Private
+  @VisibleForTesting
+  List<HookEntry > getShutdownHooksInOrder() {
+    List<HookEntry > list;
     synchronized (hooks) {
-      list = new ArrayList<>(hooks);
+      list = new ArrayList<HookEntry>(hooks);
     }
-    //reversing comparison so highest priority hooks are first
-    list.sort(Comparator.comparing(HookEntry::getPriority).reversed());
+    Collections.sort(list, new Comparator< HookEntry >() {
+
+      //reversing comparison so highest priority hooks are first
+      @Override
+      public int compare(HookEntry o1, HookEntry o2) {
+        return o2.priority - o1.priority;
+      }
+    });
     return list;
   }
 

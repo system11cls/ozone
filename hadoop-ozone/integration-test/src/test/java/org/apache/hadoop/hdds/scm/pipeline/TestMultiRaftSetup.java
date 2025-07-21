@@ -1,44 +1,44 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
  */
-
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
+
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
+
 import org.apache.ozone.test.LambdaTestUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Collection;
+import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Tests for MultiRaft set up.
@@ -86,7 +86,7 @@ public class  TestMultiRaftSetup {
         false);
     init(3, conf);
     waitForPipelineCreated(2);
-    assertEquals(2, pipelineManager.getPipelines(ReplicationConfig
+    Assertions.assertEquals(2, pipelineManager.getPipelines(ReplicationConfig
         .fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
             ReplicationFactor.THREE)).size());
     assertNotSamePeers();
@@ -102,8 +102,10 @@ public class  TestMultiRaftSetup {
     waitForPipelineCreated(1);
     // datanode pipeline limit is set to 2, but only one set of 3 pipelines
     // will be created. Further pipeline creation should fail
-    assertEquals(1, pipelineManager.getPipelines(RATIS_THREE).size());
-    assertThrows(IOException.class, () -> pipelineManager.createPipeline(RATIS_THREE));
+    Assertions.assertEquals(1,
+        pipelineManager.getPipelines(RATIS_THREE).size());
+    Assertions.assertThrows(IOException.class, () ->
+        pipelineManager.createPipeline(RATIS_THREE));
     shutdown();
   }
 
@@ -119,16 +121,18 @@ public class  TestMultiRaftSetup {
     // For example, with d1,d2, d3, d4, d5, only d1 d2 d3 and d1 d4 d5 can form
     // pipeline as the none of peers from any of existing pipelines will be
     // repeated
-    assertEquals(2, pipelineManager.getPipelines(RATIS_THREE).size());
+    Assertions.assertEquals(2,
+        pipelineManager.getPipelines(RATIS_THREE).size());
     List<DatanodeDetails> dns = nodeManager.getAllNodes().stream()
         .filter((dn) -> nodeManager.getPipelinesCount(dn) > 2).collect(
             Collectors.toList());
-    assertEquals(1, dns.size());
-    assertThrows(IOException.class, () -> pipelineManager.createPipeline(RATIS_THREE));
+    Assertions.assertEquals(1, dns.size());
+    Assertions.assertThrows(IOException.class, () ->
+        pipelineManager.createPipeline(RATIS_THREE));
     Collection<PipelineID> pipelineIds = nodeManager.getPipelines(dns.get(0));
     // Only one dataode should have 3 pipelines in total, 1 RATIS ONE pipeline
     // and 2 RATIS 3 pipeline
-    assertEquals(3, pipelineIds.size());
+    Assertions.assertEquals(3, pipelineIds.size());
     List<Pipeline> pipelines = new ArrayList<>();
     pipelineIds.forEach((id) -> {
       try {
@@ -136,10 +140,10 @@ public class  TestMultiRaftSetup {
       } catch (PipelineNotFoundException pnfe) {
       }
     });
-    assertEquals(1, pipelines.stream()
+    Assertions.assertEquals(1, pipelines.stream()
         .filter((p) -> (p.getReplicationConfig().getRequiredNodes() == 1))
         .count());
-    assertEquals(2, pipelines.stream()
+    Assertions.assertEquals(2, pipelines.stream()
         .filter((p) -> (p.getReplicationConfig().getRequiredNodes() == 3))
         .count());
     shutdown();
@@ -147,10 +151,10 @@ public class  TestMultiRaftSetup {
   private void assertNotSamePeers() {
     nodeManager.getAllNodes().forEach((dn) -> {
       Collection<DatanodeDetails> peers = nodeManager.getPeerList(dn);
-      assertThat(peers).doesNotContain(dn);
+      Assertions.assertFalse(peers.contains(dn));
       List<DatanodeDetails> trimList = nodeManager.getAllNodes();
       trimList.remove(dn);
-      assertThat(peers).containsAll(trimList);
+      Assertions.assertTrue(peers.containsAll(trimList));
     });
   }
 

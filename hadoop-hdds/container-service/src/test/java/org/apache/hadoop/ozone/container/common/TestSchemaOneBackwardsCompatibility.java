@@ -1,50 +1,30 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.common;
 
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.utils.MetadataKeyFilters.KeyPrefixFilter;
 import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfoList;
@@ -67,11 +47,34 @@ import org.apache.hadoop.ozone.container.metadata.DatanodeStore;
 import org.apache.hadoop.ozone.container.metadata.SchemaOneDeletedBlocksTable;
 import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
 import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.yaml.snakeyaml.Yaml;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.util.List;
+import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_CONTAINER_LIMIT_PER_INTERVAL;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests processing of containers written with DB schema version 1,
@@ -88,38 +91,40 @@ import org.yaml.snakeyaml.Yaml;
  * {@link TestDB}, which is used by these tests to load a pre created schema
  * version 1 RocksDB instance from test resources.
  */
+@RunWith(Parameterized.class)
 public class TestSchemaOneBackwardsCompatibility {
   private OzoneConfiguration conf;
 
   private File metadataDir;
   private File containerFile;
 
-  @TempDir
-  private Path tempFolder;
+  @Rule
+  public TemporaryFolder tempFolder = new TemporaryFolder();
 
-  private void initSchemaVersion(String schemaVersion) {
+  public TestSchemaOneBackwardsCompatibility(String schemaVersion) {
     this.conf = new OzoneConfiguration();
     ContainerTestVersionInfo.setTestSchemaVersion(schemaVersion, conf);
   }
 
-  private static Iterable<Object[]> schemaVersion() {
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
     return Arrays.asList(new Object[][]{
         {OzoneConsts.SCHEMA_V2},
         {OzoneConsts.SCHEMA_V3}
     });
   }
 
-  private void setup(String schemaVersion) throws Exception {
-    initSchemaVersion(schemaVersion);
+  @Before
+  public void setup() throws Exception {
     TestDB testDB = new TestDB();
 
     // Copy data to the temporary folder so it can be safely modified.
     File tempMetadataDir =
-        Files.createDirectories(
-            tempFolder.resolve(OzoneConsts.CONTAINER_META_PATH +
-                "/" + TestDB.CONTAINER_ID)).toFile();
+            tempFolder.newFolder(Long.toString(TestDB.CONTAINER_ID),
+                    OzoneConsts.CONTAINER_META_PATH);
+
     FileUtils.copyDirectoryToDirectory(testDB.getDBDirectory(),
-        tempMetadataDir);
+            tempMetadataDir);
     FileUtils.copyFileToDirectory(testDB.getContainerFile(), tempMetadataDir);
 
     metadataDir = tempMetadataDir;
@@ -131,24 +136,15 @@ public class TestSchemaOneBackwardsCompatibility {
         metadataDir.getAbsolutePath());
   }
 
-  @AfterEach
-  public void cleanup() {
-    BlockUtils.shutdownCache(conf);
-  }
-
   /**
    * Because all tables in schema version one map back to the default table,
    * directly iterating any of the table instances should be forbidden.
    * Otherwise, the iterators for each table would read the entire default
    * table, return all database contents, and yield unexpected results.
-   *
    * @throws Exception
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testDirectTableIterationDisabled(String schemaVersion)
-      throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testDirectTableIterationDisabled() throws Exception {
     try (DBHandle refCountedDB = BlockUtils.getDB(newKvData(), conf)) {
       DatanodeStore store = refCountedDB.getStore();
 
@@ -159,7 +155,13 @@ public class TestSchemaOneBackwardsCompatibility {
   }
 
   private void assertTableIteratorUnsupported(Table<?, ?> table) {
-    assertThrows(UnsupportedOperationException.class, table::iterator);
+    try {
+      table.iterator();
+      Assert.fail("Table iterator should have thrown " +
+              "UnsupportedOperationException.");
+    } catch (IOException | UnsupportedOperationException ex) {
+      // Exception thrown as expected.
+    }
   }
 
   /**
@@ -167,13 +169,10 @@ public class TestSchemaOneBackwardsCompatibility {
    * database, and checks that they match the expected values.
    * Also makes sure that internal prefixes used to manage data in the schema
    * one deleted blocks table are removed from keys in iterator results.
-   *
    * @throws IOException
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testBlockIteration(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testBlockIteration() throws IOException {
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       assertEquals(TestDB.NUM_DELETED_BLOCKS,
@@ -197,7 +196,7 @@ public class TestSchemaOneBackwardsCompatibility {
                   cData.containerPrefix());
 
       for (Table.KeyValue<String, ChunkInfoList> kv: deletedBlocks) {
-        assertThat(kv.getKey()).doesNotContain(prefix);
+        assertFalse(kv.getKey().contains(prefix));
       }
 
       // Test sequentialRangeKVs.
@@ -205,7 +204,7 @@ public class TestSchemaOneBackwardsCompatibility {
           100, cData.containerPrefix());
 
       for (Table.KeyValue<String, ChunkInfoList> kv: deletedBlocks) {
-        assertThat(kv.getKey()).doesNotContain(prefix);
+        assertFalse(kv.getKey().contains(prefix));
       }
     }
 
@@ -216,13 +215,10 @@ public class TestSchemaOneBackwardsCompatibility {
    * the container has metadata keys present.
    * The {@link KeyValueContainerUtil} will read these values to fill in a
    * {@link KeyValueContainerData} object.
-   *
    * @throws Exception
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadWithMetadata(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadWithMetadata() throws Exception {
     checkContainerData(newKvData());
   }
 
@@ -232,15 +228,12 @@ public class TestSchemaOneBackwardsCompatibility {
    * The {@link KeyValueContainerUtil} will scan the blocks in the database
    * to fill these metadata values into the database and into a
    * {@link KeyValueContainerData} object.
-   *
    * @throws Exception
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadWithoutMetadata(String schemaVersion) throws Exception {
+  @Test
+  public void testReadWithoutMetadata() throws Exception {
     // Delete metadata keys from our copy of the DB.
     // This simulates them not being there to start with.
-    setup(schemaVersion);
     KeyValueContainerData cData = newKvData();
     try (DBHandle db = BlockUtils.getDB(cData, conf)) {
       Table<String, Long> metadataTable = db.getStore().getMetadataTable();
@@ -267,10 +260,8 @@ public class TestSchemaOneBackwardsCompatibility {
    * deleted blocks and deletes them, this test will modify its copy of the
    * database.
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testDelete(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testDelete() throws Exception {
     final long numBlocksToDelete = TestDB.NUM_PENDING_DELETION_BLOCKS;
     String datanodeUuid = UUID.randomUUID().toString();
     ContainerSet containerSet = makeContainerSet();
@@ -337,14 +328,10 @@ public class TestSchemaOneBackwardsCompatibility {
    * deleted from schema version one after the upgrade should have their
    * {@link ChunkInfoList} saved as the corresponding value in the deleted
    * blocks table. Reading these values should succeed.
-   *
    * @throws Exception
    */
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadDeletedBlockChunkInfo(String schemaVersion)
-      throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadDeletedBlockChunkInfo() throws Exception {
     String datanodeUuid = UUID.randomUUID().toString();
     ContainerSet containerSet = makeContainerSet();
     VolumeSet volumeSet = new MutableVolumeSet(datanodeUuid, conf, null,
@@ -366,11 +353,16 @@ public class TestSchemaOneBackwardsCompatibility {
 
       for (Table.KeyValue<String, ChunkInfoList> chunkListKV: deletedBlocks) {
         preUpgradeBlocks.add(chunkListKV.getKey());
-        assertThrows(IOException.class, () -> chunkListKV.getValue(),
-            "No exception thrown when trying to retrieve old deleted blocks values as chunk lists.");
+        try {
+          chunkListKV.getValue();
+          Assert.fail("No exception thrown when trying to retrieve old " +
+                  "deleted blocks values as chunk lists.");
+        } catch (IOException ex) {
+          // Exception thrown as expected.
+        }
       }
 
-      assertEquals(TestDB.NUM_DELETED_BLOCKS, preUpgradeBlocks.size());
+      Assert.assertEquals(TestDB.NUM_DELETED_BLOCKS, preUpgradeBlocks.size());
 
       long initialTotalSpace = newKvData().getBytesUsed();
       long blockSpace = initialTotalSpace / TestDB.KEY_COUNT;
@@ -394,25 +386,23 @@ public class TestSchemaOneBackwardsCompatibility {
 
       // The blocks that were originally marked for deletion should now be
       // deleted.
-      assertEquals(TestDB.NUM_PENDING_DELETION_BLOCKS,
-          numberOfBlocksDeleted);
+      Assert.assertEquals(TestDB.NUM_PENDING_DELETION_BLOCKS,
+              numberOfBlocksDeleted);
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadBlockData(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadBlockData() throws Exception {
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       Table<String, BlockData> blockDataTable =
           refCountedDB.getStore().getBlockDataTable();
 
       // Test encoding keys and decoding database values.
-      for (String blockID : TestDB.BLOCK_IDS) {
+      for (String blockID: TestDB.BLOCK_IDS) {
         String blockKey = cData.getBlockKey(Long.parseLong(blockID));
         BlockData blockData = blockDataTable.get(blockKey);
-        assertEquals(Long.toString(blockData.getLocalID()), blockID);
+        Assert.assertEquals(Long.toString(blockData.getLocalID()), blockID);
       }
 
       // Test decoding keys from the database.
@@ -422,16 +412,16 @@ public class TestSchemaOneBackwardsCompatibility {
 
       List<String> decodedKeys = new ArrayList<>();
 
-      for (Table.KeyValue<String, BlockData> blockDataKV :
-          blockKeyValues) {
+      for (Table.KeyValue<String, BlockData> blockDataKV:
+           blockKeyValues) {
         decodedKeys.add(blockDataKV.getKey());
       }
 
-      assertEquals(TestDB.BLOCK_IDS, decodedKeys);
+      Assert.assertEquals(TestDB.BLOCK_IDS, decodedKeys);
 
       // Test reading blocks with block iterator.
       try (BlockIterator<BlockData> iter =
-               refCountedDB.getStore().getBlockIterator(TestDB.CONTAINER_ID)) {
+              refCountedDB.getStore().getBlockIterator(TestDB.CONTAINER_ID)) {
 
         List<String> iteratorBlockIDs = new ArrayList<>();
 
@@ -440,25 +430,23 @@ public class TestSchemaOneBackwardsCompatibility {
           iteratorBlockIDs.add(Long.toString(localID));
         }
 
-        assertEquals(TestDB.BLOCK_IDS, iteratorBlockIDs);
+        Assert.assertEquals(TestDB.BLOCK_IDS, iteratorBlockIDs);
       }
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadDeletingBlockData(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadDeletingBlockData() throws Exception {
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       Table<String, BlockData> blockDataTable =
           refCountedDB.getStore().getBlockDataTable();
 
-      for (String blockID : TestDB.DELETING_BLOCK_IDS) {
+      for (String blockID: TestDB.DELETING_BLOCK_IDS) {
         String blockKey = cData.getDeletingBlockKey(
             Long.parseLong(blockID));
         BlockData blockData = blockDataTable.get(blockKey);
-        assertEquals(Long.toString(blockData.getLocalID()), blockID);
+        Assert.assertEquals(Long.toString(blockData.getLocalID()), blockID);
       }
 
       // Test decoding keys from the database.
@@ -479,7 +467,7 @@ public class TestSchemaOneBackwardsCompatibility {
           .map(key -> cData.getDeletingBlockKey(Long.parseLong(key)))
           .collect(Collectors.toList());
 
-      assertEquals(expectedKeys, decodedKeys);
+      Assert.assertEquals(expectedKeys, decodedKeys);
 
       // Test reading deleting blocks with block iterator.
       KeyPrefixFilter filter = cData.getDeletingBlockKeyFilter();
@@ -495,43 +483,39 @@ public class TestSchemaOneBackwardsCompatibility {
           iteratorBlockIDs.add(Long.toString(localID));
         }
 
-        assertEquals(TestDB.DELETING_BLOCK_IDS, iteratorBlockIDs);
+        Assert.assertEquals(TestDB.DELETING_BLOCK_IDS, iteratorBlockIDs);
       }
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadMetadata(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadMetadata() throws Exception {
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       Table<String, Long> metadataTable =
           refCountedDB.getStore().getMetadataTable();
 
-      assertEquals(TestDB.KEY_COUNT,
+      Assert.assertEquals(TestDB.KEY_COUNT,
           metadataTable.get(cData.getBlockCountKey()).longValue());
-      assertEquals(TestDB.BYTES_USED,
+      Assert.assertEquals(TestDB.BYTES_USED,
           metadataTable.get(cData.getBytesUsedKey()).longValue());
-      assertEquals(TestDB.NUM_PENDING_DELETION_BLOCKS,
+      Assert.assertEquals(TestDB.NUM_PENDING_DELETION_BLOCKS,
           metadataTable.get(cData.getPendingDeleteBlockCountKey())
               .longValue());
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("schemaVersion")
-  public void testReadDeletedBlocks(String schemaVersion) throws Exception {
-    setup(schemaVersion);
+  @Test
+  public void testReadDeletedBlocks() throws Exception {
     KeyValueContainerData cData = newKvData();
     try (DBHandle refCountedDB = BlockUtils.getDB(cData, conf)) {
       Table<String, ChunkInfoList> deletedBlocksTable =
           refCountedDB.getStore().getDeletedBlocksTable();
 
-      for (String blockID : TestDB.DELETED_BLOCK_IDS) {
+      for (String blockID: TestDB.DELETED_BLOCK_IDS) {
         // Since chunk info for deleted blocks was not stored in schema
         // version 1, there is no value to retrieve here.
-        assertTrue(deletedBlocksTable.isExist(blockID));
+        Assert.assertTrue(deletedBlocksTable.isExist(blockID));
       }
 
       // Test decoding keys from the database.
@@ -546,12 +530,15 @@ public class TestSchemaOneBackwardsCompatibility {
         decodedKeys.add(kv.getKey());
       }
 
-      assertEquals(TestDB.DELETED_BLOCK_IDS, decodedKeys);
+      Assert.assertEquals(TestDB.DELETED_BLOCK_IDS, decodedKeys);
     }
   }
 
   private void runBlockDeletingService(KeyValueHandler keyValueHandler)
       throws Exception {
+    conf.setInt(OZONE_BLOCK_DELETING_CONTAINER_LIMIT_PER_INTERVAL, 10);
+    conf.setInt(OzoneConfigKeys.OZONE_BLOCK_DELETING_LIMIT_PER_CONTAINER, 2);
+
     OzoneContainer container = makeMockOzoneContainer(keyValueHandler);
 
     BlockDeletingServiceTestImpl service =
@@ -565,7 +552,7 @@ public class TestSchemaOneBackwardsCompatibility {
   }
 
   private ContainerSet makeContainerSet() throws Exception {
-    ContainerSet containerSet = newContainerSet();
+    ContainerSet containerSet = new ContainerSet(1000);
     KeyValueContainer container = new KeyValueContainer(newKvData(), conf);
     containerSet.addContainer(container);
 

@@ -1,20 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.s3;
 
 import java.io.IOException;
@@ -23,26 +25,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Input stream implementation to read body with chunked signatures. This should also work
- * with the chunked payloads with trailer.
- *
- * Note that there are no actual chunk signature verification taking place. The InputStream only
- * returns the actual chunk payload from chunked signatures format.
- *
- * See
- * - https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
- * - https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming-trailers.html
+ * Input stream implementation to read body with chunked signatures.
+ * <p>
+ * see: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
  */
 public class SignedChunksInputStream extends InputStream {
 
-  private final Pattern signatureLinePattern =
+  private Pattern signatureLinePattern =
       Pattern.compile("([0-9A-Fa-f]+);chunk-signature=.*");
 
-  private final InputStream originalStream;
+  private InputStream originalStream;
 
   /**
-   * Size of the chunk payload. If zero, the signature line should be parsed to
-   * retrieve the subsequent chunk payload size.
+   * Numer of following databits. If zero, the signature line should be parsed.
    */
   private int remainingData = 0;
 
@@ -62,7 +57,7 @@ public class SignedChunksInputStream extends InputStream {
       }
       return curr;
     } else {
-      remainingData = readContentLengthFromHeader();
+      remainingData = readHeader();
       if (remainingData == -1) {
         return -1;
       }
@@ -86,7 +81,6 @@ public class SignedChunksInputStream extends InputStream {
     int maxReadLen = 0;
     do {
       if (remainingData > 0) {
-        // The chunk payload size has been decoded, now read the actual chunk payload
         maxReadLen = Math.min(remainingData, currentLen);
         realReadLen = originalStream.read(b, currentOff, maxReadLen);
         if (realReadLen == -1) {
@@ -102,7 +96,7 @@ public class SignedChunksInputStream extends InputStream {
           originalStream.read();
         }
       } else {
-        remainingData = readContentLengthFromHeader();
+        remainingData = readHeader();
         if (remainingData == -1) {
           break;
         }
@@ -111,7 +105,7 @@ public class SignedChunksInputStream extends InputStream {
     return totalReadBytes > 0 ? totalReadBytes : -1;
   }
 
-  private int readContentLengthFromHeader() throws IOException {
+  private int readHeader() throws IOException {
     int prev = -1;
     int curr = 0;
     StringBuilder buf = new StringBuilder();
@@ -125,15 +119,8 @@ public class SignedChunksInputStream extends InputStream {
       prev = curr;
       curr = next;
     }
-    // Example
-    // The chunk data sent:
-    //  10000;chunk-signature=b474d8862b1487a5145d686f57f013e54db672cee1c953b3010fb58501ef5aa2
-    //  <65536-bytes>
-    //
-    // 10000 will be read and decoded from base-16 representation to 65536, which is the size of
-    // the subsequent chunk payload.
     String signatureLine = buf.toString().trim();
-    if (signatureLine.isEmpty()) {
+    if (signatureLine.length() == 0) {
       return -1;
     }
 

@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om;
 
 import com.google.common.annotations.VisibleForTesting;
+
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.utils.DBCheckpointMetrics;
 import org.apache.hadoop.metrics2.MetricsSystem;
@@ -60,6 +61,7 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong numKeyDeletes;
   private @Metric MutableCounterLong numBucketLists;
   private @Metric MutableCounterLong numKeyLists;
+  private @Metric MutableCounterLong numTrashKeyLists;
   private @Metric MutableCounterLong numVolumeLists;
   private @Metric MutableCounterLong numKeyCommits;
   private @Metric MutableCounterLong numKeyHSyncs;
@@ -82,7 +84,6 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong numCreateFile;
   private @Metric MutableCounterLong numLookupFile;
   private @Metric MutableCounterLong numListStatus;
-  private @Metric MutableCounterLong numListOpenFiles;
 
   private @Metric MutableCounterLong numOpenKeyDeleteRequests;
   private @Metric MutableCounterLong numOpenKeysSubmittedForDeletion;
@@ -102,10 +103,6 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong numSetTime;
   private @Metric MutableCounterLong numGetKeyInfo;
 
-  private @Metric MutableCounterLong numGetObjectTagging;
-  private @Metric MutableCounterLong numPutObjectTagging;
-  private @Metric MutableCounterLong numDeleteObjectTagging;
-
   // Failure Metrics
   private @Metric MutableCounterLong numVolumeCreateFails;
   private @Metric MutableCounterLong numVolumeUpdateFails;
@@ -122,6 +119,7 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong numKeyDeleteFails;
   private @Metric MutableCounterLong numBucketListFails;
   private @Metric MutableCounterLong numKeyListFails;
+  private @Metric MutableCounterLong numTrashKeyListFails;
   private @Metric MutableCounterLong numVolumeListFails;
   private @Metric MutableCounterLong numKeyCommitFails;
   private @Metric MutableCounterLong numBlockAllocationFails;
@@ -184,12 +182,7 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong numCreateFileFails;
   private @Metric MutableCounterLong numLookupFileFails;
   private @Metric MutableCounterLong numListStatusFails;
-  private @Metric MutableCounterLong numListOpenFilesFails;
   private @Metric MutableCounterLong getNumGetKeyInfoFails;
-
-  private @Metric MutableCounterLong numGetObjectTaggingFails;
-  private @Metric MutableCounterLong numPutObjectTaggingFails;
-  private @Metric MutableCounterLong numDeleteObjectTaggingFails;
 
   private @Metric MutableCounterLong numRecoverLeaseFails;
 
@@ -242,6 +235,7 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   private @Metric MutableCounterLong ecKeyCreateFailsTotal;
   private @Metric MutableCounterLong ecBucketCreateTotal;
   private @Metric MutableCounterLong ecBucketCreateFailsTotal;
+
   private final DBCheckpointMetrics dbCheckpointMetrics;
 
   public OMMetrics() {
@@ -424,6 +418,11 @@ public class OMMetrics implements OmMetadataReaderMetrics {
     numKeyLists.incr();
   }
 
+  public void incNumTrashKeyLists() {
+    numKeyOps.incr();
+    numTrashKeyLists.incr();
+  }
+
   public void incNumVolumeLists() {
     numVolumeOps.incr();
     numVolumeLists.incr();
@@ -435,16 +434,8 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   }
 
   public void incNumListS3BucketsFails() {
+    numBucketOps.incr();
     numBucketS3ListFails.incr();
-  }
-
-  public void incNumListOpenFiles() {
-    numKeyOps.incr();
-    numListOpenFiles.incr();
-  }
-
-  public void incNumListOpenFilesFails() {
-    numListOpenFilesFails.incr();
   }
 
   public void incNumInitiateMultipartUploads() {
@@ -835,6 +826,10 @@ public class OMMetrics implements OmMetadataReaderMetrics {
     numKeyListFails.incr();
   }
 
+  public void incNumTrashKeyListFails() {
+    numTrashKeyListFails.incr();
+  }
+
   public void incNumVolumeListFails() {
     numVolumeListFails.incr();
   }
@@ -919,35 +914,6 @@ public class OMMetrics implements OmMetadataReaderMetrics {
     getNumGetKeyInfoFails.incr();
   }
 
-  @Override
-  public void incNumGetObjectTagging() {
-    numGetObjectTagging.incr();
-    numKeyOps.incr();
-  }
-
-  @Override
-  public void incNumGetObjectTaggingFails() {
-    numGetObjectTaggingFails.incr();
-  }
-
-  public void incNumPutObjectTagging() {
-    numPutObjectTagging.incr();
-    numKeyOps.incr();
-  }
-
-  public void incNumPutObjectTaggingFails() {
-    numPutObjectTaggingFails.incr();
-  }
-
-  public void incNumDeleteObjectTagging() {
-    numDeleteObjectTagging.incr();
-    numKeyOps.incr();
-  }
-
-  public void incNumDeleteObjectTaggingFails() {
-    numDeleteObjectTaggingFails.incr();
-  }
-
   @VisibleForTesting
   public long getNumVolumeCreates() {
     return numVolumeCreates.value();
@@ -1016,6 +982,11 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   @VisibleForTesting
   public long getNumKeyLists() {
     return numKeyLists.value();
+  }
+
+  @VisibleForTesting
+  public long getNumTrashKeyLists() {
+    return numTrashKeyLists.value();
   }
 
   @VisibleForTesting
@@ -1119,6 +1090,11 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   }
 
   @VisibleForTesting
+  public long getNumTrashKeyListFails() {
+    return numTrashKeyListFails.value();
+  }
+
+  @VisibleForTesting
   public long getNumFSOps() {
     return numFSOps.value();
   }
@@ -1146,11 +1122,6 @@ public class OMMetrics implements OmMetadataReaderMetrics {
   @VisibleForTesting
   public long getNumKeyHSyncs() {
     return numKeyHSyncs.value();
-  }
-
-  @VisibleForTesting
-  public void resetNumKeyHSyncs() {
-    numKeyHSyncs.incr(-numKeyHSyncs.value());
   }
 
   @VisibleForTesting

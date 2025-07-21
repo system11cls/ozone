@@ -1,34 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.keyvalue;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.nio.file.Files.newInputStream;
-import static java.nio.file.Files.newOutputStream;
-import static org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker.CONTAINER_FILE_NAME;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,25 +34,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.ozone.container.replication.CopyContainerCompression;
 import org.apache.ozone.test.SpyInputStream;
 import org.apache.ozone.test.SpyOutputStream;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.newInputStream;
+import static java.nio.file.Files.newOutputStream;
+import static org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker.CONTAINER_FILE_NAME;
+import static org.junit.Assert.assertThrows;
 
 /**
  * Test the tar/untar for a given container.
  */
+@RunWith(Parameterized.class)
 public class TestTarContainerPacker {
 
   private static final String TEST_DB_FILE_NAME = "test1";
@@ -86,39 +88,41 @@ public class TestTarContainerPacker {
 
   private static final AtomicInteger CONTAINER_ID = new AtomicInteger(1);
 
-  private ContainerLayoutVersion layout;
-  private String schemaVersion;
+  private final ContainerLayoutVersion layout;
+  private final String schemaVersion;
   private OzoneConfiguration conf;
 
-  private void initTests(ContainerTestVersionInfo versionInfo,
+  public TestTarContainerPacker(ContainerTestVersionInfo versionInfo,
       CopyContainerCompression compression) {
     this.layout = versionInfo.getLayout();
     this.schemaVersion = versionInfo.getSchemaVersion();
     this.conf = new OzoneConfiguration();
     ContainerTestVersionInfo.setTestSchemaVersion(schemaVersion, conf);
     packer = new TarContainerPacker(compression);
+
   }
 
-  public static List<Arguments> getLayoutAndCompression() {
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
     List<ContainerTestVersionInfo> layoutList =
         ContainerTestVersionInfo.getLayoutList();
-    List<Arguments> parameterList = new ArrayList<>();
+    List<Object[]> parameterList = new ArrayList<>();
     for (ContainerTestVersionInfo containerTestVersionInfo : layoutList) {
       for (CopyContainerCompression compr : CopyContainerCompression.values()) {
-        parameterList.add(Arguments.of(containerTestVersionInfo, compr));
+        parameterList.add(new Object[]{containerTestVersionInfo, compr});
       }
     }
     return parameterList;
   }
 
-  @BeforeAll
+  @BeforeClass
   public static void init() throws IOException {
     initDir(SOURCE_CONTAINER_ROOT);
     initDir(DEST_CONTAINER_ROOT);
     initDir(TEMP_DIR);
   }
 
-  @AfterAll
+  @AfterClass
   public static void cleanup() throws IOException {
     FileUtils.deleteDirectory(SOURCE_CONTAINER_ROOT.toFile());
     FileUtils.deleteDirectory(DEST_CONTAINER_ROOT.toFile());
@@ -161,11 +165,8 @@ public class TestTarContainerPacker {
     return containerData;
   }
 
-  @ParameterizedTest
-  @MethodSource("getLayoutAndCompression")
-  public void pack(ContainerTestVersionInfo versionInfo,
-      CopyContainerCompression compression) throws IOException {
-    initTests(versionInfo, compression);
+  @Test
+  public void pack() throws IOException {
     //GIVEN
     KeyValueContainerData sourceContainerData =
         createContainer(SOURCE_CONTAINER_ROOT);
@@ -191,7 +192,7 @@ public class TestTarContainerPacker {
 
     //THEN: check the result
     TarArchiveInputStream tarStream = null;
-    try (InputStream input = newInputStream(targetFile)) {
+    try (FileInputStream input = new FileInputStream(targetFile.toFile())) {
       InputStream uncompressed = packer.decompress(input);
       tarStream = new TarArchiveInputStream(uncompressed);
 
@@ -200,13 +201,13 @@ public class TestTarContainerPacker {
       Map<String, TarArchiveEntry> entries = new HashMap<>();
       while ((entry = tarStream.getNextTarEntry()) != null) {
         if (first) {
-          assertEquals(CONTAINER_FILE_NAME, entry.getName());
+          Assert.assertEquals(CONTAINER_FILE_NAME, entry.getName());
           first = false;
         }
         entries.put(entry.getName(), entry);
       }
 
-      assertThat(entries).containsKey(CONTAINER_FILE_NAME);
+      Assert.assertTrue(entries.containsKey(CONTAINER_FILE_NAME));
     } finally {
       if (tarStream != null) {
         tarStream.close();
@@ -220,7 +221,7 @@ public class TestTarContainerPacker {
     String containerYaml = new String(
         packer.unpackContainerDescriptor(inputForUnpackDescriptor),
         UTF_8);
-    assertEquals(TEST_DESCRIPTOR_FILE_CONTENT, containerYaml);
+    Assert.assertEquals(TEST_DESCRIPTOR_FILE_CONTENT, containerYaml);
     inputForUnpackDescriptor.assertClosedExactlyOnce();
 
     KeyValueContainerData destinationContainerData =
@@ -244,20 +245,17 @@ public class TestTarContainerPacker {
     assertExampleChunkFileIsGood(
         Paths.get(destinationContainerData.getChunksPath()),
         TEST_CHUNK_FILE_NAME);
-    assertFalse(destinationContainer.getContainerFile().exists(),
+    Assert.assertFalse(
         "Descriptor file should not have been extracted by the "
-            + "unpackContainerData Call");
-    assertEquals(TEST_DESCRIPTOR_FILE_CONTENT, descriptor);
+            + "unpackContainerData Call",
+        destinationContainer.getContainerFile().exists());
+    Assert.assertEquals(TEST_DESCRIPTOR_FILE_CONTENT, descriptor);
     inputForUnpackData.assertClosedExactlyOnce();
   }
 
-  @ParameterizedTest
-  @MethodSource("getLayoutAndCompression")
-  public void unpackContainerDataWithValidRelativeDbFilePath(
-      ContainerTestVersionInfo versionInfo,
-      CopyContainerCompression compression)
+  @Test
+  public void unpackContainerDataWithValidRelativeDbFilePath()
       throws Exception {
-    initTests(versionInfo, compression);
     //GIVEN
     KeyValueContainerData sourceContainerData =
         createContainer(SOURCE_CONTAINER_ROOT);
@@ -276,13 +274,9 @@ public class TestTarContainerPacker {
         TarContainerPacker.getDbPath(dest), fileName);
   }
 
-  @ParameterizedTest
-  @MethodSource("getLayoutAndCompression")
-  public void unpackContainerDataWithValidRelativeChunkFilePath(
-      ContainerTestVersionInfo versionInfo,
-      CopyContainerCompression compression)
+  @Test
+  public void unpackContainerDataWithValidRelativeChunkFilePath()
       throws Exception {
-    initTests(versionInfo, compression);
     //GIVEN
     KeyValueContainerData sourceContainerData =
         createContainer(SOURCE_CONTAINER_ROOT);
@@ -300,13 +294,9 @@ public class TestTarContainerPacker {
     assertExampleChunkFileIsGood(Paths.get(dest.getChunksPath()), fileName);
   }
 
-  @ParameterizedTest
-  @MethodSource("getLayoutAndCompression")
-  public void unpackContainerDataWithInvalidRelativeDbFilePath(
-      ContainerTestVersionInfo versionInfo,
-      CopyContainerCompression compression)
+  @Test
+  public void unpackContainerDataWithInvalidRelativeDbFilePath()
       throws Exception {
-    initTests(versionInfo, compression);
     //GIVEN
     KeyValueContainerData sourceContainerData =
         createContainer(SOURCE_CONTAINER_ROOT);
@@ -321,13 +311,9 @@ public class TestTarContainerPacker {
         () -> unpackContainerData(containerFile));
   }
 
-  @ParameterizedTest
-  @MethodSource("getLayoutAndCompression")
-  public void unpackContainerDataWithInvalidRelativeChunkFilePath(
-      ContainerTestVersionInfo versionInfo,
-      CopyContainerCompression compression)
+  @Test
+  public void unpackContainerDataWithInvalidRelativeChunkFilePath()
       throws Exception {
-    initTests(versionInfo, compression);
     //GIVEN
     KeyValueContainerData sourceContainerData =
         createContainer(SOURCE_CONTAINER_ROOT);
@@ -344,7 +330,7 @@ public class TestTarContainerPacker {
 
   private KeyValueContainerData unpackContainerData(File containerFile)
       throws IOException {
-    try (InputStream input = newInputStream(containerFile.toPath())) {
+    try (FileInputStream input = new FileInputStream(containerFile)) {
       KeyValueContainerData data = createContainer(DEST_CONTAINER_ROOT, false);
       KeyValueContainer container = new KeyValueContainer(data, conf);
       packer.unpackContainerData(container, input, TEMP_DIR,
@@ -354,8 +340,10 @@ public class TestTarContainerPacker {
   }
 
   private void writeDescriptor(KeyValueContainer container) throws IOException {
-    try (OutputStream fileStream = newOutputStream(container.getContainerFile().toPath());
-        OutputStreamWriter writer = new OutputStreamWriter(fileStream, UTF_8)) {
+    FileOutputStream fileStream = new FileOutputStream(
+        container.getContainerFile());
+    try (OutputStreamWriter writer = new OutputStreamWriter(fileStream,
+        UTF_8)) {
       IOUtils.write(TEST_DESCRIPTOR_FILE_CONTENT, writer);
     }
   }
@@ -376,13 +364,12 @@ public class TestTarContainerPacker {
 
   private File writeSingleFile(Path parentPath, String fileName,
       String content) throws IOException {
-    Path path = parentPath.resolve(fileName).normalize();
-    Path parent = path.getParent();
-    assertNotNull(parent);
-    Files.createDirectories(parent);
+    Path path = parentPath.resolve(fileName);
+    Files.createDirectories(path.getParent());
     File file = path.toFile();
-    try (OutputStream fileStream = newOutputStream(file.toPath());
-        OutputStreamWriter writer = new OutputStreamWriter(fileStream, UTF_8)) {
+    FileOutputStream fileStream = new FileOutputStream(file);
+    try (OutputStreamWriter writer = new OutputStreamWriter(fileStream,
+        UTF_8)) {
       IOUtils.write(content, writer);
     }
     return file;
@@ -391,7 +378,7 @@ public class TestTarContainerPacker {
   private File packContainerWithSingleFile(File file, String entryName)
       throws Exception {
     File targetFile = TEMP_DIR.resolve("container.tar").toFile();
-    try (OutputStream output = newOutputStream(targetFile.toPath());
+    try (FileOutputStream output = new FileOutputStream(targetFile);
          OutputStream compressed = packer.compress(output);
          TarArchiveOutputStream archive =
              new TarArchiveOutputStream(compressed)) {
@@ -416,15 +403,16 @@ public class TestTarContainerPacker {
 
     Path exampleFile = parentPath.resolve(filename);
 
-    assertTrue(Files.exists(exampleFile),
-        "example file is missing after pack/unpackContainerData: " +
-            exampleFile);
+    Assert.assertTrue(
+        "example file is missing after pack/unpackContainerData: "
+            + exampleFile,
+        Files.exists(exampleFile));
 
-    try (InputStream testFile =
-             newInputStream(exampleFile)) {
+    try (FileInputStream testFile =
+             new FileInputStream(exampleFile.toFile())) {
       List<String> strings = IOUtils.readLines(testFile, UTF_8);
-      assertEquals(1, strings.size());
-      assertEquals(content, strings.get(0));
+      Assert.assertEquals(1, strings.size());
+      Assert.assertEquals(content, strings.get(0));
     }
   }
 

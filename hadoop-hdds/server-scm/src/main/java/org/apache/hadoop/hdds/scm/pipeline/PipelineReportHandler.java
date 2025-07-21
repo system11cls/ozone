@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,21 +18,23 @@
 
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
-import org.apache.hadoop.hdds.HddsConfigKeys;
+
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReport;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.PipelineReport;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
-import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.safemode.SafeModeManager;
-import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.PipelineReportFromDatanode;
+import org.apache.hadoop.hdds.scm.server
+    .SCMDatanodeHeartbeatDispatcher.PipelineReportFromDatanode;
 import org.apache.hadoop.hdds.server.events.EventHandler;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.ozone.protocol.commands.ClosePipelineCommand;
@@ -40,6 +43,8 @@ import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Preconditions;
 
 /**
  * Handles Pipeline Reports from datanode.
@@ -50,6 +55,7 @@ public class PipelineReportHandler implements
   private static final Logger LOGGER = LoggerFactory.getLogger(
       PipelineReportHandler.class);
   private final PipelineManager pipelineManager;
+  private final ConfigurationSource conf;
   private final SafeModeManager scmSafeModeManager;
   private final SCMContext scmContext;
   private final boolean pipelineAvailabilityCheck;
@@ -63,6 +69,7 @@ public class PipelineReportHandler implements
     this.scmSafeModeManager = scmSafeModeManager;
     this.pipelineManager = pipelineManager;
     this.scmContext = scmContext;
+    this.conf = conf;
     this.metrics = SCMPipelineMetrics.create();
     this.pipelineAvailabilityCheck = conf.getBoolean(
         HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
@@ -84,45 +91,35 @@ public class PipelineReportHandler implements
     for (PipelineReport report : pipelineReport.getPipelineReportList()) {
       try {
         processPipelineReport(report, dn, publisher);
-      } catch (PipelineNotFoundException e) {
-        handlePipelineNotFoundException(report, dn, publisher);
-      } catch (IOException | TimeoutException e) {
-        // Ignore NotLeaderException logging which happens when processing
-        // pipeline report on followers.
-        if (!isNotLeaderException(e)) {
-          LOGGER.error("Could not process pipeline report={} from dn={}.",
-              report, dn, e);
-        }
-      }
-    }
-  }
-
-  private void handlePipelineNotFoundException(final PipelineReport report,
-      final DatanodeDetails dn, final EventPublisher publisher) {
-    final PipelineID pipelineID = PipelineID.getFromProtobuf(report.getPipelineID());
-    LOGGER.info("Pipeline {}, reported by datanode {} is not found.", pipelineID, dn);
-    if (scmContext.isLeader()) {
-      try {
-        final SCMCommand<?> command = new ClosePipelineCommand(pipelineID);
-        command.setTerm(scmContext.getTermOfLeader());
-        publisher.fireEvent(SCMEvents.DATANODE_COMMAND,
-            new CommandForDatanode<>(dn.getUuid(), command));
       } catch (NotLeaderException ex) {
-        // Do nothing if the leader has changed.
+        // Avoid NotLeaderException logging which happens when processing
+        // pipeline report on followers.
+      } catch (PipelineNotFoundException e) {
+        LOGGER.error("Could not find pipeline {}", report.getPipelineID());
+      } catch (IOException | TimeoutException e) {
+        LOGGER.error("Could not process pipeline report={} from dn={}.",
+            report, dn, e);
       }
     }
-  }
-
-  private static boolean isNotLeaderException(final Exception e) {
-    return e instanceof SCMException && ((SCMException) e).getResult().equals(
-        SCMException.ResultCodes.SCM_NOT_LEADER);
   }
 
   protected void processPipelineReport(PipelineReport report,
       DatanodeDetails dn, EventPublisher publisher)
       throws IOException, TimeoutException {
-    final PipelineID pipelineID = PipelineID.getFromProtobuf(report.getPipelineID());
-    final Pipeline pipeline = pipelineManager.getPipeline(pipelineID);
+    PipelineID pipelineID = PipelineID.getFromProtobuf(report.getPipelineID());
+    Pipeline pipeline;
+    try {
+      pipeline = pipelineManager.getPipeline(pipelineID);
+    } catch (PipelineNotFoundException e) {
+      if (scmContext.isLeader()) {
+        LOGGER.info("Reported pipeline {} is not found", pipelineID);
+        SCMCommand< ? > command = new ClosePipelineCommand(pipelineID);
+        command.setTerm(scmContext.getTermOfLeader());
+        publisher.fireEvent(SCMEvents.DATANODE_COMMAND,
+            new CommandForDatanode<>(dn.getUuid(), command));
+      }
+      return;
+    }
 
     setReportedDatanode(pipeline, dn);
     setPipelineLeaderId(report, pipeline, dn);

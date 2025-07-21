@@ -1,28 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.recon.fsck;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
@@ -30,11 +24,12 @@ import org.apache.hadoop.hdds.scm.ContainerPlacementStatus;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
-import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaCount;
-import org.apache.hadoop.hdds.scm.container.replication.ECContainerReplicaCount;
-import org.apache.hadoop.hdds.scm.container.replication.RatisContainerReplicaCount;
-import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
 import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Class which encapsulates all the information required to determine if a
@@ -43,46 +38,31 @@ import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
 
 public class ContainerHealthStatus {
 
-  private final ContainerInfo container;
-  private final int replicaDelta;
-  private final Set<ContainerReplica> healthyReplicas;
-  private final Set<ContainerReplica> healthyAvailReplicas;
-  private final ContainerPlacementStatus placementStatus;
-  private final ReconContainerMetadataManager reconContainerMetadataManager;
-  private final int numReplicas;
-  private final long numKeys;
-  private final ContainerReplicaCount containerReplicaCount;
+  private ContainerInfo container;
+  private int replicaDelta;
+  private Set<ContainerReplica> healthyReplicas;
+  private ContainerPlacementStatus placementStatus;
+  private ReconContainerMetadataManager reconContainerMetadataManager;
+  private int numReplicas;
+  private long numKeys;
 
   ContainerHealthStatus(ContainerInfo container,
-                        Set<ContainerReplica> replicas,
+                        Set<ContainerReplica> healthyReplicas,
                         PlacementPolicy placementPolicy,
                         ReconContainerMetadataManager
-                            reconContainerMetadataManager,
-                        OzoneConfiguration conf) {
+                            reconContainerMetadataManager) {
     this.reconContainerMetadataManager = reconContainerMetadataManager;
     this.container = container;
     int repFactor = container.getReplicationConfig().getRequiredNodes();
-    this.healthyReplicas = replicas
+    this.healthyReplicas = healthyReplicas
         .stream()
         .filter(r -> !r.getState()
             .equals((ContainerReplicaProto.State.UNHEALTHY)))
         .collect(Collectors.toSet());
-    this.healthyAvailReplicas = replicas
-        .stream()
-        // Filter unhealthy replicas and
-        // replicas belonging to out-of-service nodes.
-        .filter(r ->
-            (!r.getDatanodeDetails().isDecommissioned() &&
-             !r.getDatanodeDetails().isMaintenance() &&
-             !r.getState().equals(ContainerReplicaProto.State.UNHEALTHY)))
-        .collect(Collectors.toSet());
-    this.replicaDelta = repFactor - this.healthyAvailReplicas.size();
+    this.replicaDelta = repFactor - this.healthyReplicas.size();
     this.placementStatus = getPlacementStatus(placementPolicy, repFactor);
-    this.numReplicas = replicas.size();
+    this.numReplicas = healthyReplicas.size();
     this.numKeys = getContainerKeyCount(container.getContainerID());
-
-    this.containerReplicaCount =
-        getContainerReplicaCountInstance(conf, replicas);
   }
 
   public long getContainerID() {
@@ -98,14 +78,6 @@ public class ContainerHealthStatus {
   }
 
   public boolean isHealthy() {
-    return containerReplicaCount.isHealthy();
-  }
-
-  public boolean isSufficientlyReplicated() {
-    return containerReplicaCount.isSufficientlyReplicated();
-  }
-
-  public boolean isHealthilyReplicated() {
     return replicaDelta == 0 && !isMisReplicated();
   }
 
@@ -115,11 +87,11 @@ public class ContainerHealthStatus {
   }
 
   public boolean isOverReplicated() {
-    return containerReplicaCount.isOverReplicated();
+    return replicaDelta < 0;
   }
 
   public boolean isUnderReplicated() {
-    return !isMissing() && !containerReplicaCount.isSufficientlyReplicated();
+    return !isMissing() && replicaDelta > 0;
   }
 
   public int replicaDelta() {
@@ -127,7 +99,7 @@ public class ContainerHealthStatus {
   }
 
   public int getReplicaCount() {
-    return healthyAvailReplicas.size();
+    return healthyReplicas.size();
   }
 
   public boolean isMisReplicated() {
@@ -177,22 +149,5 @@ public class ContainerHealthStatus {
 
   public long getNumKeys() {
     return numKeys;
-  }
-
-  private ContainerReplicaCount getContainerReplicaCountInstance(
-      OzoneConfiguration conf, Set<ContainerReplica> replicas) {
-    ReplicationManager.ReplicationManagerConfiguration rmConf = conf.getObject(
-        ReplicationManager.ReplicationManagerConfiguration.class);
-    boolean isEC = container.getReplicationConfig()
-                       .getReplicationType() == HddsProtos.ReplicationType.EC;
-    return isEC ?
-               new ECContainerReplicaCount(container,
-                   replicas, new ArrayList<>(),
-                   rmConf.getMaintenanceRemainingRedundancy()) :
-               // This class ignores unhealthy replicas,
-               // therefore set 'considerUnhealthy' to false.
-               new RatisContainerReplicaCount(container,
-                   replicas, new ArrayList<>(),
-                   rmConf.getMaintenanceReplicaMinimum(), false);
   }
 }

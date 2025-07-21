@@ -1,34 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.hdds.scm;
 
-import static org.apache.hadoop.hdds.HddsUtils.processForDebug;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import io.opentracing.Scope;
-import io.opentracing.Span;
-import io.opentracing.util.GlobalTracer;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -49,7 +42,6 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.DatanodeBl
 import org.apache.hadoop.hdds.protocol.datanode.proto.XceiverClientProtocolServiceGrpc;
 import org.apache.hadoop.hdds.protocol.datanode.proto.XceiverClientProtocolServiceGrpc.XceiverClientProtocolServiceStub;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
 import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
 import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
@@ -60,6 +52,13 @@ import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
+import java.util.concurrent.TimeoutException;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
@@ -68,6 +67,8 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.HddsUtils.processForDebug;
 
 /**
  * {@link XceiverClientSpi} implementation, the standalone client.
@@ -164,15 +165,16 @@ public class XceiverClientGrpc extends XceiverClientSpi {
     }
     // read port from the data node, on failure use default configured
     // port.
-    int port = dn.getStandalonePort().getValue();
+    int port = dn.getPort(DatanodeDetails.Port.Name.STANDALONE).getValue();
     if (port == 0) {
       port = config.getInt(OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT,
           OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT_DEFAULT);
     }
 
+    // Add credential context to the client call
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Connecting to server : {}; nodes in pipeline : {}, ",
-          dn, pipeline.getNodes());
+      LOG.debug("Nodes in pipeline : {}", pipeline.getNodes());
+      LOG.debug("Connecting to server : {}", dn.getIpAddress());
     }
     ManagedChannel channel = createChannel(dn, port).build();
     XceiverClientProtocolServiceStub asyncStub =
@@ -186,7 +188,6 @@ public class XceiverClientGrpc extends XceiverClientSpi {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forAddress(dn.getIpAddress(), port).usePlaintext()
             .maxInboundMessageSize(OzoneConsts.OZONE_SCM_CHUNK_MAX_SIZE)
-            .proxyDetector(uri -> null)
             .intercept(new GrpcClientInterceptor());
     if (secConfig.isSecurityEnabled() && secConfig.isGrpcTlsEnabled()) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
@@ -316,6 +317,7 @@ public class XceiverClientGrpc extends XceiverClientSpi {
   /**
    * @param request
    * @param dn
+   * @param pipeline
    * In case of getBlock for EC keys, it is required to set replicaIndex for
    * every request with the replicaIndex for that DN for which the request is
    * sent to. This method unpacks proto and reconstructs request after setting
@@ -340,7 +342,8 @@ public class XceiverClientGrpc extends XceiverClientSpi {
       ContainerCommandRequestProto request, List<Validator> validators)
       throws IOException {
     try {
-      XceiverClientReply reply = sendCommandWithTraceIDAndRetry(request, validators);
+      XceiverClientReply reply;
+      reply = sendCommandWithTraceIDAndRetry(request, validators);
       return reply.getResponse().get();
     } catch (ExecutionException e) {
       throw getIOExceptionForSendCommand(request, e);
@@ -392,17 +395,9 @@ public class XceiverClientGrpc extends XceiverClientSpi {
     }
 
     if (blockID != null) {
-      if (request.getCmdType() != ContainerProtos.Type.ReadChunk) {
-        datanodeList = pipeline.getNodes();
-        int getBlockDNLeaderIndex = datanodeList.indexOf(pipeline.getLeaderNode());
-        if (getBlockDNLeaderIndex > 0) {
-          // Pull the leader DN to the top of the DN list
-          Collections.swap(datanodeList, 0, getBlockDNLeaderIndex);
-        }
-      }
       // Check if the DN to which the GetBlock command was sent has been cached.
       DatanodeDetails cachedDN = getBlockDNcache.get(blockID);
-      if (cachedDN != null && !topologyAwareRead) {
+      if (cachedDN != null) {
         datanodeList = pipeline.getNodes();
         int getBlockDNCacheIndex = datanodeList.indexOf(cachedDN);
         if (getBlockDNCacheIndex > 0) {
@@ -420,12 +415,6 @@ public class XceiverClientGrpc extends XceiverClientSpi {
         // every time.
         Collections.shuffle(datanodeList);
       }
-    }
-
-    boolean allInService = datanodeList.stream()
-        .allMatch(dn -> dn.getPersistedOpState() == NodeOperationalState.IN_SERVICE);
-    if (!allInService) {
-      datanodeList = sortDatanodeByOperationalState(datanodeList);
     }
 
     for (DatanodeDetails dn : datanodeList) {
@@ -484,35 +473,11 @@ public class XceiverClientGrpc extends XceiverClientSpi {
         LOG.debug(message + " on the pipeline {}.",
                 processForDebug(request), pipeline);
       } else {
-        LOG.warn(message + " on the pipeline {}.",
+        LOG.error(message + " on the pipeline {}.",
                 request.getCmdType(), pipeline);
       }
       throw ioException;
     }
-  }
-
-  private static List<DatanodeDetails> sortDatanodeByOperationalState(
-      List<DatanodeDetails> datanodeList) {
-    List<DatanodeDetails> sortedDatanodeList = new ArrayList<>(datanodeList);
-    // Make IN_SERVICE's Datanode precede all other State's Datanodes.
-    // This is a stable sort that does not change the order of the
-    // IN_SERVICE's Datanode.
-    Comparator<DatanodeDetails> byOpStateStable = (first, second) -> {
-      boolean firstInService = first.getPersistedOpState() ==
-          NodeOperationalState.IN_SERVICE;
-      boolean secondInService = second.getPersistedOpState() ==
-          NodeOperationalState.IN_SERVICE;
-
-      if (firstInService == secondInService) {
-        return 0;
-      } else if (firstInService) {
-        return -1;
-      } else {
-        return 1;
-      }
-    };
-    sortedDatanodeList.sort(byOpStateStable);
-    return sortedDatanodeList;
   }
 
   @Override
@@ -581,13 +546,31 @@ public class XceiverClientGrpc extends XceiverClientSpi {
               @Override
               public void onNext(ContainerCommandResponseProto value) {
                 replyFuture.complete(value);
-                decreasePendingMetricsAndReleaseSemaphore();
+                metrics.decrPendingContainerOpsMetrics(request.getCmdType());
+                long cost = System.currentTimeMillis() - requestTime;
+                metrics.addContainerOpsLatency(request.getCmdType(),
+                    cost);
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug("Executed command {} on datanode {}, cost = {}, "
+                          + "cmdType = {}", processForDebug(request), dn,
+                      cost, request.getCmdType());
+                }
+                semaphore.release();
               }
 
               @Override
               public void onError(Throwable t) {
                 replyFuture.completeExceptionally(t);
-                decreasePendingMetricsAndReleaseSemaphore();
+                metrics.decrPendingContainerOpsMetrics(request.getCmdType());
+                long cost = System.currentTimeMillis() - requestTime;
+                metrics.addContainerOpsLatency(request.getCmdType(),
+                    System.currentTimeMillis() - requestTime);
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug("Executed command {} on datanode {}, cost = {}, "
+                          + "cmdType = {}", processForDebug(request), dn,
+                      cost, request.getCmdType());
+                }
+                semaphore.release();
               }
 
               @Override
@@ -597,17 +580,6 @@ public class XceiverClientGrpc extends XceiverClientSpi {
                       "Stream completed but no reply for request " +
                           processForDebug(request)));
                 }
-              }
-
-              private void decreasePendingMetricsAndReleaseSemaphore() {
-                metrics.decrPendingContainerOpsMetrics(request.getCmdType());
-                long cost = System.currentTimeMillis() - requestTime;
-                metrics.addContainerOpsLatency(request.getCmdType(), cost);
-                if (LOG.isDebugEnabled()) {
-                  LOG.debug("Executed command {} on datanode {}, cost = {}, cmdType = {}",
-                      processForDebug(request), dn, cost, request.getCmdType());
-                }
-                semaphore.release();
               }
             });
     requestObserver.onNext(request);
@@ -643,6 +615,14 @@ public class XceiverClientGrpc extends XceiverClientSpi {
     if (!isConnected(channel)) {
       throw new IOException("This channel is not connected.");
     }
+  }
+
+  @Override
+  public XceiverClientReply watchForCommit(long index)
+      throws InterruptedException, ExecutionException, TimeoutException,
+      IOException {
+    // there is no notion of watch for commit index in standalone pipeline
+    return null;
   }
 
   @Override

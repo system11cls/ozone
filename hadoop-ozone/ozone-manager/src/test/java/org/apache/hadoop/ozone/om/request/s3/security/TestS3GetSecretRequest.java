@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,28 +18,6 @@
 
 package org.apache.hadoop.ozone.om.request.s3.security;
 
-import static org.apache.hadoop.security.authentication.util.KerberosName.DEFAULT_MECHANISM;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.framework;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Optional;
-import java.util.UUID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
@@ -46,21 +25,19 @@ import org.apache.hadoop.ipc.Server.Call;
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.AuditMessage;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
-import org.apache.hadoop.ozone.om.OMMetrics;
-import org.apache.hadoop.ozone.om.OMMultiTenantManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.OzoneManager;
-import org.apache.hadoop.ozone.om.S3SecretCache;
-import org.apache.hadoop.ozone.om.S3SecretFunction;
 import org.apache.hadoop.ozone.om.S3SecretLockedManager;
-import org.apache.hadoop.ozone.om.S3SecretManager;
+import org.apache.hadoop.ozone.om.OMMetrics;
+import org.apache.hadoop.ozone.om.OMMultiTenantManager;
 import org.apache.hadoop.ozone.om.S3SecretManagerImpl;
 import org.apache.hadoop.ozone.om.TenantOp;
+import org.apache.hadoop.ozone.om.S3SecretCache;
+import org.apache.hadoop.ozone.om.multitenant.AuthorizerLockImpl;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.om.helpers.OmDBAccessIdInfo;
 import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
-import org.apache.hadoop.ozone.om.multitenant.AuthorizerLockImpl;
 import org.apache.hadoop.ozone.om.multitenant.Tenant;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantAssignUserAccessIdRequest;
@@ -82,10 +59,26 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.TenantA
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authentication.util.KerberosName;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.UUID;
+
+import com.google.common.base.Optional;
+
+import static org.apache.hadoop.security.authentication.util.KerberosName.DEFAULT_MECHANISM;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.framework;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 /**
  * Test S3GetSecretRequest.
@@ -122,10 +115,10 @@ public class TestS3GetSecretRequest {
         "RULE:[1:$1@$0](.*@EXAMPLE.COM)s/@.*//\n" +
         "DEFAULT");
     ugiAlice = UserGroupInformation.createRemoteUser(USER_ALICE);
-    assertEquals("alice", ugiAlice.getShortUserName());
+    Assertions.assertEquals("alice", ugiAlice.getShortUserName());
 
     ugiCarol = UserGroupInformation.createRemoteUser(USER_CAROL);
-    assertEquals("carol", ugiCarol.getShortUserName());
+    Assertions.assertEquals("carol", ugiCarol.getShortUserName());
 
     ozoneManager = mock(OzoneManager.class);
 
@@ -145,6 +138,7 @@ public class TestS3GetSecretRequest {
         ozoneManager);
     when(ozoneManager.getMetrics()).thenReturn(omMetrics);
     when(ozoneManager.getMetadataManager()).thenReturn(omMetadataManager);
+    when(ozoneManager.isRatisEnabled()).thenReturn(true);
     S3SecretLockedManager secretManager = new S3SecretLockedManager(
             new S3SecretManagerImpl(
                     omMetadataManager,
@@ -172,9 +166,9 @@ public class TestS3GetSecretRequest {
     when(omMultiTenantManager.getCacheOp()).thenReturn(cacheOp);
 
     when(omMultiTenantManager.getTenantForAccessID(USER_CAROL))
-        .thenReturn(Optional.empty());
+        .thenReturn(Optional.absent());
     when(omMultiTenantManager.getTenantForAccessID(USER_ALICE))
-        .thenReturn(Optional.empty());
+        .thenReturn(Optional.absent());
     when(omMultiTenantManager.getTenantForAccessID(ACCESS_ID_BOB))
         .thenReturn(Optional.of(ACCESS_ID_BOB));
   }
@@ -242,12 +236,14 @@ public class TestS3GetSecretRequest {
 
     // Verify that the transaction index is added to the cache for "alice".
     S3SecretCache cache = ozoneManager.getS3SecretManager().cache();
-    assertNotNull(cache.get(userPrincipalIdAlice));
-    assertEquals(1, cache.get(userPrincipalIdAlice).getTransactionLogIndex());
+    Assertions.assertNotNull(cache.get(userPrincipalIdAlice));
+    Assertions.assertEquals(1,
+        cache.get(userPrincipalIdAlice).getTransactionLogIndex());
 
     // Verify that the transaction index is added to the cache for "bob".
-    assertNotNull(cache.get(userPrincipalIdBob));
-    assertEquals(2, cache.get(userPrincipalIdBob).getTransactionLogIndex());
+    Assertions.assertNotNull(cache.get(userPrincipalIdBob));
+    Assertions.assertEquals(2,
+        cache.get(userPrincipalIdBob).getTransactionLogIndex());
   }
 
   @Test
@@ -283,9 +279,10 @@ public class TestS3GetSecretRequest {
         ozoneManager, 2);
 
     // Verify that the revoke operation was successful.
+    Assertions.assertTrue(omRevokeResponse instanceof S3RevokeSecretResponse);
     S3RevokeSecretResponse s3RevokeSecretResponse =
-        assertInstanceOf(S3RevokeSecretResponse.class, omRevokeResponse);
-    assertEquals(OzoneManagerProtocolProtos.Status.OK.getNumber(),
+        (S3RevokeSecretResponse) omRevokeResponse;
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK.getNumber(),
         s3RevokeSecretResponse.getOMResponse().getStatus().getNumber());
 
     // Fetch the revoked secret and verify its value is null.
@@ -294,20 +291,20 @@ public class TestS3GetSecretRequest {
             ozoneManager)
     );
     S3SecretValue s3SecretValue = omMetadataManager.getSecret(kerberosID);
-    assertNull(s3SecretValue);
+    Assertions.assertNull(s3SecretValue);
 
     // Verify that the secret for revoked user will be set to a new one upon
     // calling getSecret request.
     OMClientResponse omClientResponse =
         s3GetSecretRequest.validateAndUpdateCache(ozoneManager, 3);
 
-    assertInstanceOf(S3GetSecretResponse.class, omClientResponse);
+    Assertions.assertTrue(omClientResponse instanceof S3GetSecretResponse);
     S3GetSecretResponse s3GetSecretResponse =
         (S3GetSecretResponse) omClientResponse;
 
     // Compare the old secret value and new secret value after revoking;
     // they should not be the same.
-    assertNotEquals(originalS3Secret,
+    Assertions.assertNotEquals(originalS3Secret,
         s3GetSecretResponse.getS3SecretValue().getAwsSecret());
   }
 
@@ -321,30 +318,6 @@ public class TestS3GetSecretRequest {
   }
 
   @Test
-  public void testFailSecretManagerOnGetSecret() throws IOException {
-
-    // This effectively makes alice an S3 admin.
-    when(ozoneManager.isS3Admin(ugiAlice)).thenReturn(true);
-
-    S3SecretManager failingS3Secret = mock(S3SecretManager.class);
-    doThrow(new IOException("Test Exception: Failed to store secret"))
-        .when(failingS3Secret).storeSecret(any(), any());
-    when(failingS3Secret.doUnderLock(any(), any()))
-        .thenAnswer(invocationOnMock -> {
-          S3SecretFunction<Boolean> action =
-              invocationOnMock.getArgument(1, S3SecretFunction.class);
-
-          return action.accept(failingS3Secret);
-        });
-
-    when(ozoneManager.getS3SecretManager()).thenReturn(failingS3Secret);
-
-    assertThrows(Exception.class, () ->
-        processSuccessSecretRequest(USER_ALICE, 1, true)
-    );
-  }
-
-  @Test
   public void testGetOwnSecretAsNonAdmin() throws IOException {
 
     // This effectively makes alice a regular user.
@@ -354,14 +327,14 @@ public class TestS3GetSecretRequest {
     S3Secret s3Secret1 = processSuccessSecretRequest(
         USER_ALICE, 1, true);
 
-    assertNotNull(s3Secret1);
+    Assertions.assertNotNull(s3Secret1);
 
     // 2. Get secret of "alice" (as herself) again.
     s3Secret1 = processSuccessSecretRequest(
         USER_ALICE, 2, false);
 
     // no secret is returned as secret already exists in the DB
-    assertNull(s3Secret1);
+    Assertions.assertNull(s3Secret1);
   }
 
   @Test
@@ -411,31 +384,31 @@ public class TestS3GetSecretRequest {
     OMClientResponse omClientResponse1 =
         s3GetSecretRequest.validateAndUpdateCache(ozoneManager, 1);
     // Check response type and cast
-    assertInstanceOf(S3GetSecretResponse.class, omClientResponse1);
+    Assertions.assertTrue(omClientResponse1 instanceof S3GetSecretResponse);
     final S3GetSecretResponse s3GetSecretResponse1 =
         (S3GetSecretResponse) omClientResponse1;
     // Secret is returned the first time
     final S3SecretValue s3SecretValue1 =
         s3GetSecretResponse1.getS3SecretValue();
-    assertEquals(userPrincipalId, s3SecretValue1.getKerberosID());
+    Assertions.assertEquals(userPrincipalId, s3SecretValue1.getKerberosID());
     final String awsSecret1 = s3SecretValue1.getAwsSecret();
-    assertNotNull(awsSecret1);
+    Assertions.assertNotNull(awsSecret1);
 
     final GetS3SecretResponse getS3SecretResponse1 =
         s3GetSecretResponse1.getOMResponse().getGetS3SecretResponse();
     // The secret inside should be the same.
     final S3Secret s3Secret2 = getS3SecretResponse1.getS3Secret();
-    assertEquals(userPrincipalId, s3Secret2.getKerberosID());
+    Assertions.assertEquals(userPrincipalId, s3Secret2.getKerberosID());
 
     // Run validateAndUpdateCache for the second time
     OMClientResponse omClientResponse2 =
         s3GetSecretRequest.validateAndUpdateCache(ozoneManager, 2);
     // Check response type and cast
-    assertInstanceOf(S3GetSecretResponse.class, omClientResponse2);
+    Assertions.assertTrue(omClientResponse2 instanceof S3GetSecretResponse);
     final S3GetSecretResponse s3GetSecretResponse2 =
         (S3GetSecretResponse) omClientResponse2;
     // no secret is returned as it is the second time
-    assertNull(s3GetSecretResponse2.getS3SecretValue());
+    Assertions.assertNull(s3GetSecretResponse2.getS3SecretValue());
   }
 
   @Test
@@ -465,12 +438,12 @@ public class TestS3GetSecretRequest {
     OMClientResponse omClientResponse =
         omTenantCreateRequest.validateAndUpdateCache(ozoneManager, txLogIndex);
     // Check response type and cast
-    assertInstanceOf(OMTenantCreateResponse.class, omClientResponse);
+    Assertions.assertTrue(omClientResponse instanceof OMTenantCreateResponse);
     final OMTenantCreateResponse omTenantCreateResponse =
         (OMTenantCreateResponse) omClientResponse;
     // Check response
-    assertTrue(omTenantCreateResponse.getOMResponse().getSuccess());
-    assertEquals(TENANT_ID,
+    Assertions.assertTrue(omTenantCreateResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(TENANT_ID,
         omTenantCreateResponse.getOmDBTenantState().getTenantId());
 
 
@@ -496,22 +469,23 @@ public class TestS3GetSecretRequest {
         omTenantAssignUserAccessIdRequest.validateAndUpdateCache(ozoneManager, txLogIndex);
 
     // Check response type and cast
-    assertInstanceOf(OMTenantAssignUserAccessIdResponse.class, omClientResponse);
+    Assertions.assertTrue(
+        omClientResponse instanceof OMTenantAssignUserAccessIdResponse);
     final OMTenantAssignUserAccessIdResponse
         omTenantAssignUserAccessIdResponse =
         (OMTenantAssignUserAccessIdResponse) omClientResponse;
 
     // Check response - successful as secret is created for the first time
-    assertTrue(omTenantAssignUserAccessIdResponse.getOMResponse()
+    Assertions.assertTrue(omTenantAssignUserAccessIdResponse.getOMResponse()
         .getSuccess());
-    assertTrue(omTenantAssignUserAccessIdResponse.getOMResponse()
+    Assertions.assertTrue(omTenantAssignUserAccessIdResponse.getOMResponse()
         .hasTenantAssignUserAccessIdResponse());
     final OmDBAccessIdInfo omDBAccessIdInfo =
         omTenantAssignUserAccessIdResponse.getOmDBAccessIdInfo();
-    assertNotNull(omDBAccessIdInfo);
+    Assertions.assertNotNull(omDBAccessIdInfo);
     final S3SecretValue originalS3Secret =
         omTenantAssignUserAccessIdResponse.getS3Secret();
-    assertNotNull(originalS3Secret);
+    Assertions.assertNotNull(originalS3Secret);
 
 
     // 3. S3GetSecretRequest: Get secret of "bob@EXAMPLE.COM" (as an admin).
@@ -530,19 +504,19 @@ public class TestS3GetSecretRequest {
         s3GetSecretRequest.validateAndUpdateCache(ozoneManager, txLogIndex);
 
     // Check response type and cast
-    assertInstanceOf(S3GetSecretResponse.class, omClientResponse);
+    Assertions.assertTrue(omClientResponse instanceof S3GetSecretResponse);
     final S3GetSecretResponse s3GetSecretResponse =
         (S3GetSecretResponse) omClientResponse;
 
     // Check response
-    assertTrue(s3GetSecretResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(s3GetSecretResponse.getOMResponse().getSuccess());
     /*
        getS3SecretValue() should be null in this case because
        the entry is already inserted to DB in the previous request.
        The entry will get overwritten if it isn't null.
        See {@link S3GetSecretResponse#addToDBBatch}.
      */
-    assertNull(s3GetSecretResponse.getS3SecretValue());
+    Assertions.assertNull(s3GetSecretResponse.getS3SecretValue());
   }
 
 
@@ -562,7 +536,7 @@ public class TestS3GetSecretRequest {
         s3GetSecretRequest.validateAndUpdateCache(ozoneManager, txLogIndex);
 
     // Check response type and cast
-    assertInstanceOf(S3GetSecretResponse.class, omClientResponse);
+    Assertions.assertTrue(omClientResponse instanceof S3GetSecretResponse);
     final S3GetSecretResponse s3GetSecretResponse =
         (S3GetSecretResponse) omClientResponse;
 
@@ -571,18 +545,18 @@ public class TestS3GetSecretRequest {
       // Check response
       final S3SecretValue s3SecretValue =
           s3GetSecretResponse.getS3SecretValue();
-      assertEquals(userPrincipalId, s3SecretValue.getKerberosID());
+      Assertions.assertEquals(userPrincipalId, s3SecretValue.getKerberosID());
       final String awsSecret1 = s3SecretValue.getAwsSecret();
-      assertNotNull(awsSecret1);
+      Assertions.assertNotNull(awsSecret1);
 
       final GetS3SecretResponse getS3SecretResponse =
           s3GetSecretResponse.getOMResponse().getGetS3SecretResponse();
       // The secret inside should be the same.
       final S3Secret s3Secret = getS3SecretResponse.getS3Secret();
-      assertEquals(userPrincipalId, s3Secret.getKerberosID());
+      Assertions.assertEquals(userPrincipalId, s3Secret.getKerberosID());
       return s3Secret;
     } else {
-      assertNull(s3GetSecretResponse.getS3SecretValue());
+      Assertions.assertNull(s3GetSecretResponse.getS3SecretValue());
     }
     return null;
 
@@ -595,11 +569,11 @@ public class TestS3GetSecretRequest {
           s3GetSecretRequest(userPrincipalId)
       ).preExecute(ozoneManager);
     } catch (OMException omEx) {
-      assertEquals(ResultCodes.USER_MISMATCH, omEx.getResult());
+      Assertions.assertEquals(ResultCodes.USER_MISMATCH, omEx.getResult());
       return;
     }
 
-    fail("Should have thrown OMException because alice should not " +
+    Assertions.fail("Should have thrown OMException because alice should not " +
         "have the permission to get bob's secret in this test case!");
   }
 }

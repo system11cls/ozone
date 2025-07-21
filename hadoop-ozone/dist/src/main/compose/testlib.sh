@@ -18,6 +18,7 @@ set -e -o pipefail
 
 _testlib_this="${BASH_SOURCE[0]}"
 _testlib_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 COMPOSE_ENV_NAME=$(basename "$COMPOSE_DIR")
 RESULT_DIR=${RESULT_DIR:-"$COMPOSE_DIR/result"}
 RESULT_DIR_INSIDE="/tmp/smoketest/$(basename "$COMPOSE_ENV_NAME")/result"
@@ -28,39 +29,16 @@ if [[ -n "${OM_SERVICE_ID}" ]] && [[ "${OM_SERVICE_ID}" != "om" ]]; then
 fi
 
 source ${_testlib_dir}/compose_v2_compatibility.sh
-source "${_testlib_dir}/../smoketest/testlib.sh"
 
-: ${OZONE_COMPOSE_RUNNING:=false}
 : ${SCM:=scm}
-
-# version is used in bucket name, which does not allow uppercase
-export OZONE_CURRENT_VERSION="$(echo "${ozone.version}" | sed -e 's/-SNAPSHOT//' | tr '[:upper:]' '[:lower:]')"
-
-# create temp directory for test data; only once, even if testlib.sh is sourced again
-if [[ -z "${TEST_DATA_DIR:-}" ]] && [[ "${KEEP_RUNNING:-false}" == "false" ]]; then
-  export TEST_DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}"/robot-data-XXXXXX)"
-  chmod go+rx "${TEST_DATA_DIR}"
-  _compose_delete_test_data() {
-    rm -frv "${TEST_DATA_DIR}"
-  }
-
-  trap _compose_cleanup EXIT HUP INT TERM
-fi
-
-_compose_cleanup() {
-  if [[ "${OZONE_COMPOSE_RUNNING}" == "true" ]]; then
-    stop_docker_env || true
-  fi
-  if [[ "$(type -t _compose_delete_test_data || true)" == "function" ]]; then
-    _compose_delete_test_data
-  fi
-}
 
 ## @description create results directory, purging any prior data
 create_results_dir() {
   #delete previous results
   [[ "${OZONE_KEEP_RESULTS:-}" == "true" ]] || rm -rf "$RESULT_DIR"
   mkdir -p "$RESULT_DIR"
+  #Should be writeable from the docker containers where user is different.
+  chmod ogu+w "$RESULT_DIR"
 }
 
 ## @description find all the test*.sh scripts in the immediate child dirs
@@ -162,15 +140,15 @@ start_docker_env(){
   create_results_dir
   export OZONE_SAFEMODE_MIN_DATANODES="${datanode_count}"
 
-  docker-compose --ansi never down --remove-orphans
+  docker-compose --ansi never down
+
+  trap stop_docker_env EXIT HUP INT TERM
 
   opts=""
   if has_scalable_datanode; then
     opts="--scale datanode=${datanode_count}"
   fi
 
-  OZONE_COMPOSE_RUNNING=true
-  trap _compose_cleanup EXIT HUP INT TERM
   docker-compose --ansi never up -d $opts
 
   wait_for_safemode_exit
@@ -208,11 +186,11 @@ execute_robot_test(){
   local output_name=$(get_output_name)
 
   # find unique filename
-  for ((i=1; i<1000; i++)); do
-    OUTPUT_FILE="robot-${output_name}$(printf "%03d" ${i}).xml"
-    if [[ ! -f $RESULT_DIR/$OUTPUT_FILE ]]; then
-      break;
-    fi
+  declare -i i=0
+  OUTPUT_FILE="robot-${output_name}1.xml"
+  while [[ -f $RESULT_DIR/$OUTPUT_FILE ]]; do
+    let ++i
+    OUTPUT_FILE="robot-${output_name}${i}.xml"
   done
 
   SMOKETEST_DIR_INSIDE="${OZONE_DIR:-/opt/hadoop}/smoketest"
@@ -224,7 +202,7 @@ execute_robot_test(){
   # shellcheck disable=SC2068
   docker-compose exec -T "$CONTAINER" mkdir -p "$RESULT_DIR_INSIDE" \
     && docker-compose exec -T "$CONTAINER" robot \
-      -v ENCRYPTION_KEY:"${OZONE_BUCKET_KEY_NAME}" \
+      -v KEY_NAME:"${OZONE_BUCKET_KEY_NAME}" \
       -v OM_HA_PARAM:"${OM_HA_PARAM}" \
       -v OM_SERVICE_ID:"${OM_SERVICE_ID:-om}" \
       -v OZONE_DIR:"${OZONE_DIR}" \
@@ -234,7 +212,7 @@ execute_robot_test(){
       "$SMOKETEST_DIR_INSIDE/$TEST"
   local -i rc=$?
 
-  FULL_CONTAINER_NAME=$(docker-compose ps -a | grep "[-_]${CONTAINER}[-_]" | head -n 1 | awk '{print $1}')
+  FULL_CONTAINER_NAME=$(docker-compose ps | grep "[-_]${CONTAINER}[-_]" | head -n 1 | awk '{print $1}')
   docker cp "$FULL_CONTAINER_NAME:$OUTPUT_PATH" "$RESULT_DIR/"
 
   if [[ ${rc} -gt 0 ]] && [[ ${rc} -le 250 ]]; then
@@ -273,7 +251,7 @@ create_stack_dumps() {
 ## @description Copy any 'out' files for daemon processes to the result dir
 copy_daemon_logs() {
   local c f
-  for c in $(docker-compose ps -a | grep "^${COMPOSE_ENV_NAME}[_-]" | awk '{print $1}'); do
+  for c in $(docker-compose ps | grep "^${COMPOSE_ENV_NAME}[_-]" | awk '{print $1}'); do
     for f in $(docker exec "${c}" ls -1 /var/log/hadoop 2> /dev/null | grep -F -e '.out' -e audit); do
       docker cp "${c}:/var/log/hadoop/${f}" "$RESULT_DIR/"
     done
@@ -391,8 +369,7 @@ stop_docker_env(){
     down_repeats=3
     for i in $(seq 1 $down_repeats)
     do
-      if docker-compose --ansi never --profile "*" down --remove-orphans; then
-        OZONE_COMPOSE_RUNNING=false
+      if docker-compose --ansi never down; then
         return
       fi
       if [[ ${i} -eq 1 ]]; then
@@ -419,17 +396,16 @@ generate_report(){
   local dir="${2:-${RESULT_DIR}}"
   local xunitdir="${3:-}"
 
-  if [[ -n "$(find "${dir}" -mindepth 1 -maxdepth 1 -name "*.xml")" ]]; then
-    xunit_args=""
-    if [[ -n "${xunitdir}" ]] && [[ -e "${xunitdir}" ]]; then
-      xunit_args="--xunit TEST-ozone.xml"
-    fi
-
-    run_rebot "$dir" "$dir" "--reporttitle '${title}' -N '${title}' ${xunit_args} *.xml"
-
-    if [[ -n "${xunit_args}" ]]; then
-      mv -v "${dir}"/TEST-ozone.xml "${xunitdir}"/ || rm -f "${dir}"/TEST-ozone.xml
-    fi
+  if command -v rebot > /dev/null 2>&1; then
+     #Generate the combined output and return with the right exit code (note: robot = execute test, rebot = generate output)
+     if [ -z "${xunitdir}" ]; then
+       rebot --reporttitle "${title}" -N "${title}" -d "${dir}" "${dir}/*.xml"
+     else
+       rebot --reporttitle "${title}" -N "${title}" --xunit ${xunitdir}/TEST-ozone.xml -d "${dir}" "${dir}/*.xml"
+     fi
+  else
+     echo "Robot framework is not installed, the reports cannot be generated (sudo pip install robotframework)."
+     exit 1
   fi
 }
 
@@ -453,8 +429,8 @@ copy_results() {
     target_dir="${target_dir}/${test_script_name}"
   fi
 
-  if [[ -n "$(find "${result_dir}" -mindepth 1 -maxdepth 1 -name "*.xml")" ]]; then
-    run_rebot "${result_dir}" "${all_result_dir}" "-N '${test_name}' -l NONE -r NONE -o '${test_name}.xml' *.xml" \
+  if command -v rebot > /dev/null 2>&1 && [[ -n "$(find "${result_dir}" -name "*.xml")" ]]; then
+    rebot --nostatusrc -N "${test_name}" -l NONE -r NONE -o "${all_result_dir}/${test_name}.xml" "${result_dir}"/*.xml \
       && rm -fv "${result_dir}"/*.xml "${result_dir}"/log.html "${result_dir}"/report.html
   fi
 
@@ -521,21 +497,57 @@ fix_data_dir_permissions() {
 ## @param `ozone` image version
 prepare_for_binary_image() {
   local v=$1
-  local default_image="${docker.ozone.image}" # set at build-time from Maven property
-  local default_flavor="${docker.ozone.image.flavor}" # set at build-time from Maven property
-  local image="${OZONE_IMAGE:-${default_image}}" # may be specified by user running the test
-  local flavor="${OZONE_IMAGE_FLAVOR:-${default_flavor}}" # may be specified by user running the test
 
   export OZONE_DIR=/opt/ozone
-  export OZONE_TEST_IMAGE="${image}:${v}${flavor}"
+  export OZONE_IMAGE="apache/ozone:${v}"
 }
 
 ## @description Define variables required for using `ozone-runner` docker image
 ##   (no binaries included)
 ## @param `ozone-runner` image version (optional)
 prepare_for_runner_image() {
+  local default_version=${docker.ozone-runner.version} # set at build-time from Maven property
+  local runner_version=${OZONE_RUNNER_VERSION:-${default_version}} # may be specified by user running the test
+  local runner_image=${OZONE_RUNNER_IMAGE:-apache/ozone-runner} # may be specified by user running the test
+  local v=${1:-${runner_version}} # prefer explicit argument
+
   export OZONE_DIR=/opt/hadoop
-  export OZONE_TEST_IMAGE="$(get_runner_image_spec "$@")"
+  export OZONE_IMAGE="${runner_image}:${v}"
+}
+
+## @description Executing the Ozone Debug CLI related robot tests
+execute_debug_tests() {
+  local prefix=${RANDOM}
+
+  local volume="cli-debug-volume${prefix}"
+  local bucket="cli-debug-bucket"
+  local key="testfile"
+
+  execute_robot_test ${SCM} -v "PREFIX:${prefix}" debug/ozone-debug-tests.robot
+
+  # get block locations for key
+  local chunkinfo="${key}-blocks-${prefix}"
+  docker-compose exec -T ${SCM} bash -c "ozone debug chunkinfo ${volume}/${bucket}/${key}" > "$chunkinfo"
+  local host="$(jq -r '.KeyLocations[0][0]["Datanode-HostName"]' ${chunkinfo})"
+  local container="${host%%.*}"
+
+  # corrupt the first block of key on one of the datanodes
+  local datafile="$(jq -r '.KeyLocations[0][0].Locations.files[0]' ${chunkinfo})"
+  docker exec "${container}" sed -i -e '1s/^/a/' "${datafile}"
+
+  execute_robot_test ${SCM} -v "PREFIX:${prefix}" -v "CORRUPT_DATANODE:${host}" debug/ozone-debug-corrupt-block.robot
+
+  docker stop "${container}"
+
+  wait_for_datanode "${container}" STALE 60
+  execute_robot_test ${SCM} -v "PREFIX:${prefix}" -v "STALE_DATANODE:${host}" debug/ozone-debug-stale-datanode.robot
+
+  wait_for_datanode "${container}" DEAD 60
+  execute_robot_test ${SCM} -v "PREFIX:${prefix}" debug/ozone-debug-dead-datanode.robot
+
+  docker start "${container}"
+
+  wait_for_datanode "${container}" HEALTHY 60
 }
 
 ## @description  Wait for datanode state

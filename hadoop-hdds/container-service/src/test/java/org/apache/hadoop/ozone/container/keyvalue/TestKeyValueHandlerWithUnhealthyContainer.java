@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,29 +18,6 @@
 
 package org.apache.hadoop.ozone.container.keyvalue;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.CONTAINER_INTERNAL_ERROR;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.CONTAINER_UNHEALTHY;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.SUCCESS;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.UNKNOWN_BCSID;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.DATANODE_UUID;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getDummyCommandRequestProto;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getPutBlockRequest;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestBlockID;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getWriteChunkRequest;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.atMostOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.UUID;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -52,16 +30,35 @@ import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.report.IncrementalReportSender;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
+
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.UUID;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.CONTAINER_INTERNAL_ERROR;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.SUCCESS;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.UNKNOWN_BCSID;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.DATANODE_UUID;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getDummyCommandRequestProto;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getPutBlockRequest;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestBlockID;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getWriteChunkRequest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test that KeyValueHandler fails certain operations when the
@@ -71,14 +68,11 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
   public static final Logger LOG = LoggerFactory.getLogger(
       TestKeyValueHandlerWithUnhealthyContainer.class);
 
-  @TempDir
-  private File tempDir;
-
   private IncrementalReportSender<Container> mockIcrSender;
 
   @BeforeEach
   public void init() {
-    mockIcrSender = mock(IncrementalReportSender.class);
+    mockIcrSender = Mockito.mock(IncrementalReportSender.class);
   }
 
   @Test
@@ -171,19 +165,6 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
   }
 
   @Test
-  public void testFinalizeBlock() {
-    KeyValueContainer container = getMockUnhealthyContainer();
-    KeyValueHandler handler = getDummyHandler();
-
-    ContainerProtos.ContainerCommandResponseProto response =
-        handler.handleFinalizeBlock(
-            getDummyCommandRequestProto(
-                ContainerProtos.Type.FinalizeBlock),
-            container);
-    assertEquals(CONTAINER_UNHEALTHY, response.getResult());
-  }
-
-  @Test
   public void testGetSmallFile() {
     KeyValueContainer container = getMockUnhealthyContainer();
     KeyValueHandler handler = getDummyHandler();
@@ -219,24 +200,23 @@ public class TestKeyValueHandlerWithUnhealthyContainer {
     KeyValueHandler handler = getDummyHandler();
     KeyValueContainerData mockContainerData = mock(KeyValueContainerData.class);
     HddsVolume mockVolume = mock(HddsVolume.class);
-    when(mockContainerData.getVolume()).thenReturn(mockVolume);
-    when(mockContainerData.getMetadataPath()).thenReturn(tempDir.getAbsolutePath());
+    Mockito.when(mockContainerData.getVolume()).thenReturn(mockVolume);
     KeyValueContainer container = new KeyValueContainer(
         mockContainerData, new OzoneConfiguration());
 
     // When volume is failed, the call to mark the container unhealthy should
     // be ignored.
-    when(mockVolume.isFailed()).thenReturn(true);
+    Mockito.when(mockVolume.isFailed()).thenReturn(true);
     handler.markContainerUnhealthy(container,
         ContainerTestUtils.getUnhealthyScanResult());
-    verify(mockIcrSender, never()).send(any());
+    Mockito.verify(mockIcrSender, Mockito.never()).send(Mockito.any());
 
     // When volume is healthy, ICR should be sent when container is marked
     // unhealthy.
-    when(mockVolume.isFailed()).thenReturn(false);
+    Mockito.when(mockVolume.isFailed()).thenReturn(false);
     handler.markContainerUnhealthy(container,
         ContainerTestUtils.getUnhealthyScanResult());
-    verify(mockIcrSender, atMostOnce()).send(any());
+    Mockito.verify(mockIcrSender, Mockito.atMostOnce()).send(Mockito.any());
   }
 
   // -- Helper methods below.

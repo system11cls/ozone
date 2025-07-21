@@ -1,21 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.tracing;
+
+import java.lang.reflect.Proxy;
+
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 
 import io.jaegertracing.Configuration;
 import io.jaegertracing.internal.JaegerTracer;
@@ -24,9 +29,6 @@ import io.opentracing.Span;
 import io.opentracing.SpanContext;
 import io.opentracing.Tracer;
 import io.opentracing.util.GlobalTracer;
-import java.lang.reflect.Proxy;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 
@@ -138,16 +140,6 @@ public final class TracingUtil {
   }
 
   /**
-   * Execute {@code runnable} inside an activated new span.
-   */
-  public static <E extends Exception> void executeInNewSpan(String spanName,
-      CheckedRunnable<E> runnable) throws E {
-    Span span = GlobalTracer.get()
-        .buildSpan(spanName).start();
-    executeInSpan(span, runnable);
-  }
-
-  /**
    * Execute {@code supplier} inside an activated new span.
    */
   public static <R, E extends Exception> R executeInNewSpan(String spanName,
@@ -155,6 +147,16 @@ public final class TracingUtil {
     Span span = GlobalTracer.get()
         .buildSpan(spanName).start();
     return executeInSpan(span, supplier);
+  }
+
+  /**
+   * Execute a function inside an activated new span.
+   */
+  public static <E extends Exception> void executeInNewSpan(String spanName,
+      CheckedRunnable<E> runnable) throws E {
+    Span span = GlobalTracer.get()
+        .buildSpan(spanName).start();
+    executeInSpan(span, runnable);
   }
 
   /**
@@ -186,6 +188,15 @@ public final class TracingUtil {
     } finally {
       span.finish();
     }
+  }
+
+  /**
+   * Execute a new function as a child span of the parent.
+   */
+  public static <R, E extends Exception> R executeAsChildSpan(String spanName,
+      String parentName, CheckedSupplier<R, E> supplier) throws E {
+    Span span = TracingUtil.importAndCreateSpan(spanName, parentName);
+    return executeInSpan(span, supplier);
   }
 
   /**

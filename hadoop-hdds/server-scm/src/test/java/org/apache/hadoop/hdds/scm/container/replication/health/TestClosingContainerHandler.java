@@ -1,44 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.hdds.scm.container.replication.health;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLOSE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.QUASI_CLOSE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.EC;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.RATIS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.Duration;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Stream;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -54,11 +33,27 @@ import org.apache.hadoop.hdds.scm.container.replication.ContainerCheckRequest;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil;
 import org.apache.ozone.test.TestClock;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import java.time.Duration;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLOSE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.QUASI_CLOSE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.EC;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.RATIS;
+import static org.mockito.Mockito.never;
 
 /**
  * Tests for {@link ClosingContainerHandler}.
@@ -79,8 +74,9 @@ public class TestClosingContainerHandler {
 
   @BeforeEach
   public void setup() {
-    replicationManager = mock(ReplicationManager.class);
-    when(replicationManager.getConfig()).thenReturn(rmConf);
+    replicationManager = Mockito.mock(ReplicationManager.class);
+    Mockito.when(replicationManager.getConfig())
+        .thenReturn(rmConf);
     subject = new ClosingContainerHandler(replicationManager, clock);
   }
 
@@ -207,7 +203,7 @@ public class TestClosingContainerHandler {
 
     assertAndVerify(readRequest, true, 0);
     assertAndVerify(request, true, 3);
-    report.getStats().forEach((k, v) -> assertEquals(0L, v));
+    report.getStats().forEach((k, v) -> Assertions.assertEquals(0L, v));
   }
 
   @Test
@@ -226,9 +222,9 @@ public class TestClosingContainerHandler {
     assertAndVerify(request, true, 0);
     report.getStats().forEach((k, v) -> {
       if (k.equals("MISSING")) {
-        assertEquals(1L, v);
+        Assertions.assertEquals(1L, v);
       } else {
-        assertEquals(0L, v);
+        Assertions.assertEquals(0L, v);
       }
     });
   }
@@ -260,14 +256,14 @@ public class TestClosingContainerHandler {
     Duration notEnoughTime = replicationInterval.multipliedBy(3).plusMillis(1);
     clock.fastForward(notEnoughTime);
     assertAndVerify(request, true, 0);
-    verify(replicationManager, never())
+    Mockito.verify(replicationManager, never())
         .updateContainerState(containerInfo.containerID(), CLOSE);
 
     // wait time has elapsed (3x + 2x + a bit)
     Duration moreTime = replicationInterval.multipliedBy(2);
     clock.fastForward(moreTime);
     assertAndVerify(request, true, 0);
-    verify(replicationManager, times(1))
+    Mockito.verify(replicationManager, Mockito.times(1))
         .updateContainerState(containerInfo.containerID(), CLOSE);
   }
 
@@ -289,10 +285,10 @@ public class TestClosingContainerHandler {
         .build();
     subject.handle(request);
 
-    verify(replicationManager, times(1))
+    Mockito.verify(replicationManager, Mockito.times(1))
         .updateContainerState(containerInfo.containerID(), QUASI_CLOSE);
 
-    clearInvocations(replicationManager);
+    Mockito.clearInvocations(replicationManager);
 
     // Now add an open container. This time, the container should not move to
     // quasi-closed, and a close should be sent for the open replica.
@@ -301,7 +297,7 @@ public class TestClosingContainerHandler {
             ContainerReplicaProto.State.OPEN, 0));
 
     assertAndVerify(request, true, 1);
-    verify(replicationManager, times(0))
+    Mockito.verify(replicationManager, Mockito.times(0))
         .updateContainerState(containerInfo.containerID(), QUASI_CLOSE);
   }
 
@@ -323,10 +319,10 @@ public class TestClosingContainerHandler {
         .build();
     subject.handle(request);
 
-    verify(replicationManager, times(1))
+    Mockito.verify(replicationManager, Mockito.times(1))
         .updateContainerState(containerInfo.containerID(), CLOSE);
 
-    clearInvocations(replicationManager);
+    Mockito.clearInvocations(replicationManager);
 
     // Now add an open container. This time, the container should not move to
     // quasi-closed, and a close should be sent for the open replica.
@@ -335,7 +331,7 @@ public class TestClosingContainerHandler {
             ContainerReplicaProto.State.OPEN, 1));
 
     assertAndVerify(request, true, 1);
-    verify(replicationManager, times(0))
+    Mockito.verify(replicationManager, Mockito.times(0))
         .updateContainerState(containerInfo.containerID(), CLOSE);
   }
 
@@ -383,19 +379,19 @@ public class TestClosingContainerHandler {
 
     ArgumentCaptor<Boolean> forceCaptor =
         ArgumentCaptor.forClass(Boolean.class);
-    assertTrue(subject.handle(request));
-    verify(replicationManager, times(replicas))
-        .sendCloseContainerReplicaCommand(any(ContainerInfo.class),
-            any(DatanodeDetails.class), forceCaptor.capture());
+    Assertions.assertTrue(subject.handle(request));
+    Mockito.verify(replicationManager, Mockito.times(replicas))
+        .sendCloseContainerReplicaCommand(Mockito.any(ContainerInfo.class),
+            Mockito.any(DatanodeDetails.class), forceCaptor.capture());
     forceCaptor.getAllValues()
-        .forEach(f -> assertEquals(force, f));
+        .forEach(f -> Assertions.assertEquals(force, f));
   }
 
   private void assertAndVerify(ContainerCheckRequest request,
       boolean assertion, int times) {
-    assertEquals(assertion, subject.handle(request));
-    verify(replicationManager, times(times))
-        .sendCloseContainerReplicaCommand(any(ContainerInfo.class),
-            any(DatanodeDetails.class), anyBoolean());
+    Assertions.assertEquals(assertion, subject.handle(request));
+    Mockito.verify(replicationManager, Mockito.times(times))
+        .sendCloseContainerReplicaCommand(Mockito.any(ContainerInfo.class),
+            Mockito.any(DatanodeDetails.class), Mockito.anyBoolean());
   }
 }

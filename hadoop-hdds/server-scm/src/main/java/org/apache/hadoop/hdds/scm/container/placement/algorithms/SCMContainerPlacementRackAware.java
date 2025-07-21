@@ -1,30 +1,24 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.scm.container.placement.algorithms;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.SCMCommonPlacementPolicy;
@@ -35,6 +29,14 @@ import org.apache.hadoop.hdds.scm.net.Node;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Container placement policy that choose datanodes with network topology
@@ -146,7 +148,7 @@ public final class SCMContainerPlacementRackAware
     }
     DatanodeDetails favoredNode;
     int favorIndex = 0;
-    if (mutableUsedNodes.isEmpty()) {
+    if (mutableUsedNodes.size() == 0) {
       // choose all nodes for a new pipeline case
       // choose first datanode from scope ROOT or from favoredNodes if not null
       favoredNode = favoredNodeNum > favorIndex ?
@@ -344,7 +346,8 @@ public final class SCMContainerPlacementRackAware
       return chooseNodes(null, chosenNodes, mutableFavoredNodes,
           mutableUsedNodes, favorIndex, nodesRequired, mapSizeRequired);
     } else {
-      List<DatanodeDetails> mutableExcludedNodes = new ArrayList<>(excludedNodes);
+      List<DatanodeDetails> mutableExcludedNodes = new ArrayList<>();
+      mutableExcludedNodes.addAll(excludedNodes);
       // choose node to meet replication requirement
       // case 1: one excluded node, choose one on the same rack as the excluded
       // node, choose others on different racks.

@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,17 +18,7 @@
 
 package org.apache.hadoop.ozone.om.helpers;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -37,6 +28,18 @@ import org.apache.hadoop.hdds.utils.db.Codec;
 import org.apache.hadoop.hdds.utils.db.Proto2CodecTestBase;
 import org.apache.hadoop.util.Time;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test {@link RepeatedOmKeyInfo#getCodec(boolean)}.
@@ -84,7 +87,7 @@ public class TestRepeatedOmKeyInfoCodec
   }
 
   @Test
-  void test() throws Exception {
+  public void test() throws InterruptedException {
     threadSafety();
     testWithoutPipeline(1);
     testWithoutPipeline(2);
@@ -92,28 +95,39 @@ public class TestRepeatedOmKeyInfoCodec
     testCompatibility(2);
   }
 
-  public void testWithoutPipeline(int chunkNum) throws IOException {
+  public void testWithoutPipeline(int chunkNum) {
     final Codec<RepeatedOmKeyInfo> codec = RepeatedOmKeyInfo.getCodec(true);
     OmKeyInfo originKey = getKeyInfo(chunkNum);
     RepeatedOmKeyInfo repeatedOmKeyInfo = new RepeatedOmKeyInfo(originKey);
-
-    byte[] rawData = codec.toPersistedFormat(repeatedOmKeyInfo);
-    RepeatedOmKeyInfo key = codec.fromPersistedFormat(rawData);
-    assertNull(key.getOmKeyInfoList().get(0).getLatestVersionLocations()
-        .getLocationList().get(0).getPipeline());
+    try {
+      byte[] rawData = codec.toPersistedFormat(repeatedOmKeyInfo);
+      RepeatedOmKeyInfo key = codec.fromPersistedFormat(rawData);
+      System.out.println("Chunk number = " + chunkNum +
+          ", Serialized key size without pipeline = " + rawData.length);
+      assertNull(key.getOmKeyInfoList().get(0).getLatestVersionLocations()
+          .getLocationList().get(0).getPipeline());
+    } catch (IOException e) {
+      fail("Should success");
+    }
   }
 
-  public void testCompatibility(int chunkNum) throws IOException {
+  public void testCompatibility(int chunkNum) {
     final Codec<RepeatedOmKeyInfo> codecWithoutPipeline
         = RepeatedOmKeyInfo.getCodec(true);
     final Codec<RepeatedOmKeyInfo> codecWithPipeline
         = RepeatedOmKeyInfo.getCodec(false);
     OmKeyInfo originKey = getKeyInfo(chunkNum);
     RepeatedOmKeyInfo repeatedOmKeyInfo = new RepeatedOmKeyInfo(originKey);
-    byte[] rawData = codecWithPipeline.toPersistedFormat(repeatedOmKeyInfo);
-    RepeatedOmKeyInfo key = codecWithoutPipeline.fromPersistedFormat(rawData);
-    assertNotNull(key.getOmKeyInfoList().get(0).getLatestVersionLocations()
-        .getLocationList().get(0).getPipeline());
+    try {
+      byte[] rawData = codecWithPipeline.toPersistedFormat(repeatedOmKeyInfo);
+      RepeatedOmKeyInfo key = codecWithoutPipeline.fromPersistedFormat(rawData);
+      System.out.println("Chunk number = " + chunkNum +
+          ", Serialized key size with pipeline = " + rawData.length);
+      assertNotNull(key.getOmKeyInfoList().get(0).getLatestVersionLocations()
+          .getLocationList().get(0).getPipeline());
+    } catch (IOException e) {
+      fail("Should success");
+    }
   }
 
   public void threadSafety() throws InterruptedException {

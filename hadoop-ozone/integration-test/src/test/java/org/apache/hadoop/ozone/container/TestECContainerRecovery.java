@@ -1,45 +1,26 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.container;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT_DEFAULT;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doAnswer;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
@@ -53,7 +34,6 @@ import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.ozone.ClientConfigForTesting;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
@@ -72,6 +52,26 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT_DEFAULT;
 
 /**
  * Tests the EC recovery and over replication processing.
@@ -90,6 +90,8 @@ public class TestECContainerRecovery {
   private static int dataBlocks = 3;
   private static byte[][] inputChunks = new byte[dataBlocks][chunkSize];
 
+  private static final Logger LOG =
+          LoggerFactory.getLogger(TestECContainerRecovery.class);
   /**
    * Create a MiniDFSCluster for testing.
    */
@@ -136,18 +138,11 @@ public class TestECContainerRecovery {
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL, 1,
         TimeUnit.SECONDS);
-    conf.setInt(ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT, 10);
-
-    ClientConfigForTesting.newBuilder(StorageUnit.BYTES)
-        .setBlockSize(blockSize)
-        .setChunkSize(chunkSize)
-        .setStreamBufferFlushSize(flushSize)
+    cluster = MiniOzoneCluster.newBuilder(conf).setNumDatanodes(10)
+        .setTotalPipelineNumLimit(10).setBlockSize(blockSize)
+        .setChunkSize(chunkSize).setStreamBufferFlushSize(flushSize)
         .setStreamBufferMaxSize(maxFlushSize)
-        .applyTo(conf);
-
-    cluster = MiniOzoneCluster.newBuilder(conf)
-        .setNumDatanodes(10)
-        .build();
+        .setStreamBufferSizeUnit(StorageUnit.BYTES).build();
     cluster.waitForClusterToBeReady();
     client = OzoneClientFactory.getRpcClient(conf);
     objectStore = client.getObjectStore();
@@ -313,7 +308,7 @@ public class TestECContainerRecovery {
               .mockFieldReflection(handler,
                       "coordinator");
 
-      doAnswer(invocation -> {
+      Mockito.doAnswer(invocation -> {
         GenericTestUtils.waitFor(() ->
             dn.getDatanodeStateMachine()
                 .getContainer()
@@ -325,8 +320,8 @@ public class TestECContainerRecovery {
         reconstructedDN.set(dn);
         invocation.callRealMethod();
         return null;
-      }).when(coordinator).reconstructECBlockGroup(any(), any(),
-              any(), any());
+      }).when(coordinator).reconstructECBlockGroup(Mockito.any(), Mockito.any(),
+              Mockito.any(), Mockito.any());
     }
 
     // Shutting down DN triggers close pipeline and close container.
@@ -369,7 +364,7 @@ public class TestECContainerRecovery {
             .filter(r -> !ReplicationManager
                 .compareState(container.getState(), r.getState()))
             .collect(Collectors.toList());
-        return unhealthyReplicas.isEmpty();
+        return unhealthyReplicas.size() == 0;
       } catch (ContainerNotFoundException e) {
         return false;
       }

@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,19 +14,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.om.request.s3.tenant;
 
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
-import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.MULTITENANCY_SCHEMA;
-
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
@@ -36,7 +30,6 @@ import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OMMultiTenantManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
 import org.apache.hadoop.ozone.om.helpers.OmDBAccessIdInfo;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
@@ -50,13 +43,25 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.TenantR
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.VOLUME_LOCK;
+import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.MULTITENANCY_SCHEMA;
+
+/*
+  Execution flow
+
+  - preExecute
+    - Check caller admin privilege
+  - validateAndUpdateCache
+    - Update tenantAccessIdTable
+ */
+
 /**
  * Handles OMTenantRevokeAdminRequest.
- * Execution flow
- *   - preExecute
- *     - Check caller admin privilege
- *   - validateAndUpdateCache
- *     - Update tenantAccessIdTable
  */
 public class OMTenantRevokeAdminRequest extends OMClientRequest {
   public static final Logger LOG =
@@ -135,7 +140,8 @@ public class OMTenantRevokeAdminRequest extends OMClientRequest {
 
   @Override
   @SuppressWarnings("checkstyle:methodlength")
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
+  public OMClientResponse validateAndUpdateCache(
+      OzoneManager ozoneManager, long transactionLogIndex) {
 
     final OMMultiTenantManager multiTenantManager =
         ozoneManager.getMultiTenantManager();
@@ -189,7 +195,7 @@ public class OMTenantRevokeAdminRequest extends OMClientRequest {
               .build();
       omMetadataManager.getTenantAccessIdTable().addCacheEntry(
           new CacheKey<>(accessId),
-          CacheValue.get(context.getIndex(), newOmDBAccessIdInfo));
+          CacheValue.get(transactionLogIndex, newOmDBAccessIdInfo));
 
       // Update tenant cache
       multiTenantManager.getCacheOp().revokeTenantAdmin(accessId);
@@ -221,7 +227,7 @@ public class OMTenantRevokeAdminRequest extends OMClientRequest {
 
     // Audit
     auditMap.put(OzoneConsts.TENANT, tenantId);
-    markForAudit(ozoneManager.getAuditLogger(), buildAuditMessage(
+    auditLog(ozoneManager.getAuditLogger(), buildAuditMessage(
         OMAction.TENANT_REVOKE_ADMIN, auditMap, exception,
         getOmRequest().getUserInfo()));
 

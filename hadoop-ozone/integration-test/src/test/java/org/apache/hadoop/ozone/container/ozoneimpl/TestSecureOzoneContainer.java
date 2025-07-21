@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +18,6 @@
 
 package org.apache.hadoop.ozone.container.ozoneimpl;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getCreateContainerSecureRequest;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestContainerID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.security.PrivilegedAction;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -54,20 +38,37 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.client.SecretKeyTestClient;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
-import org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil;
-import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.security.PrivilegedAction;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getCreateContainerSecureRequest;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestContainerID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests ozone containers via secure grpc/netty.
@@ -79,8 +80,6 @@ class TestSecureOzoneContainer {
 
   @TempDir
   private Path tempFolder;
-  @TempDir
-  private Path ozoneMetaPath;
 
   private OzoneConfiguration conf;
   private CertificateClientTestImpl caClient;
@@ -106,7 +105,9 @@ class TestSecureOzoneContainer {
   @BeforeEach
   void setup() throws Exception {
     conf = new OzoneConfiguration();
-    conf.set(OZONE_METADATA_DIRS, ozoneMetaPath.toString());
+    String ozoneMetaPath =
+        GenericTestUtils.getTempPath("ozoneMeta");
+    conf.set(OZONE_METADATA_DIRS, ozoneMetaPath);
     caClient = new CertificateClientTestImpl(conf);
     secretKeyClient = new SecretKeyTestClient();
     secretManager = new ContainerTokenSecretManager(
@@ -129,16 +130,13 @@ class TestSecureOzoneContainer {
       Pipeline pipeline = MockPipeline.createSingleNodePipeline();
       conf.set(HDDS_DATANODE_DIR_KEY, tempFolder.toString());
       conf.setInt(OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT, pipeline
-          .getFirstNode().getStandalonePort().getValue());
+          .getFirstNode().getPort(DatanodeDetails.Port.Name.STANDALONE)
+          .getValue());
       conf.setBoolean(OzoneConfigKeys.HDDS_CONTAINER_IPC_RANDOM_PORT, false);
 
       DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
-      container = new OzoneContainer(null, dn, conf, ContainerTestUtils
+      container = new OzoneContainer(dn, conf, ContainerTestUtils
           .getMockContext(dn, conf), caClient, secretKeyClient);
-      MutableVolumeSet volumeSet = container.getVolumeSet();
-      StorageVolumeUtil.getHddsVolumesList(volumeSet.getVolumesList())
-          .forEach(hddsVolume -> hddsVolume.setDbParentDir(tempFolder.toFile()));
-      ContainerTestUtils.initializeDatanodeLayout(conf, dn);
       //Set scmId and manually start ozone container.
       container.start(UUID.randomUUID().toString());
 

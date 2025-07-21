@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,14 +18,19 @@
 
 package org.apache.hadoop.ozone.container.common.impl;
 
-import java.io.IOException;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.StorageTypeProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
-import org.apache.hadoop.ozone.container.common.interfaces.StorageLocationReportMXBean;
+import org.apache.hadoop.hdds.protocol.proto.
+    StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto;
+import org.apache.hadoop.hdds.protocol.proto.
+    StorageContainerDatanodeProtocolProtos.StorageReportProto;
+import org.apache.hadoop.hdds.protocol.proto.
+    StorageContainerDatanodeProtocolProtos.StorageTypeProto;
+import org.apache.hadoop.ozone.container.common.interfaces
+    .StorageLocationReportMXBean;
 import org.apache.hadoop.ozone.container.common.volume.VolumeUsage;
+
+import java.io.IOException;
 
 /**
  * Storage location stats of datanodes that provide back store for containers.
@@ -183,7 +189,7 @@ public final class StorageLocationReport implements
         .setStorageLocation(getStorageLocation())
         .setFailed(isFailed())
         .setFreeSpaceToSpare(conf != null ?
-            new VolumeUsage.MinFreeSpaceCalculator(conf).get(getCapacity()) : 0)
+            VolumeUsage.getMinVolumeFreeSpace(conf, getCapacity()) : 0)
         .build();
   }
 
@@ -218,6 +224,36 @@ public final class StorageLocationReport implements
     StorageLocationReport.Builder builder = StorageLocationReport.newBuilder();
     builder.setId(report.getStorageUuid())
         .setStorageLocation(report.getStorageLocation());
+    if (report.hasCapacity()) {
+      builder.setCapacity(report.getCapacity());
+    }
+    if (report.hasScmUsed()) {
+      builder.setScmUsed(report.getScmUsed());
+    }
+    if (report.hasStorageType()) {
+      builder.setStorageType(getStorageType(report.getStorageType()));
+    }
+    if (report.hasRemaining()) {
+      builder.setRemaining(report.getRemaining());
+    }
+
+    if (report.hasFailed()) {
+      builder.setFailed(report.getFailed());
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns the StorageLocationReport from the protoBuf message.
+   * @param report MetadataStorageReportProto
+   * @return StorageLocationReport
+   * @throws IOException in case of invalid storage type
+   */
+
+  public static StorageLocationReport getMetadataFromProtobuf(
+      MetadataStorageReportProto report) throws IOException {
+    StorageLocationReport.Builder builder = StorageLocationReport.newBuilder();
+    builder.setStorageLocation(report.getStorageLocation());
     if (report.hasCapacity()) {
       builder.setCapacity(report.getCapacity());
     }

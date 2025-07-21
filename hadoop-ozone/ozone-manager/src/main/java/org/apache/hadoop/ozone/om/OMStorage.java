@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,21 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om;
-
-import static org.apache.hadoop.ozone.om.OmUpgradeConfig.ConfigStrings.OZONE_OM_INIT_DEFAULT_LAYOUT_VERSION;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.UUID;
+
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeType;
 import org.apache.hadoop.hdds.server.ServerUtils;
 import org.apache.hadoop.ozone.common.Storage;
 import org.apache.hadoop.ozone.om.upgrade.OMLayoutVersionManager;
+
+import static org.apache.hadoop.ozone.om.OmUpgradeConfig.ConfigStrings.OZONE_OM_INIT_DEFAULT_LAYOUT_VERSION;
 
 /**
  * Ozone Manager VERSION file representation.
@@ -52,20 +53,7 @@ public class OMStorage extends Storage {
   static final String ERROR_OM_IS_ALREADY_INITIALIZED =
       "OM is already initialized.";
   static final String ERROR_UNEXPECTED_OM_NODE_ID_TEMPLATE =
-      "Configured OM NodeId: %s does not match the existing nodeId in the " +
-      "VERSION file: %s.%n" + "One of the possible reasons may be, that " +
-      "previously an other OM was running on this host and some metadata was " +
-      "left in the same directory that is configured for this OM instance as " +
-      "metadata directory, or someone changed the associated OM id in " +
-      "the configuration.%n" + "Please carefully assess the configuration" +
-      " and the VERSION file in the metadata directory, and either change" +
-      " the configuration back, or remove the metadata directory, and " +
-      "re-initialize this Ozone Manager. (Changing the VERSION file is not" +
-      " a good approach, as the OM id is an integral part of the Raft " +
-      "metadata also.%n" + "Note that removing the metadata from the " +
-      "majority of Ozone Managers at once can lead to loosing the filesystem" +
-      " metadata, so take extra care if you do remove the metadata and that" +
-      " data is not a leftover from previous installations.%n";
+      "OM NodeId: %s does not match existing nodeId from VERSION file: %s";
   static final String ERROR_STORAGE_NOT_INITIALIZED =
       "OM Storage is not initialized yet.";
 

@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +18,14 @@
 
 package org.apache.hadoop.ozone.client;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.io.Closeable;
-import java.io.IOException;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
-import org.apache.ratis.util.UncheckedAutoCloseable;
+
+import java.io.Closeable;
+import java.io.IOException;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * OzoneClient connects to Ozone Cluster and
@@ -74,7 +76,6 @@ public class OzoneClient implements Closeable {
   private final ClientProtocol proxy;
   private final ObjectStore objectStore;
   private  ConfigurationSource conf;
-  private final UncheckedAutoCloseable leakTracker = OzoneClientFactory.track(this);
 
   /**
    * Creates a new OzoneClient object, generally constructed
@@ -118,11 +119,7 @@ public class OzoneClient implements Closeable {
    */
   @Override
   public void close() throws IOException {
-    try {
-      proxy.close();
-    } finally {
-      leakTracker.close();
-    }
+    proxy.close();
   }
 
   /**

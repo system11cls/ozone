@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,16 +14,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.om.response.snapshot;
 
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.SNAPSHOT_INFO_TABLE;
-import static org.apache.hadoop.ozone.om.snapshot.SnapshotUtils.createMergedRepeatedOmKeyInfoFromDeletedTableEntry;
-
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
-import java.util.List;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.RDBStore;
@@ -37,8 +32,14 @@ import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.SnapshotMoveKeyInfos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.List;
+
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.SNAPSHOT_INFO_TABLE;
 
 /**
  * Response for OMSnapshotMoveDeletedKeysRequest.
@@ -132,11 +133,6 @@ public class OMSnapshotMoveDeletedKeysResponse extends OMClientResponse {
       }
     }
 
-    // Flush snapshot info to rocksDB.
-    omMetadataManager.getSnapshotInfoTable().putWithBatch(batchOperation, fromSnapshot.getTableKey(), fromSnapshot);
-    if (nextSnapshot != null) {
-      omMetadataManager.getSnapshotInfoTable().putWithBatch(batchOperation, nextSnapshot.getTableKey(), nextSnapshot);
-    }
   }
 
   private void deleteDirsFromSnapshot(BatchOperation batchOp,
@@ -198,7 +194,8 @@ public class OMSnapshotMoveDeletedKeysResponse extends OMClientResponse {
     }
 
     for (SnapshotMoveKeyInfos dBKey : nextDBKeysList) {
-      RepeatedOmKeyInfo omKeyInfos = createMergedRepeatedOmKeyInfoFromDeletedTableEntry(dBKey, metadataManager);
+      RepeatedOmKeyInfo omKeyInfos =
+          createRepeatedOmKeyInfo(dBKey, metadataManager);
       if (omKeyInfos == null) {
         continue;
       }
@@ -220,6 +217,37 @@ public class OMSnapshotMoveDeletedKeysResponse extends OMClientResponse {
     }
 
     return result;
+  }
+
+  private RepeatedOmKeyInfo createRepeatedOmKeyInfo(
+      SnapshotMoveKeyInfos snapshotMoveKeyInfos,
+      OMMetadataManager metadataManager) throws IOException {
+    String dbKey = snapshotMoveKeyInfos.getKey();
+    List<KeyInfo> keyInfoList = snapshotMoveKeyInfos.getKeyInfosList();
+    // When older version of keys are moved to the next snapshot's deletedTable
+    // The newer version might also be in the next snapshot's deletedTable and
+    // it might overwrite. This is to avoid that and also avoid having
+    // orphans blocks.
+    RepeatedOmKeyInfo result = metadataManager.getDeletedTable().get(dbKey);
+
+    for (KeyInfo keyInfo : keyInfoList) {
+      OmKeyInfo omKeyInfo = OmKeyInfo.getFromProtobuf(keyInfo);
+      if (result == null) {
+        result = new RepeatedOmKeyInfo(omKeyInfo);
+      } else if (!isSameAsLatestOmKeyInfo(omKeyInfo, result)) {
+        result.addOmKeyInfo(omKeyInfo);
+      }
+    }
+
+    return result;
+  }
+
+  private boolean isSameAsLatestOmKeyInfo(OmKeyInfo omKeyInfo,
+                                          RepeatedOmKeyInfo result) {
+    int size = result.getOmKeyInfoList().size();
+    assert size > 0;
+    OmKeyInfo keyInfoFromRepeated = result.getOmKeyInfoList().get(size - 1);
+    return omKeyInfo.equals(keyInfoFromRepeated);
   }
 }
 

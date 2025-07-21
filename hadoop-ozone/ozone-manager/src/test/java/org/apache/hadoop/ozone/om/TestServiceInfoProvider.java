@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,27 +14,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om;
 
-import static java.util.Collections.emptyList;
-import static org.apache.hadoop.hdds.security.x509.CertificateTestUtils.aKeyPair;
-import static org.apache.hadoop.hdds.security.x509.CertificateTestUtils.createSelfSignedCert;
-import static org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec.getPEMEncodedString;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.security.cert.X509Certificate;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
@@ -43,6 +28,30 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+
+import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
+import static java.util.Collections.emptyList;
+import static org.apache.hadoop.hdds.security.x509.CertificateTestUtils.aKeyPair;
+import static org.apache.hadoop.hdds.security.x509.CertificateTestUtils.createSelfSignedCert;
+import static org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec.getPEMEncodedString;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.CoreMatchers.sameInstance;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests to check functionality of how we provide the ServiceInfoEx object
@@ -79,9 +88,9 @@ public class TestServiceInfoProvider {
     public void test() throws Exception {
       ServiceInfoEx info = provider.provide();
 
-      assertThat(info.getServiceInfoList()).isSameAs(emptyList());
-      assertThat(info.getCaCertificate()).isNull();
-      assertThat(info.getCaCertPemList()).isEmpty();
+      assertThat(info.getServiceInfoList(), sameInstance(emptyList()));
+      assertThat(info.getCaCertificate(), is(nullValue()));
+      assertThat(info.getCaCertPemList(), is(empty()));
     }
   }
 
@@ -116,24 +125,24 @@ public class TestServiceInfoProvider {
     public void withoutRootCARenew() throws Exception {
       ServiceInfoEx info = provider.provide();
 
-      assertThat(info.getServiceInfoList()).isSameAs(emptyList());
-      assertThat(info.getCaCertificate()).isEqualTo(pem2);
-      assertThat(info.getCaCertPemList()).contains(pem1, pem2);
+      assertThat(info.getServiceInfoList(), sameInstance(emptyList()));
+      assertThat(info.getCaCertificate(), is(equalTo(pem2)));
+      assertThat(info.getCaCertPemList(), containsInAnyOrder(pem1, pem2));
 
       info = provider.provide();
 
-      assertThat(info.getServiceInfoList()).isSameAs(emptyList());
-      assertThat(info.getCaCertificate()).isEqualTo(pem2);
-      assertThat(info.getCaCertPemList()).contains(pem1, pem2);
+      assertThat(info.getServiceInfoList(), sameInstance(emptyList()));
+      assertThat(info.getCaCertificate(), is(equalTo(pem2)));
+      assertThat(info.getCaCertPemList(), containsInAnyOrder(pem1, pem2));
     }
 
     @Test
     public void withRootCARenew() throws Exception {
       ServiceInfoEx info = provider.provide();
 
-      assertThat(info.getServiceInfoList()).isSameAs(emptyList());
-      assertThat(info.getCaCertificate()).isEqualTo(pem2);
-      assertThat(info.getCaCertPemList()).contains(pem1, pem2);
+      assertThat(info.getServiceInfoList(), sameInstance(emptyList()));
+      assertThat(info.getCaCertificate(), is(equalTo(pem2)));
+      assertThat(info.getCaCertPemList(), containsInAnyOrder(pem1, pem2));
 
       X509Certificate cert3 =
           createSelfSignedCert(aKeyPair(conf), "cn", Duration.ofDays(3));
@@ -146,9 +155,9 @@ public class TestServiceInfoProvider {
 
       info = provider.provide();
 
-      assertThat(info.getServiceInfoList()).isSameAs(emptyList());
-      assertThat(info.getCaCertificate()).isEqualTo(pem3);
-      assertThat(info.getCaCertPemList()).contains(pem2, pem3);
+      assertThat(info.getServiceInfoList(), sameInstance(emptyList()));
+      assertThat(info.getCaCertificate(), is(equalTo(pem3)));
+      assertThat(info.getCaCertPemList(), containsInAnyOrder(pem2, pem3));
     }
   }
 }

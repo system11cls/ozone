@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +17,49 @@
  */
 
 package org.apache.hadoop.ozone.container.ozoneimpl;
+
+import org.apache.hadoop.hdds.HddsConfigKeys;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandRequestProto;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandResponseProto;
+import org.apache.hadoop.hdds.scm.XceiverClientManager;
+import org.apache.hadoop.hdds.scm.XceiverClientManager.ScmClientConfig;
+import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
+import org.apache.hadoop.hdds.security.symmetric.SecretKeyClient;
+import org.apache.hadoop.hdds.security.token.ContainerTokenIdentifier;
+import org.apache.hadoop.hdds.security.token.ContainerTokenSecretManager;
+import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClientTestImpl;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.ozone.client.SecretKeyTestClient;
+import org.apache.hadoop.hdds.scm.XceiverClientGrpc;
+import org.apache.hadoop.hdds.scm.XceiverClientSpi;
+import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
+import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
+import org.apache.hadoop.ozone.container.replication.SimpleContainerDownloader;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.Token;
+import org.apache.ozone.test.GenericTestUtils.LogCapturer;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
 import static java.time.Duration.ofSeconds;
 import static java.util.Collections.singletonList;
@@ -36,63 +80,15 @@ import static org.apache.hadoop.ozone.container.ContainerTestHelper.getCreateCon
 import static org.apache.hadoop.ozone.container.ContainerTestHelper.getTestContainerID;
 import static org.apache.hadoop.ozone.container.replication.CopyContainerCompression.NO_COMPRESSION;
 import static org.apache.ozone.test.GenericTestUtils.LogCapturer.captureLogs;
-import static org.apache.ozone.test.GenericTestUtils.setLogLevel;
 import static org.apache.ozone.test.GenericTestUtils.waitFor;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.slf4j.LoggerFactory.getLogger;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.security.cert.CertificateExpiredException;
-import java.security.cert.X509Certificate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-import org.apache.hadoop.hdds.HddsConfigKeys;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandRequestProto;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandResponseProto;
-import org.apache.hadoop.hdds.scm.XceiverClientGrpc;
-import org.apache.hadoop.hdds.scm.XceiverClientManager;
-import org.apache.hadoop.hdds.scm.XceiverClientManager.ScmClientConfig;
-import org.apache.hadoop.hdds.scm.XceiverClientSpi;
-import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
-import org.apache.hadoop.hdds.security.symmetric.SecretKeyClient;
-import org.apache.hadoop.hdds.security.token.ContainerTokenIdentifier;
-import org.apache.hadoop.hdds.security.token.ContainerTokenSecretManager;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClientTestImpl;
-import org.apache.hadoop.ozone.client.SecretKeyTestClient;
-import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
-import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
-import org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil;
-import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
-import org.apache.hadoop.ozone.container.replication.SimpleContainerDownloader;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.token.Token;
-import org.apache.ozone.test.GenericTestUtils.LogCapturer;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
 
 /**
  * Tests ozone containers via secure grpc/netty.
@@ -142,9 +138,6 @@ public class TestOzoneContainerWithTLS {
 
     dn = aDatanode();
     pipeline = createPipeline(singletonList(dn));
-
-    Logger logger = LoggerFactory.getLogger(ClientTrustManager.class);
-    setLogLevel(logger, Level.DEBUG);
   }
 
   @Test
@@ -264,7 +257,7 @@ public class TestOzoneContainerWithTLS {
         while (e.getCause() != null) {
           e = e.getCause();
         }
-        assertInstanceOf(CertificateExpiredException.class, e);
+        assertTrue((e instanceof CertificateExpiredException));
       } finally {
         clientManager.releaseClient(client, true);
       }
@@ -295,12 +288,10 @@ public class TestOzoneContainerWithTLS {
   }
 
   private void assertClientTrustManagerFailedAndRetried(LogCapturer logs) {
-    assertThat(logs.getOutput())
-        .withFailMessage("Check client failed first, and initiates a reload.")
-        .contains("trying to re-fetch rootCA");
-    assertThat(logs.getOutput())
-        .withFailMessage("Check client loaded certificates.")
-        .contains("Loading certificates for client.");
+    assertTrue(logs.getOutput().contains("trying to re-fetch rootCA"),
+        "Check client failed first, and initiates a reload.");
+    assertTrue(logs.getOutput().contains("Loading certificates for client."),
+        "Check client loaded certificates.");
     logs.clearOutput();
   }
 
@@ -309,11 +300,7 @@ public class TestOzoneContainerWithTLS {
     try {
       StateContext stateContext = ContainerTestUtils.getMockContext(dn, conf);
       container = new OzoneContainer(
-          null, dn, conf, stateContext, caClient, keyClient);
-      MutableVolumeSet volumeSet = container.getVolumeSet();
-      StorageVolumeUtil.getHddsVolumesList(volumeSet.getVolumesList())
-          .forEach(hddsVolume -> hddsVolume.setDbParentDir(tempFolder.toFile()));
-      ContainerTestUtils.initializeDatanodeLayout(conf, dn);
+          dn, conf, stateContext, caClient, keyClient);
       container.start(clusterID);
     } catch (Throwable e) {
       if (container != null) {
@@ -333,8 +320,8 @@ public class TestOzoneContainerWithTLS {
         sourceDatanodes, tempFolder.resolve("tmp"), NO_COMPRESSION);
     downloader.close();
     assertNull(file);
-    assertThat(logCapture.getOutput())
-        .contains("java.security.cert.CertificateExpiredException");
+    assertTrue(logCapture.getOutput().contains(
+        "java.security.cert.CertificateExpiredException"));
   }
 
   private void assertDownloadContainerWorks(List<Long> containers,
@@ -365,15 +352,20 @@ public class TestOzoneContainerWithTLS {
   }
 
   private long createAndCloseContainer(
-      XceiverClientSpi client, boolean useToken) throws IOException {
+      XceiverClientSpi client, boolean useToken) {
     long id = getTestContainerID();
-    Token<ContainerTokenIdentifier> token = createContainer(client, useToken, id);
+    try {
+      Token<ContainerTokenIdentifier>
+          token = createContainer(client, useToken, id);
 
-    ContainerCommandRequestProto request =
-        getCloseContainer(client.getPipeline(), id, token);
-    ContainerCommandResponseProto response = client.sendCommand(request);
-    assertNotNull(response);
-    assertSame(response.getResult(), ContainerProtos.Result.SUCCESS);
+      ContainerCommandRequestProto request =
+          getCloseContainer(client.getPipeline(), id, token);
+      ContainerCommandResponseProto response = client.sendCommand(request);
+      assertNotNull(response);
+      assertSame(response.getResult(), ContainerProtos.Result.SUCCESS);
+    } catch (Exception e) {
+      Assertions.fail(e);
+    }
     return id;
   }
 

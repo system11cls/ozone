@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,33 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.client.io;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.function.Supplier;
 import org.apache.hadoop.fs.Syncable;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.apache.ratis.util.function.CheckedFunction;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.function.Supplier;
+
 /**
  * Test {@link SelectorOutputStream}.
  */
 @Timeout(30)
-class TestSelectorOutputStream {
-  private static final Logger LOG = LoggerFactory.getLogger(
+public class TestSelectorOutputStream {
+  static final Logger LOG = LoggerFactory.getLogger(
       TestSelectorOutputStream.class);
 
   enum Op {
@@ -103,60 +100,60 @@ class TestSelectorOutputStream {
 
     // checkout auto selection
     final boolean isAbove = byteToWrite > threshold;
-    assertFalse(belowThreshold.isInitialized());
-    assertEquals(isAbove, aboveThreshold.isInitialized());
+    Assertions.assertFalse(belowThreshold.isInitialized());
+    Assertions.assertEquals(isAbove, aboveThreshold.isInitialized());
 
     final boolean isBelow = !isAbove;
     if (op != null) {
       op.accept(out);
-      assertEquals(isBelow, belowThreshold.isInitialized());
-      assertEquals(isAbove, aboveThreshold.isInitialized());
+      Assertions.assertEquals(isBelow, belowThreshold.isInitialized());
+      Assertions.assertEquals(isAbove, aboveThreshold.isInitialized());
     }
   }
 
   @Test
-  void testFlush() throws Exception {
+  public void testFlush() throws Exception {
     runTestSelector(10, 2, Op.FLUSH);
     runTestSelector(10, 10, Op.FLUSH);
     runTestSelector(10, 20, Op.FLUSH);
   }
 
   @Test
-  void testClose() throws Exception {
+  public void testClose() throws Exception {
     runTestSelector(10, 2, Op.CLOSE);
     runTestSelector(10, 10, Op.CLOSE);
     runTestSelector(10, 20, Op.CLOSE);
   }
 
   @Test
-  void testHflushSyncable() throws Exception {
+  public void testHflushSyncable() throws Exception {
     runTestSelector(10, 2, Op.HFLUSH, true);
     runTestSelector(10, 10, Op.HFLUSH, true);
     runTestSelector(10, 20, Op.HFLUSH, true);
   }
 
   @Test
-  void testHflushNonSyncable() {
-    final IllegalStateException thrown = assertThrows(
+  public void testHflushNonSyncable() {
+    final IllegalStateException thrown = Assertions.assertThrows(
         IllegalStateException.class,
         () -> runTestSelector(10, 2, Op.HFLUSH, false));
     LOG.info("thrown", thrown);
-    assertThat(thrown).hasMessageContaining("not Syncable");
+    Assertions.assertTrue(thrown.getMessage().contains("not Syncable"));
   }
 
   @Test
-  void testHSyncSyncable() throws Exception {
+  public void testHSyncSyncable() throws Exception {
     runTestSelector(10, 2, Op.HSYNC, true);
     runTestSelector(10, 10, Op.HSYNC, true);
     runTestSelector(10, 20, Op.HSYNC, true);
   }
 
   @Test
-  void testHSyncNonSyncable() {
-    final IllegalStateException thrown = assertThrows(
+  public void testHSyncNonSyncable() {
+    final IllegalStateException thrown = Assertions.assertThrows(
         IllegalStateException.class,
         () -> runTestSelector(10, 2, Op.HSYNC, false));
     LOG.info("thrown", thrown);
-    assertThat(thrown).hasMessageContaining("not Syncable");
+    Assertions.assertTrue(thrown.getMessage().contains("not Syncable"));
   }
 }

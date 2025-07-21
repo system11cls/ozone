@@ -19,21 +19,24 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+: ${KUBECONFIG:=/etc/rancher/k3s/k3s.yaml}
+
 export KUBECONFIG
 
 source "${DIR}/_lib.sh"
-source "${DIR}/install/flekszible.sh"
 
+install_flekszible
+install_virtualenv
+install_robot
 if [[ "$(uname -s)" = "Darwin" ]]; then
   echo "Skip installing k3s, not supported on Mac.  Make sure a working Kubernetes cluster is available." >&2
 else
-  source "${DIR}/install/k3s.sh"
+  install_k3s
 fi
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/kubernetes"}
-REPORT_FILE="$REPORT_DIR/summary.txt"
 
-OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout -Dscan=false)
+OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout)
 DIST_DIR="$DIR/../../dist/target/ozone-$OZONE_VERSION"
 
 if [ ! -d "$DIST_DIR" ]; then
@@ -41,16 +44,14 @@ if [ ! -d "$DIST_DIR" ]; then
     "$DIR/build.sh" -Pcoverage
 fi
 
-create_aws_dir
-
 mkdir -p "$REPORT_DIR"
 
 cd "$DIST_DIR/kubernetes/examples" || exit 1
 ./test-all.sh 2>&1 | tee "${REPORT_DIR}/output.log"
-rc=$?
+RES=$?
 cp -r result/* "$REPORT_DIR/"
+cp "$REPORT_DIR/log.html" "$REPORT_DIR/summary.html"
 
-grep -A1 FAIL "${REPORT_DIR}/output.log" > "${REPORT_FILE}"
+grep -A1 FAIL "${REPORT_DIR}/output.log" > "${REPORT_DIR}/summary.txt"
 
-ERROR_PATTERN="FAIL"
-source "${DIR}/_post_process.sh"
+exit $RES

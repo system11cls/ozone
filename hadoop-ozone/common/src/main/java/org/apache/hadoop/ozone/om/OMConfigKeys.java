@@ -1,23 +1,24 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.om;
 
 import java.util.concurrent.TimeUnit;
+
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -51,14 +52,6 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_HANDLER_COUNT_KEY =
       "ozone.om.handler.count.key";
   public static final int OZONE_OM_HANDLER_COUNT_DEFAULT = 100;
-  public static final String OZONE_OM_READ_THREADPOOL_KEY =
-      "ozone.om.read.threadpool";
-  public static final int OZONE_OM_READ_THREADPOOL_DEFAULT = 10;
-
-  public static final String OZONE_OM_DB_MAX_OPEN_FILES
-      = "ozone.om.db.max.open.files";
-  public static final int OZONE_OM_DB_MAX_OPEN_FILES_DEFAULT
-      = -1;
 
   public static final String OZONE_OM_INTERNAL_SERVICE_ID =
       "ozone.om.internal.service.id";
@@ -71,9 +64,6 @@ public final class OMConfigKeys {
       "ozone.om.node.id";
   public static final String OZONE_OM_DECOMMISSIONED_NODES_KEY =
       "ozone.om.decommissioned.nodes";
-
-  public static final String OZONE_OM_FEATURES_DISABLED =
-      "ozone.om.features.disabled";
 
   public static final String OZONE_OM_ADDRESS_KEY =
       "ozone.om.address";
@@ -112,6 +102,9 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_VOLUME_LISTALL_ALLOWED =
       "ozone.om.volume.listall.allowed";
   public static final boolean OZONE_OM_VOLUME_LISTALL_ALLOWED_DEFAULT = true;
+  public static final String OZONE_OM_USER_MAX_VOLUME =
+      "ozone.om.user.max.volume";
+  public static final int OZONE_OM_USER_MAX_VOLUME_DEFAULT = 1024;
 
   public static final String OZONE_KEY_DELETING_LIMIT_PER_TASK =
       "ozone.key.deleting.limit.per.task";
@@ -134,11 +127,6 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD =
       "ozone.om.open.key.expire.threshold";
   public static final String OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD_DEFAULT =
-      "7d";
-
-  public static final String OZONE_OM_LEASE_HARD_LIMIT =
-      "ozone.om.lease.hard.limit";
-  public static final String OZONE_OM_LEASE_HARD_LIMIT_DEFAULT =
       "7d";
 
   public static final String OZONE_OM_OPEN_KEY_CLEANUP_LIMIT_PER_TASK =
@@ -169,14 +157,14 @@ public final class OMConfigKeys {
   public static final String OZONE_OM_METRICS_SAVE_INTERVAL =
       "ozone.om.save.metrics.interval";
   public static final String OZONE_OM_METRICS_SAVE_INTERVAL_DEFAULT = "5m";
-  public static final String OZONE_OM_SNAPSHOT_ROCKSDB_METRICS_ENABLED =
-      "ozone.om.snapshot.rocksdb.metrics.enabled";
-  public static final boolean
-      OZONE_OM_SNAPSHOT_ROCKSDB_METRICS_ENABLED_DEFAULT = false;
 
   /**
    * OM Ratis related configurations.
    */
+  public static final String OZONE_OM_RATIS_ENABLE_KEY
+      = "ozone.om.ratis.enable";
+  public static final boolean OZONE_OM_RATIS_ENABLE_DEFAULT
+      = true;
   public static final String OZONE_OM_RATIS_PORT_KEY
       = "ozone.om.ratis.port";
   public static final int OZONE_OM_RATIS_PORT_DEFAULT
@@ -293,8 +281,6 @@ public final class OMConfigKeys {
       + "kerberos.keytab.file";
   public static final String OZONE_OM_KERBEROS_PRINCIPAL_KEY = "ozone.om"
       + ".kerberos.principal";
-  public static final String OZONE_OM_KERBEROS_PRINCIPAL_PATTERN_KEY =
-      "ozone.om.kerberos.principal.pattern";
   public static final String OZONE_OM_HTTP_KERBEROS_KEYTAB_FILE =
       "ozone.om.http.auth.kerberos.keytab";
   public static final String OZONE_OM_HTTP_KERBEROS_PRINCIPAL_KEY
@@ -342,12 +328,12 @@ public final class OMConfigKeys {
   public static final boolean OZONE_OM_KEYNAME_CHARACTER_CHECK_ENABLED_DEFAULT =
           false;
 
-  @Deprecated
+  // This config needs to be enabled, when S3G created objects used via
+  // FileSystem API.
   public static final String OZONE_OM_ENABLE_FILESYSTEM_PATHS =
-      OmConfig.Keys.ENABLE_FILESYSTEM_PATHS;
-  @Deprecated
+      "ozone.om.enable.filesystem.paths";
   public static final boolean OZONE_OM_ENABLE_FILESYSTEM_PATHS_DEFAULT =
-      OmConfig.Defaults.ENABLE_FILESYSTEM_PATHS;
+      false;
 
   public static final String OZONE_SERVER_DEFAULT_REPLICATION_KEY =
       "ozone.server.default.replication";
@@ -399,8 +385,6 @@ public final class OMConfigKeys {
   /**
    * Configuration properties for Snapshot Directory Service.
    */
-  public static final String OZONE_SNAPSHOT_DEEP_CLEANING_ENABLED = "ozone.snapshot.deep.cleaning.enabled";
-  public static final boolean OZONE_SNAPSHOT_DEEP_CLEANING_ENABLED_DEFAULT = false;
   public static final String OZONE_SNAPSHOT_DIRECTORY_SERVICE_INTERVAL =
       "ozone.snapshot.directory.service.interval";
   public static final String OZONE_SNAPSHOT_DIRECTORY_SERVICE_INTERVAL_DEFAULT
@@ -410,10 +394,12 @@ public final class OMConfigKeys {
   public static final String
       OZONE_SNAPSHOT_DIRECTORY_SERVICE_TIMEOUT_DEFAULT = "300s";
 
-  public static final String OZONE_THREAD_NUMBER_DIR_DELETION =
-      "ozone.thread.number.dir.deletion";
-
-  public static final int OZONE_THREAD_NUMBER_DIR_DELETION_DEFAULT = 10;
+  public static final String OZONE_PATH_DELETING_LIMIT_PER_TASK =
+      "ozone.path.deleting.limit.per.task";
+  // default is 6000 taking account of 32MB buffer size, and assuming
+  // 4KB size (considering acls, key/file name, and other meata)  * 6000
+  // resulting 24MB
+  public static final int OZONE_PATH_DELETING_LIMIT_PER_TASK_DEFAULT = 6000;
 
   public static final String SNAPSHOT_SST_DELETING_LIMIT_PER_TASK =
       "ozone.snapshot.filtering.limit.per.task";

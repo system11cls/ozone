@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,89 +19,56 @@
 package org.apache.hadoop.hdds.client;
 
 import com.google.common.base.Strings;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.ozone.OzoneConsts.GB;
+import static org.apache.hadoop.ozone.OzoneConsts.KB;
+import static org.apache.hadoop.ozone.OzoneConsts.MB;
+import static org.apache.hadoop.ozone.OzoneConsts.TB;
+
 
 /**
  * represents an OzoneQuota Object that can be applied to
  * a storage volume.
  */
 public final class OzoneQuota {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(OzoneQuota.class);
+
+  public static final String OZONE_QUOTA_B = "B";
+  public static final String OZONE_QUOTA_KB = "KB";
+  public static final String OZONE_QUOTA_MB = "MB";
+  public static final String OZONE_QUOTA_GB = "GB";
+  public static final String OZONE_QUOTA_TB = "TB";
 
   /** Quota Units.*/
-  public enum Units {
-    // the names and the ordering are important
-    B(1),
-    KB(OzoneConsts.KB),
-    MB(OzoneConsts.MB),
-    GB(OzoneConsts.GB),
-    TB(OzoneConsts.TB),
-    PB(OzoneConsts.PB),
-    EB(OzoneConsts.EB);
-
-    private final long size;
-    private final List<RawQuotaInBytes> cache;
-
-    Units(long size) {
-      this.size = size;
-      this.cache = createCache(this);
-    }
-
-    private static List<RawQuotaInBytes> createCache(Units unit) {
-      final List<RawQuotaInBytes> quotas = new ArrayList<>(1024);
-      for (int i = 0; i < 1024; i++) {
-        quotas.add(new RawQuotaInBytes(unit, i));
-      }
-      return Collections.unmodifiableList(quotas);
-    }
-
-    public long getSize() {
-      return size;
-    }
-
-    RawQuotaInBytes getRawQuotaInBytes(long b) {
-      return b < cache.size() ? cache.get(Math.toIntExact(b))
-          : new RawQuotaInBytes(this, b);
-    }
-  }
-
-  private static final List<Units> PARSE_ORDER;
-  static {
-    List<Units> reversed = new ArrayList<>(Arrays.asList(Units.values()));
-    Collections.reverse(reversed);
-    PARSE_ORDER = Collections.unmodifiableList(reversed);
-  }
-
-  private static final RawQuotaInBytes ZERO_BYTES = new RawQuotaInBytes(Units.B, 0);
+  public enum Units { B, KB, MB, GB, TB }
 
   // Quota to decide how many buckets can be created.
   private long quotaInNamespace;
-  // Quota to decide how much storage space will be used in bytes.
-  private final long quotaInBytes;
-  private final RawQuotaInBytes rawQuotaInBytes;
+  // Quota to decide how many storage space will be used in bytes.
+  private long quotaInBytes;
+  private RawQuotaInBytes rawQuotaInBytes;
+  // Data class of Quota.
+  private static QuotaList quotaList;
+
+  /** Setting QuotaList parameters from large to small. */
+  static {
+    quotaList = new QuotaList();
+    quotaList.addQuotaList(OZONE_QUOTA_TB, Units.TB, TB);
+    quotaList.addQuotaList(OZONE_QUOTA_GB, Units.GB, GB);
+    quotaList.addQuotaList(OZONE_QUOTA_MB, Units.MB, MB);
+    quotaList.addQuotaList(OZONE_QUOTA_KB, Units.KB, KB);
+    quotaList.addQuotaList(OZONE_QUOTA_B, Units.B, 1L);
+  }
 
   /**
    * Used to convert user input values into bytes such as: 1MB-> 1048576.
    */
   private static class RawQuotaInBytes {
-    static RawQuotaInBytes valueOf(long quotaInBytes) {
-      Preconditions.assertTrue(quotaInBytes >= 0, () -> "quotaInBytes = " + quotaInBytes + " must be >= 0");
-      if (quotaInBytes == 0) {
-        return ZERO_BYTES;
-      }
-      final int i = Long.numberOfTrailingZeros(quotaInBytes) / 10;
-      final Units unit = Units.values()[i];
-      final RawQuotaInBytes b = unit.getRawQuotaInBytes(quotaInBytes >> (i * 10));
-      Preconditions.assertSame(quotaInBytes, b.sizeInBytes(), "sizeInBytes");
-      return b;
-    }
-
-    private final Units unit;
-    private final long size;
+    private Units unit;
+    private long size;
 
     RawQuotaInBytes(Units unit, long size) {
       this.unit = unit;
@@ -119,7 +87,14 @@ public final class OzoneQuota {
      * Returns size in Bytes or negative num if there is no Quota.
      */
     public long sizeInBytes() {
-      return this.getSize() * getUnit().getSize();
+      long sQuota = -1L;
+      for (Units quota : quotaList.getUnitQuotaArray()) {
+        if (quota == this.unit) {
+          sQuota = quotaList.getQuotaSize(quota);
+          break;
+        }
+      }
+      return this.getSize() * sQuota;
     }
 
     @Override
@@ -170,6 +145,16 @@ public final class OzoneQuota {
   }
 
   /**
+   * Formats a quota as a string.
+   *
+   * @param quota the quota to format
+   * @return string representation of quota
+   */
+  public static String formatQuota(OzoneQuota quota) {
+    return String.valueOf(quota.getRawSize()) + quota.getUnit();
+  }
+
+  /**
    * Parses a user provided string space quota and returns the
    * Quota Object.
    *
@@ -187,21 +172,20 @@ public final class OzoneQuota {
     String uppercase = quotaInBytes.toUpperCase()
         .replaceAll("\\s+", "");
     String size = "";
-    final long nSize;
+    long nSize = 0;
     Units currUnit = Units.B;
 
     try {
-      for (Units unit : PARSE_ORDER) {
-        final String quota = unit.name();
+      for (String quota : quotaList.getOzoneQuotaArray()) {
         if (uppercase.endsWith((quota))) {
           size = uppercase
               .substring(0, uppercase.length() - quota.length());
-          currUnit = unit;
+          currUnit = quotaList.getUnits(quota);
           break;
         }
       }
       // there might be no unit specified.
-      if (size.isEmpty()) {
+      if (size.equals("")) {
         size = uppercase;
       }
       nSize = Long.parseLong(size);
@@ -270,7 +254,15 @@ public final class OzoneQuota {
    */
   public static OzoneQuota getOzoneQuota(long quotaInBytes,
       long quotaInNamespace) {
-    return new OzoneQuota(quotaInNamespace, RawQuotaInBytes.valueOf(quotaInBytes));
+    long size = 1L;
+    Units unit = Units.B;
+    for (Long quota : quotaList.getSizeQuotaArray()) {
+      if (quotaInBytes % quota == 0) {
+        size = quotaInBytes / quota;
+        unit = quotaList.getQuotaUnit(quota);
+      }
+    }
+    return new OzoneQuota(quotaInNamespace, new RawQuotaInBytes(unit, size));
   }
 
   public long getQuotaInNamespace() {

@@ -1,28 +1,21 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.fs.ozone;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-
-import java.io.IOException;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
@@ -35,7 +28,13 @@ import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests the behavior of OzoneClientUtils APIs.
@@ -54,7 +53,7 @@ public class TestOzoneClientUtils {
     OzoneBucket bucket = mock(OzoneBucket.class);
     String keyName = "dummy";
     ClientProtocol clientProtocol = mock(ClientProtocol.class);
-    assertThrows(IllegalArgumentException.class, () ->
+    Assertions.assertThrows(IllegalArgumentException.class, () ->
         OzoneClientUtils.getFileChecksumWithCombineMode(volume, bucket, keyName,
         -1, OzoneClientConfig.ChecksumCombineMode.MD5MD5CRC,
         clientProtocol));
@@ -81,7 +80,7 @@ public class TestOzoneClientUtils {
             (short) 3, null,
             ecReplicationConfig, new OzoneConfiguration());
     // Bucket default is EC.
-    assertEquals(ecReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ecReplicationConfig, replicationConfig);
   }
 
   /**
@@ -94,7 +93,7 @@ public class TestOzoneClientUtils {
             (short) 3, null, null,
             new OzoneConfiguration());
     // Passed replication is 3 - Ozone mapped replication is ratis THREE
-    assertEquals(ratis3ReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ratis3ReplicationConfig, replicationConfig);
   }
 
   /**
@@ -109,7 +108,7 @@ public class TestOzoneClientUtils {
             new OzoneConfiguration());
     // client configured value also null.
     // This API caller should leave the decision to server.
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -123,7 +122,7 @@ public class TestOzoneClientUtils {
             (short) -1, null, ratis3ReplicationConfig,
             new OzoneConfiguration());
     // Configured client config also null.
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -137,7 +136,7 @@ public class TestOzoneClientUtils {
             (short) 1, null, ratis3ReplicationConfig,
             new OzoneConfiguration());
     // Passed value is replication one - Ozone mapped value is ratis ONE
-    assertEquals(ratis1ReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ratis1ReplicationConfig, replicationConfig);
   }
 
   /**
@@ -151,7 +150,7 @@ public class TestOzoneClientUtils {
             (short) 3, ratis3ReplicationConfig,
             ecReplicationConfig, new OzoneConfiguration());
     // Bucket default is EC
-    assertEquals(ecReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ecReplicationConfig, replicationConfig);
   }
 
   /**
@@ -165,7 +164,7 @@ public class TestOzoneClientUtils {
             (short) -1, ratis3ReplicationConfig, ratis1ReplicationConfig,
             new OzoneConfiguration());
     // Configured value is ratis THREE
-    assertEquals(ratis3ReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ratis3ReplicationConfig, replicationConfig);
   }
 
   /**
@@ -178,7 +177,7 @@ public class TestOzoneClientUtils {
         .validateAndGetClientReplicationConfig(ReplicationType.RATIS, "1",
             new OzoneConfiguration());
     // Configured value is ratis ONE
-    assertEquals(ratis1ReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ratis1ReplicationConfig, replicationConfig);
   }
 
   /**
@@ -189,7 +188,7 @@ public class TestOzoneClientUtils {
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(null, null,
             new OzoneConfiguration());
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -203,7 +202,7 @@ public class TestOzoneClientUtils {
     clientSideConfig.set(OzoneConfigKeys.OZONE_REPLICATION, "rs-3-2-1024K");
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(null, null, clientSideConfig);
-    assertEquals(ecReplicationConfig, replicationConfig);
+    Assertions.assertEquals(ecReplicationConfig, replicationConfig);
   }
 
   /**
@@ -215,7 +214,7 @@ public class TestOzoneClientUtils {
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(null, "3",
             new OzoneConfiguration());
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -227,7 +226,7 @@ public class TestOzoneClientUtils {
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(ReplicationType.EC, null,
             new OzoneConfiguration());
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -242,7 +241,7 @@ public class TestOzoneClientUtils {
     // null.
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(null, null, clientSideConfig);
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
   /**
@@ -257,7 +256,7 @@ public class TestOzoneClientUtils {
     // as null.
     ReplicationConfig replicationConfig = OzoneClientUtils
         .validateAndGetClientReplicationConfig(null, null, clientSideConfig);
-    assertNull(replicationConfig);
+    Assertions.assertNull(replicationConfig);
   }
 
 }

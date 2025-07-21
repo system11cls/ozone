@@ -51,14 +51,6 @@ ozone admin datanode decommission [-hV] [-id=<scmServiceId>]
 ```
 You can enter multiple hosts to decommission multiple datanodes together.
 
-To view the status of a decommissioning datanode, you can execute the following command:
-
-```shell
-ozone admin datanode status decommission [-hV] [-id=<scmServiceId>] [--scm=<scm>] [--id=<uuid>] [--ip=<ipAddress>]
-```
-You can pass the IP address or UUID of one datanode to view only the details related to that datanode.
-
-
 **Note:** To recommission a datanode you may execute the below command in cli,
 ```shell
 ozone admin datanode recommission [-hV] [-id=<scmServiceId>]
@@ -70,7 +62,7 @@ ozone admin datanode recommission [-hV] [-id=<scmServiceId>]
 Ozone Manager (OM) decommissioning is the process in which you gracefully remove one of the OM from the OM HA Ring.
 
 To decommission an OM and remove the node from the OM HA ring, the following steps need to be executed.
-1. Add the _OM NodeId_ of the OM Node to be decommissioned to the _ozone.om.decommissioned.nodes.<omServiceId>_ property in _ozone-site.xml_ of all
+1. Add the _OM NodeId_ of the to be decommissioned OM node to the _ozone.om.decommissioned.nodes.<omServiceId>_ property in _ozone-site.xml_ of all
    other OMs.
 2. Run the following command to decommission an OM node.
 ```shell

@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,10 +19,6 @@
 package org.apache.hadoop.hdds.scm.container.balancer;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
-import java.time.OffsetDateTime;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.fs.DUFactory;
@@ -32,6 +29,10 @@ import org.apache.hadoop.hdds.scm.ha.StatefulService;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Container balancer is a service in SCM to move containers between over- and
@@ -52,7 +53,6 @@ public class ContainerBalancer extends StatefulService {
   private volatile Thread currentBalancingThread;
   private volatile ContainerBalancerTask task = null;
   private ReentrantLock lock;
-  private OffsetDateTime startedAt;
 
   /**
    * Constructs ContainerBalancer with the specified arguments. Initializes
@@ -176,26 +176,6 @@ public class ContainerBalancer extends StatefulService {
   }
 
   /**
-   * Get balancer status info.
-   *
-   * @return balancer status info if balancer started
-   */
-  public ContainerBalancerStatusInfo getBalancerStatusInfo() throws IOException {
-    lock.lock();
-    try {
-      if (isBalancerRunning()) {
-        return new ContainerBalancerStatusInfo(
-            this.startedAt,
-            config.toProtobufBuilder().setShouldRun(true).build(),
-            task.getCurrentIterationsStatistic()
-        );
-      }
-      return null;
-    } finally {
-      lock.unlock();
-    }
-  }
-  /**
    * Checks if ContainerBalancer is in valid state to call stop.
    *
    * @return true if balancer can be stopped, otherwise false
@@ -224,7 +204,6 @@ public class ContainerBalancer extends StatefulService {
   @Override
   public void start() throws IllegalContainerBalancerStateException,
       InvalidContainerBalancerConfigurationException {
-    startedAt = OffsetDateTime.now();
     lock.lock();
     try {
       // should be leader-ready, out of safe mode, and not running already
@@ -272,7 +251,6 @@ public class ContainerBalancer extends StatefulService {
   public void startBalancer(ContainerBalancerConfiguration configuration)
       throws IllegalContainerBalancerStateException,
       InvalidContainerBalancerConfigurationException, IOException {
-    startedAt = OffsetDateTime.now();
     lock.lock();
     try {
       // validates state, config, and then saves config
@@ -364,13 +342,10 @@ public class ContainerBalancer extends StatefulService {
     // NOTE: join should be called outside the lock in hierarchy
     // to avoid locking others waiting
     // wait for balancingThread to die with interrupt
+    balancingThread.interrupt();
     LOG.info("Container Balancer waiting for {} to stop", balancingThread);
     try {
-      while (balancingThread.isAlive()) {
-        // retry interrupt every 5ms to avoid waiting when thread is sleeping
-        balancingThread.interrupt();
-        balancingThread.join(5);
-      }
+      balancingThread.join();
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
     }
@@ -406,11 +381,6 @@ public class ContainerBalancer extends StatefulService {
         .setShouldRun(shouldRun)
         .setNextIterationIndex(index)
         .build());
-  }
-
-  @VisibleForTesting
-  public ContainerBalancerConfiguration getConfig() {
-    return this.config;
   }
 
   private void validateConfiguration(ContainerBalancerConfiguration conf)

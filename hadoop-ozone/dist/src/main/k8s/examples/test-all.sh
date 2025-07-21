@@ -15,14 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -u -o pipefail
 
 #
-# Test executor to test all the k8s/examples/*/test.sh test scripts.
+# Test executor to test all the compose/*/test.sh test scripts.
 #
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )
 
-source "${SCRIPT_DIR}/testlib.sh"
+set -ex
 
 ALL_RESULT_DIR="$SCRIPT_DIR/result"
 rm "$ALL_RESULT_DIR"/* || true
@@ -36,23 +35,15 @@ for test in $(find "$SCRIPT_DIR" -name test.sh | grep "${OZONE_TEST_SELECTOR:-""
   TEST_NAME="$(basename "$TEST_DIR")"
 
   echo ""
-  echo "#### Executing tests of ${TEST_NAME} #####"
+  echo "#### Executing tests of ${TEST_DIR} #####"
   echo ""
   cd "$TEST_DIR" || continue
-  if ! ./test.sh; then
-    RESULT=1
-    echo "ERROR: Test execution of ${TEST_NAME} is FAILED!!!!"
-  fi
+  ./test.sh
 
-  cp "$TEST_DIR"/result/output.xml "$ALL_RESULT_DIR"/"${TEST_NAME}".xml || true
+  cp "$TEST_DIR"/result/output.xml "$ALL_RESULT_DIR"/"${TEST_NAME}".xml
   mkdir -p "$ALL_RESULT_DIR"/"${TEST_NAME}"
-  mv "$TEST_DIR"/logs/*log "$ALL_RESULT_DIR"/"${TEST_NAME}"/ || true
-
-  if [[ "${RESULT}" == "1" ]] && [[ "${FAIL_FAST:-}" == "true" ]]; then
-    break
-  fi
+  mv "$TEST_DIR"/logs/*log "$ALL_RESULT_DIR"/"${TEST_NAME}"/
 done
 
-run_rebot "$ALL_RESULT_DIR" "$ALL_RESULT_DIR" "-N smoketests *.xml"
+rebot -N "smoketests" -d "$ALL_RESULT_DIR/" "$ALL_RESULT_DIR/*.xml"
 
-exit ${RESULT}

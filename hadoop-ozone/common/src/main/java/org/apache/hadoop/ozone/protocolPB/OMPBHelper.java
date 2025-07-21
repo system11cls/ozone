@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,18 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.protocolPB;
 
-import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getByteString;
-import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getFixedByteString;
-
 import com.google.protobuf.ByteString;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
 import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
+import org.apache.hadoop.ozone.client.checksum.CompositeCrcFileChecksum;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileEncryptionInfo;
 import org.apache.hadoop.fs.MD5MD5CRC32CastagnoliFileChecksum;
@@ -36,8 +31,6 @@ import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.ozone.client.checksum.CompositeCrcFileChecksum;
-import org.apache.hadoop.ozone.client.checksum.CrcUtil;
 import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketEncryptionInfoProto;
@@ -51,12 +44,17 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.FileEnc
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MD5MD5Crc32FileChecksumProto;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.proto.SecurityProtos.TokenProto;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.security.token.TokenIdentifier;
+import org.apache.hadoop.ozone.client.checksum.CrcUtil;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 
 /**
  * Utilities for converting protobuf classes.
@@ -67,37 +65,40 @@ public final class OMPBHelper {
       ByteString.copyFromUtf8("<redacted>");
 
   private OMPBHelper() {
-    // no instances
+    /** Hidden constructor */
   }
 
   /**
-   * Convert {@link TokenProto} (used for delegation tokens and block tokens)
-   * to {@link Token}.
+   * Converts Ozone delegation token to @{@link TokenProto}.
+   * @return tokenProto
    */
-  public static <T extends TokenIdentifier> Token<T> tokenFromProto(
-      TokenProto tokenProto) {
-    return new Token<>(
-        tokenProto.getIdentifier().toByteArray(),
-        tokenProto.getPassword().toByteArray(),
-        new Text(tokenProto.getKind()),
-        new Text(tokenProto.getService()));
-  }
-
-  /**
-   * Convert {@link Token} to {@link TokenProto} (used for delegation tokens
-   * and block tokens).
-   */
-  public static TokenProto protoFromToken(Token<?> token) {
-    if (token == null) {
+  public static TokenProto convertToTokenProto(Token<?> tok) {
+    if (tok == null) {
       throw new IllegalArgumentException("Invalid argument: token is null");
     }
 
-    return TokenProto.newBuilder()
-        .setIdentifier(getByteString(token.getIdentifier()))
-        .setPassword(getByteString(token.getPassword()))
-        .setKindBytes(getFixedByteString(token.getKind()))
-        .setServiceBytes(getByteString(token.getService().getBytes()))
-        .build();
+    return TokenProto.newBuilder().
+        setIdentifier(getByteString(tok.getIdentifier())).
+        setPassword(getByteString(tok.getPassword())).
+        setKind(tok.getKind().toString()).
+        setService(tok.getService().toString()).build();
+  }
+
+  public static ByteString getByteString(byte[] bytes) {
+    // return singleton to reduce object allocation
+    return (bytes.length == 0) ? ByteString.EMPTY : ByteString.copyFrom(bytes);
+  }
+
+  /**
+   * Converts @{@link TokenProto} to Ozone delegation token.
+   *
+   * @return Ozone
+   */
+  public static Token<OzoneTokenIdentifier> convertToDelegationToken(
+      TokenProto tokenProto) {
+    return new Token<>(tokenProto.getIdentifier()
+        .toByteArray(), tokenProto.getPassword().toByteArray(), new Text(
+        tokenProto.getKind()), new Text(tokenProto.getService()));
   }
 
   public static BucketEncryptionKeyInfo convert(
@@ -241,13 +242,11 @@ public final class OMPBHelper {
     DataOutputBuffer buf = new DataOutputBuffer();
     checksum.write(buf);
     byte[] bytes = buf.getData();
-    int bytesPerCRC;
-    long crcPerBlock;
-    try (DataInputBuffer buffer = new DataInputBuffer()) {
-      buffer.reset(bytes, 0, bytes.length);
-      bytesPerCRC = buffer.readInt();
-      crcPerBlock = buffer.readLong();
-    }
+    DataInputBuffer buffer = new DataInputBuffer();
+    buffer.reset(bytes, 0, bytes.length);
+    int bytesPerCRC = buffer.readInt();
+    long crcPerBlock = buffer.readLong();
+    buffer.close();
 
     int offset = Integer.BYTES + Long.BYTES;
     ByteString byteString = ByteString.copyFrom(

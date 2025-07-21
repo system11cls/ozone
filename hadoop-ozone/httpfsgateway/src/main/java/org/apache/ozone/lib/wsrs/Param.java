@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +18,9 @@
 
 package org.apache.ozone.lib.wsrs;
 
-import java.text.MessageFormat;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+
+import java.text.MessageFormat;
 
 /**
  * Base class of parameters.
@@ -43,7 +44,7 @@ public abstract class Param<T> {
 
   public T parseParam(String str) {
     try {
-      value = StringUtils.isNotBlank(str) ? parse(str) : value;
+      value = (str != null && str.trim().length() > 0) ? parse(str) : value;
     } catch (Exception ex) {
       throw new IllegalArgumentException(
         MessageFormat.format("Parameter [{0}], invalid value [{1}], " +

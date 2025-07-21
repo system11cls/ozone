@@ -1,36 +1,39 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.admin.nssummary;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import picocli.CommandLine;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.Callable;
+
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.getResponseMap;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.makeHttpCall;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printEmptyPathRequest;
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printBucketReminder;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printNewLines;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printPathNotFound;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printSpaces;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printTypeNA;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printWithUnderline;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.concurrent.Callable;
-import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.hdds.cli.HddsVersionProvider;
-import org.apache.hadoop.hdds.server.JsonUtils;
-import picocli.CommandLine;
 
 /**
  * File Size Distribution Subcommand.
@@ -56,7 +59,7 @@ public class FileSizeDistSubCommand implements Callable {
 
   @Override
   public Void call() throws Exception {
-    if (path == null || path.isEmpty()) {
+    if (path == null || path.length() == 0) {
       printEmptyPathRequest();
       return null;
     }
@@ -70,19 +73,24 @@ public class FileSizeDistSubCommand implements Callable {
       printNewLines(1);
       return null;
     }
-    JsonNode distResponse = JsonUtils.readTree(response);
+    HashMap<String, Object> distResponse = getResponseMap(response);
 
-    if ("PATH_NOT_FOUND".equals(distResponse.path("status").asText())) {
+    if (distResponse.get("status").equals("PATH_NOT_FOUND")) {
       printPathNotFound();
-    } else if ("TYPE_NOT_APPLICABLE".equals(distResponse.path("status").asText())) {
+    } else if (distResponse.get("status").equals("TYPE_NOT_APPLICABLE")) {
       printTypeNA("File Size Distribution");
     } else {
+      if (parent.isObjectStoreBucket(path) ||
+          !parent.bucketIsPresentInThePath(path)) {
+        printBucketReminder();
+      }
+
       printWithUnderline("File Size Distribution", true);
-      JsonNode fileSizeDist = distResponse.path("dist");
+      ArrayList fileSizeDist = (ArrayList) distResponse.get("dist");
       double sum = 0;
 
       for (int i = 0; i < fileSizeDist.size(); ++i) {
-        sum += fileSizeDist.get(i).asDouble();
+        sum += (double) fileSizeDist.get(i);
       }
       if (sum == 0) {
         printSpaces(2);
@@ -93,11 +101,11 @@ public class FileSizeDistSubCommand implements Callable {
       }
 
       for (int i = 0; i < fileSizeDist.size(); ++i) {
-        if (fileSizeDist.get(i).asDouble() == 0) {
+        if ((double)fileSizeDist.get(i) == 0) {
           continue;
         }
         String label = convertBinIndexToReadableRange(i);
-        printDistRow(label, fileSizeDist.get(i).asDouble(), sum);
+        printDistRow(label, (double) fileSizeDist.get(i), sum);
       }
     }
     printNewLines(1);

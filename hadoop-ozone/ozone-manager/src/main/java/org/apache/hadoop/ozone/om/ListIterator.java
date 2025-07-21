@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +18,14 @@
 
 package org.apache.hadoop.ozone.om;
 
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.hdds.utils.db.CopyObject;
+import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -29,19 +37,12 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
-import java.util.function.Predicate;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.hdds.utils.db.CopyObject;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
 /**
  * Common class to do listing of resources after merging
- * rocksDB table cache and actual table.
+ * rocksDB table cache & actual table.
  */
 public class ListIterator {
 
@@ -85,13 +86,11 @@ public class ListIterator {
       return value;
     }
 
-    @Override
     public int compareTo(HeapEntry other) {
       return Comparator.comparing(HeapEntry::getKey)
           .thenComparing(HeapEntry::getEntryIteratorId).compare(this, other);
     }
 
-    @Override
     public boolean equals(Object other) {
 
       if (!(other instanceof HeapEntry)) {
@@ -103,7 +102,6 @@ public class ListIterator {
       return this.compareTo(that) == 0;
     }
 
-    @Override
     public int hashCode() {
       return key.hashCode();
     }
@@ -119,17 +117,14 @@ public class ListIterator {
         ? extends Table.KeyValue<String, Value>> tableIterator;
 
     private final Table<String, Value> table;
-    private HeapEntry currentEntry;
-    private Predicate<String> doesKeyExistInCache;
+    private HeapEntry currentKey;
 
     DbTableIter(int entryIteratorId, Table<String, Value> table,
-                String prefixKey, String startKey,
-                Predicate<String> doesKeyExistInCache) throws IOException {
+                String prefixKey, String startKey) throws IOException {
       this.entryIteratorId = entryIteratorId;
       this.table = table;
       this.tableIterator = table.iterator(prefixKey);
-      this.currentEntry = null;
-      this.doesKeyExistInCache = doesKeyExistInCache;
+      this.currentKey = null;
 
       // only seek for the start key if the start key is lexicographically
       // after the prefix key. For example
@@ -146,37 +141,34 @@ public class ListIterator {
     }
 
     private void getNextKey() throws IOException {
-      while (tableIterator.hasNext() && currentEntry == null) {
+      while (tableIterator.hasNext() && currentKey == null) {
         Table.KeyValue<String, Value> entry = tableIterator.next();
         String entryKey = entry.getKey();
-        if (!doesKeyExistInCache.test(entryKey)) {
-          currentEntry = new HeapEntry(entryIteratorId,
+        if (!KeyManagerImpl.isKeyInCache(entryKey, table)) {
+          currentKey = new HeapEntry(entryIteratorId,
               table.getName(), entryKey, entry.getValue());
         }
       }
     }
 
-    @Override
     public boolean hasNext() {
       try {
         getNextKey();
       } catch (IOException t) {
         throw new UncheckedIOException(t);
       }
-      return currentEntry != null;
+      return currentKey != null;
     }
 
-    @Override
     public HeapEntry next() {
       if (hasNext()) {
-        HeapEntry ret = currentEntry;
-        currentEntry = null;
+        HeapEntry ret = currentKey;
+        currentKey = null;
         return ret;
       }
       throw new NoSuchElementException();
     }
 
-    @Override
     public void close() throws IOException {
       tableIterator.close();
     }
@@ -194,6 +186,7 @@ public class ListIterator {
     private final String prefixKey;
     private final String startKey;
     private final String tableName;
+
     private final int entryIteratorId;
 
     CacheIter(int entryIteratorId, String tableName,
@@ -201,6 +194,7 @@ public class ListIterator {
                   CacheValue<Value>>> cacheIter, String startKey,
               String prefixKey) {
       this.cacheKeyMap = new TreeMap<>();
+
       this.startKey = startKey;
       this.prefixKey = prefixKey;
       this.tableName = tableName;
@@ -208,7 +202,7 @@ public class ListIterator {
 
       populateCacheMap(cacheIter);
 
-      cacheCreatedKeyIter = cacheKeyMap.entrySet().stream().filter(e -> e.getValue() != null).iterator();
+      cacheCreatedKeyIter = cacheKeyMap.entrySet().iterator();
     }
 
     private void populateCacheMap(Iterator<Map.Entry<CacheKey<String>,
@@ -242,23 +236,16 @@ public class ListIterator {
       }
     }
 
-    public boolean doesKeyExistInCache(String key) {
-      return cacheKeyMap.containsKey(key);
-    }
-
-    @Override
     public boolean hasNext() {
       return cacheCreatedKeyIter.hasNext();
     }
 
-    @Override
     public HeapEntry next() {
       Map.Entry<String, Value> entry = cacheCreatedKeyIter.next();
       return new HeapEntry(this.entryIteratorId, this.tableName,
           entry.getKey(), entry.getValue());
     }
 
-    @Override
     public void close() {
       // Nothing to close here
     }
@@ -305,13 +292,11 @@ public class ListIterator {
       try {
         int iteratorId = 0;
         for (Table table : tables) {
-          CacheIter cacheIter = new CacheIter<>(iteratorId, table.getName(),
-              table.cacheIterator(), startKey, prefixKey);
-          Predicate<String> doesKeyExistInCache = cacheIter::doesKeyExistInCache;
-          iterators.add(cacheIter);
+          iterators.add(new CacheIter<>(iteratorId, table.getName(),
+                  table.cacheIterator(), startKey, prefixKey));
           iteratorId++;
           iterators.add(new DbTableIter<>(iteratorId, table, prefixKey,
-              startKey, doesKeyExistInCache));
+              startKey));
           iteratorId++;
         }
       } finally {
@@ -332,12 +317,10 @@ public class ListIterator {
 
     }
 
-    @Override
     public boolean hasNext() {
       return !minHeap.isEmpty();
     }
 
-    @Override
     public HeapEntry next() {
       HeapEntry heapEntry = minHeap.remove();
       // remove the least element and
@@ -350,9 +333,8 @@ public class ListIterator {
       return heapEntry;
     }
 
-    @Override
     public void close() throws IOException {
-      IOUtils.closeQuietly(iterators);
+      iterators.forEach(IOUtils::closeQuietly);
     }
   }
 }

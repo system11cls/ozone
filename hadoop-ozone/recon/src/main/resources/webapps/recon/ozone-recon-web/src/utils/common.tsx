@@ -18,7 +18,6 @@
 
 import moment from 'moment';
 import { notification } from 'antd';
-import { CanceledError } from 'axios';
 
 export const getCapacityPercent = (used: number, total: number) => Math.round((used / total) * 100);
 
@@ -34,23 +33,10 @@ const showErrorNotification = (title: string, description: string) => {
   notification.error(args);
 };
 
-const showInfoNotification = (title: string, description: string) => {
-  const args = {
-    message: title,
-    description,
-    duration: 15
-  };
-  notification.warn(args);
-};
-
 export const showDataFetchError = (error: string) => {
-  let title = 'Error while fetching data';
-  
-  if (error.includes('CanceledError')) return;
-  if (error.includes('metadata')) {
-    title = 'Metadata Initialization:';
-    showInfoNotification(title, error);
-    return;
+  const title = 'Error while fetching data';
+  if (error.includes("CanceledError")) {
+    error = 'Previous request cancelled because context changed'
   }
   showErrorNotification(title, error);
 };
@@ -65,16 +51,6 @@ export const byteToSize = (bytes: number, decimals: number) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return isNaN(i) ? `Not Defined` : `${Number.parseFloat((bytes / (k ** i)).toFixed(dm))} ${sizes[i]}`;
 };
-
-/**
- * The function transforms the provided number to a comma separated value
- * Ex: 1000 will be 1,000
- * @param num The number to convert
- * @returns The number separated at every thousandth place by commas
- */
-export function numberWithCommas(num: number) {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
 
 export const nullAwareLocaleCompare = (a: string, b: string) => {
   if (!a && !b) {
@@ -92,30 +68,4 @@ export const nullAwareLocaleCompare = (a: string, b: string) => {
   return a.localeCompare(b);
 };
 
-export function removeDuplicatesAndMerge<T>(origArr: T[], updateArr: T[], mergeKey: string): T[] {
-  return Array.from([...origArr, ...updateArr].reduce(
-    (accumulator, curr) => accumulator.set(curr[mergeKey as keyof T], curr),
-    new Map
-  ).values());
-}
 
-export const checkResponseError = (responses: Awaited<Promise<any>>[]) => {
-  const responseError = responses.filter(
-    (resp) => resp.status === 'rejected'
-  );
-
-  if (responseError.length !== 0) {
-    responseError.forEach((err) => {
-      if (err.reason.toString().includes("CanceledError")) {
-        throw new CanceledError('canceled', "ERR_CANCELED");
-      }
-      else {
-        const reqMethod = err.reason.config.method;
-        const reqURL = err.reason.config.url
-        showDataFetchError(
-          `Failed to ${reqMethod} URL ${reqURL}\n${err.reason.toString()}`
-        );
-      }
-    })
-  }
-}

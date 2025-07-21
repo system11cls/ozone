@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,36 +18,7 @@
 
 package org.apache.hadoop.hdds.scm.container.replication;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainer;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicasWithSameOrigin;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -66,8 +38,36 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.slf4j.event.Level;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainer;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicasWithSameOrigin;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 
 /**
  * Tests for {@link RatisOverReplicationHandler}.
@@ -86,12 +86,13 @@ public class TestRatisOverReplicationHandler {
     container = createContainer(HddsProtos.LifeCycleState.CLOSED,
         RATIS_REPLICATION_CONFIG);
 
-    policy = mock(PlacementPolicy.class);
-    when(policy.validateContainerPlacement(anyList(), anyInt()))
+    policy = Mockito.mock(PlacementPolicy.class);
+    Mockito.when(policy.validateContainerPlacement(
+        Mockito.anyList(), Mockito.anyInt()))
         .thenReturn(new ContainerPlacementStatusDefault(2, 2, 3));
 
-    replicationManager = mock(ReplicationManager.class);
-    when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
+    replicationManager = Mockito.mock(ReplicationManager.class);
+    Mockito.when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
         .thenAnswer(invocation -> {
           DatanodeDetails dd = invocation.getArgument(0);
           return new NodeStatus(dd.getPersistedOpState(),
@@ -133,7 +134,7 @@ public class TestRatisOverReplicationHandler {
         ContainerReplicaProto.State.CLOSED, 0, 0, 0, 0);
 
     ContainerReplica stale = replicas.stream().findFirst().get();
-    when(replicationManager.getNodeStatus(stale.getDatanodeDetails()))
+    Mockito.when(replicationManager.getNodeStatus(stale.getDatanodeDetails()))
         .thenAnswer(invocation ->
             NodeStatus.inServiceStale());
 
@@ -205,7 +206,7 @@ public class TestRatisOverReplicationHandler {
             State.UNHEALTHY, container.getNumberOfKeys(),
             container.getUsedBytes(), staleNode,
             unhealthyReplica.getOriginDatanodeId()));
-    when(replicationManager.getNodeStatus(eq(staleNode)))
+    Mockito.when(replicationManager.getNodeStatus(eq(staleNode)))
         .thenAnswer(invocation -> {
           DatanodeDetails dd = invocation.getArgument(0);
           return new NodeStatus(dd.getPersistedOpState(),
@@ -261,45 +262,12 @@ public class TestRatisOverReplicationHandler {
 
     // Ensure a mis-replicated status is returned when 4 or fewer replicas are
     // checked.
-    when(policy.validateContainerPlacement(argThat(list -> list.size() <= 4), anyInt()))
+    Mockito.when(policy.validateContainerPlacement(
+        Mockito.argThat(list -> list.size() <= 4), Mockito.anyInt()))
         .thenReturn(new ContainerPlacementStatusDefault(1, 2, 3));
 
     testProcessing(replicas, Collections.emptyList(),
         getOverReplicatedHealthResult(), 0);
-  }
-
-  /**
-   * In this test, the container is already mis-replicated, being on 2 racks rather than 3.
-   * Removing a replica does not make it "more" mis-replicated, so the handler should remove
-   * one replica.
-   * @throws IOException
-   */
-  @Test
-  public void testOverReplicatedContainerAlreadyMisReplicated()
-      throws IOException {
-    Set<ContainerReplica> replicas = createReplicas(container.containerID(),
-        ContainerReplicaProto.State.CLOSED, 0, 0, 0, 0);
-
-    // Ensure a mis-replicated status is always returned.
-    when(policy.validateContainerPlacement(anyList(), anyInt()))
-        .thenReturn(new ContainerPlacementStatusDefault(2, 3, 3));
-
-    testProcessing(replicas, Collections.emptyList(), getOverReplicatedHealthResult(), 1);
-  }
-
-  @Test
-  public void testOverReplicatedContainerBecomesOnSecondRemoval()
-      throws IOException {
-    Set<ContainerReplica> replicas = createReplicas(container.containerID(),
-        ContainerReplicaProto.State.CLOSED, 0, 0, 0, 0, 0);
-
-    // Ensure a mis-replicated status is returned when 3 or fewer replicas are
-    // checked.
-    when(policy.validateContainerPlacement(argThat(list -> list.size() <= 3), anyInt()))
-        .thenReturn(new ContainerPlacementStatusDefault(1, 2, 3));
-
-    testProcessing(replicas, Collections.emptyList(),
-        getOverReplicatedHealthResult(), 1);
   }
 
   @Test
@@ -364,15 +332,15 @@ public class TestRatisOverReplicationHandler {
 
     // Ensure a mis-replicated status is returned when 4 or fewer replicas are
     // checked.
-    when(policy.validateContainerPlacement(
-            argThat(list -> list.size() <= 4), anyInt()))
+    Mockito.when(policy.validateContainerPlacement(
+            Mockito.argThat(list -> list.size() <= 4), Mockito.anyInt()))
         .thenReturn(new ContainerPlacementStatusDefault(1, 2, 3));
 
     Set<Pair<DatanodeDetails, SCMCommand<?>>> commands = testProcessing(
         replicas, Collections.emptyList(), getOverReplicatedHealthResult(), 2);
     Set<DatanodeDetails> datanodes =
         commands.stream().map(Pair::getKey).collect(Collectors.toSet());
-    assertThat(datanodes).contains(quasiClosedReplica.getDatanodeDetails());
+    assertTrue(datanodes.contains(quasiClosedReplica.getDatanodeDetails()));
   }
 
   @Test
@@ -395,8 +363,10 @@ public class TestRatisOverReplicationHandler {
         replicas, Collections.emptyList(), getOverReplicatedHealthResult(), 1);
     Set<DatanodeDetails> datanodes =
         commands.stream().map(Pair::getKey).collect(Collectors.toSet());
-    assertThat(datanodes).doesNotContain(decommissioningReplica.getDatanodeDetails());
-    assertThat(datanodes).doesNotContain(maintenanceReplica.getDatanodeDetails());
+    assertFalse(
+        datanodes.contains(decommissioningReplica.getDatanodeDetails()));
+    assertFalse(
+        datanodes.contains(maintenanceReplica.getDatanodeDetails()));
   }
 
   @Test
@@ -461,7 +431,7 @@ public class TestRatisOverReplicationHandler {
     // one of the CLOSED replicas is removed.
     doThrow(CommandTargetOverloadedException.class)
         .when(replicationManager)
-        .sendThrottledDeleteCommand(any(ContainerInfo.class),
+        .sendThrottledDeleteCommand(Mockito.any(ContainerInfo.class),
             anyInt(),
             eq(quasiClosedReplica.getDatanodeDetails()),
             anyBoolean());
@@ -473,9 +443,13 @@ public class TestRatisOverReplicationHandler {
     RatisOverReplicationHandler handler =
         new RatisOverReplicationHandler(policy, replicationManager);
 
-    assertThrows(CommandTargetOverloadedException.class,
-        () -> handler.processAndSendCommands(replicas, Collections.emptyList(),
-            getOverReplicatedHealthResult(), 2));
+    try {
+      handler.processAndSendCommands(replicas, Collections.emptyList(),
+          getOverReplicatedHealthResult(), 2);
+      fail("Expected CommandTargetOverloadedException");
+    } catch (CommandTargetOverloadedException e) {
+      // Expected
+    }
     assertEquals(1, commandsSent.size());
     Pair<DatanodeDetails, SCMCommand<?>> cmd = commandsSent.iterator().next();
     assertNotEquals(quasiClosedReplica.getDatanodeDetails(),
@@ -510,13 +484,9 @@ public class TestRatisOverReplicationHandler {
     RatisOverReplicationHandler handler =
         new RatisOverReplicationHandler(policy, replicationManager);
 
-    // Only 1 command should be sent, as the first call to sendThrottledDelete
-    // throws an overloaded exception. Rather than skip to the next one, the skipped
-    // one should get retried later.
-    assertThrows(CommandTargetOverloadedException.class,
-        () -> handler.processAndSendCommands(closedReplicas, Collections.emptyList(),
-            getOverReplicatedHealthResult(), 2));
-    assertEquals(1, commandsSent.size());
+    handler.processAndSendCommands(closedReplicas, Collections.emptyList(),
+        getOverReplicatedHealthResult(), 2);
+    assertEquals(2, commandsSent.size());
   }
 
   /**
@@ -548,8 +518,8 @@ public class TestRatisOverReplicationHandler {
   private ContainerHealthResult.OverReplicatedHealthResult
       getOverReplicatedHealthResult() {
     ContainerHealthResult.OverReplicatedHealthResult healthResult =
-        mock(ContainerHealthResult.OverReplicatedHealthResult.class);
-    when(healthResult.getContainerInfo()).thenReturn(container);
+        Mockito.mock(ContainerHealthResult.OverReplicatedHealthResult.class);
+    Mockito.when(healthResult.getContainerInfo()).thenReturn(container);
     return healthResult;
   }
 }

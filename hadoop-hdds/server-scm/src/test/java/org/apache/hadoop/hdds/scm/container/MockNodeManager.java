@@ -1,25 +1,62 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.container;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.DEAD;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.HEALTHY;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.STALE;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMVersionRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.StorageReportProto;
+import org.apache.hadoop.hdds.scm.HddsTestUtils;
+import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeMetric;
+import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
+import org.apache.hadoop.hdds.scm.exceptions.SCMException;
+import org.apache.hadoop.hdds.scm.net.NetConstants;
+import org.apache.hadoop.hdds.scm.net.NetworkTopology;
+import org.apache.hadoop.hdds.scm.net.NetworkTopologyImpl;
+import org.apache.hadoop.hdds.scm.net.Node;
+import org.apache.hadoop.hdds.scm.node.DatanodeInfo;
+import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
+import org.apache.hadoop.hdds.scm.node.NodeManager;
+import org.apache.hadoop.hdds.scm.node.NodeStatus;
+import org.apache.hadoop.hdds.scm.node.states.Node2ContainerMap;
+import org.apache.hadoop.hdds.scm.node.states.Node2PipelineMap;
+import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
+import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
+import org.apache.hadoop.hdds.server.events.EventPublisher;
+import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.container.upgrade.UpgradeUtils;
+import org.apache.hadoop.ozone.protocol.VersionResponse;
+import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
+import org.apache.hadoop.ozone.protocol.commands.RegisteredCommand;
+import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+import org.assertj.core.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,45 +72,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMVersionRequestProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
-import org.apache.hadoop.hdds.scm.HddsTestUtils;
-import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeMetric;
-import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
-import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.hdds.scm.net.NetConstants;
-import org.apache.hadoop.hdds.scm.net.NetworkTopology;
-import org.apache.hadoop.hdds.scm.net.NetworkTopologyImpl;
-import org.apache.hadoop.hdds.scm.net.Node;
-import org.apache.hadoop.hdds.scm.node.DatanodeInfo;
-import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
-import org.apache.hadoop.hdds.scm.node.NodeManager;
-import org.apache.hadoop.hdds.scm.node.NodeStatus;
-import org.apache.hadoop.hdds.scm.node.states.Node2PipelineMap;
-import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
-import org.apache.hadoop.hdds.server.events.EventPublisher;
-import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.container.upgrade.UpgradeUtils;
-import org.apache.hadoop.ozone.protocol.VersionResponse;
-import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
-import org.apache.hadoop.ozone.protocol.commands.RegisteredCommand;
-import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
-import org.assertj.core.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.DEAD;
+import static org.apache.hadoop.hdds.protocol.proto
+    .HddsProtos.NodeState.HEALTHY;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.STALE;
 
 /**
  * Test Helper for testing container Mapping.
@@ -102,7 +105,8 @@ public class MockNodeManager implements NodeManager {
   private final List<DatanodeDetails> deadNodes;
   private final Map<DatanodeDetails, SCMNodeStat> nodeMetricMap;
   private final SCMNodeStat aggregateStat;
-  private final Map<UUID, List<SCMCommand<?>>> commandMap;
+  private boolean safemode;
+  private final Map<UUID, List<SCMCommand>> commandMap;
   private Node2PipelineMap node2PipelineMap;
   private final Node2ContainerMap node2ContainerMap;
   private NetworkTopology clusterMap;
@@ -141,6 +145,7 @@ public class MockNodeManager implements NodeManager {
         populateNodeMetric(dd, x);
       }
     }
+    safemode = false;
     this.commandMap = new HashMap<>();
     numHealthyDisksPerDatanode = 1;
     numRaftLogDisksPerDatanode = 1;
@@ -167,6 +172,7 @@ public class MockNodeManager implements NodeManager {
           "be empty");
     }
 
+    safemode = false;
     this.commandMap = new HashMap<>();
     numHealthyDisksPerDatanode = 1;
     numRaftLogDisksPerDatanode = 1;
@@ -202,6 +208,7 @@ public class MockNodeManager implements NodeManager {
           " empty");
     }
 
+    safemode = false;
     this.commandMap = new HashMap<>();
     numHealthyDisksPerDatanode = 1;
     numRaftLogDisksPerDatanode = 1;
@@ -237,6 +244,15 @@ public class MockNodeManager implements NodeManager {
     }
 
   }
+
+  /**
+   * Sets the safe mode value.
+   * @param safemode boolean
+   */
+  public void setSafemode(boolean safemode) {
+    this.safemode = safemode;
+  }
+
 
   /**
    * Gets all Live Datanodes that is currently communicating with SCM.
@@ -428,7 +444,7 @@ public class MockNodeManager implements NodeManager {
     } else if (deadNodes.contains(dd)) {
       return NodeStatus.inServiceDead();
     } else {
-      throw new NodeNotFoundException(dd.getID());
+      throw new NodeNotFoundException();
     }
   }
 
@@ -533,13 +549,13 @@ public class MockNodeManager implements NodeManager {
   }
 
   @Override
-  public void addDatanodeCommand(UUID dnId, SCMCommand<?> command) {
+  public void addDatanodeCommand(UUID dnId, SCMCommand command) {
     if (commandMap.containsKey(dnId)) {
-      List<SCMCommand<?>> commandList = commandMap.get(dnId);
+      List<SCMCommand> commandList = commandMap.get(dnId);
       Preconditions.checkNotNull(commandList);
       commandList.add(command);
     } else {
-      List<SCMCommand<?>> commandList = new LinkedList<>();
+      List<SCMCommand> commandList = new LinkedList<>();
       commandList.add(command);
       commandMap.put(dnId, commandList);
     }
@@ -640,7 +656,7 @@ public class MockNodeManager implements NodeManager {
     try {
       node2ContainerMap.setContainersForDatanode(uuid.getUuid(), containerIds);
     } catch (SCMException e) {
-      throw new NodeNotFoundException(uuid.getID());
+      throw new NodeNotFoundException(e.getMessage());
     }
   }
 
@@ -656,7 +672,7 @@ public class MockNodeManager implements NodeManager {
 
   // Returns the number of commands that is queued to this node manager.
   public int getCommandCount(DatanodeDetails dd) {
-    List<SCMCommand<?>> list = commandMap.get(dd.getUuid());
+    List<SCMCommand> list = commandMap.get(dd.getUuid());
     return (list == null) ? 0 : list.size();
   }
 
@@ -756,11 +772,13 @@ public class MockNodeManager implements NodeManager {
    * Send heartbeat to indicate the datanode is alive and doing well.
    *
    * @param datanodeDetails - Datanode ID.
+   * @param layoutInfo - DataNode Layout info
    * @param commandQueueReportProto - Command Queue Report Proto
    * @return SCMheartbeat response list
    */
   @Override
-  public List<SCMCommand<?>> processHeartbeat(DatanodeDetails datanodeDetails,
+  public List<SCMCommand> processHeartbeat(DatanodeDetails datanodeDetails,
+      LayoutVersionProto layoutInfo,
       CommandQueueReportProto commandQueueReportProto) {
     return null;
   }
@@ -768,7 +786,7 @@ public class MockNodeManager implements NodeManager {
   @Override
   public Boolean isNodeRegistered(
       DatanodeDetails datanodeDetails) {
-    return healthyNodes.contains(datanodeDetails);
+    return false;
   }
 
   @Override
@@ -847,7 +865,7 @@ public class MockNodeManager implements NodeManager {
   }
 
   @Override
-  public List<SCMCommand<?>> getCommandQueue(UUID dnID) {
+  public List<SCMCommand> getCommandQueue(UUID dnID) {
     return null;
   }
 

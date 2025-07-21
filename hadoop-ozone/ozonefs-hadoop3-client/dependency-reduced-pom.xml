@@ -3,20 +3,14 @@
   <parent>
     <artifactId>ozone</artifactId>
     <groupId>org.apache.ozone</groupId>
-    <version>2.0.0</version>
+    <version>1.4.1</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>ozone-filesystem-hadoop3-client</artifactId>
   <name>Apache Ozone FS Hadoop shaded 3.x compatibility</name>
-  <version>2.0.0</version>
+  <version>1.4.1</version>
   <build>
     <plugins>
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <proc>none</proc>
-        </configuration>
-      </plugin>
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
@@ -68,7 +62,7 @@
               <relocations>
                 <relocation>
                   <pattern>com.google.protobuf</pattern>
-                  <shadedPattern>${proto.shaded.prefix}.com.google.protobuf</shadedPattern>
+                  <shadedPattern>org.apache.hadoop.shaded.com.google.protobuf</shadedPattern>
                   <includes>
                     <include>com.google.protobuf.*</include>
                   </includes>
@@ -87,86 +81,7 @@
       </plugin>
     </plugins>
   </build>
-  <dependencies>
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.27.3</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>byte-buddy</artifactId>
-          <groupId>net.bytebuddy</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>5.12.1</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>opentest4j</artifactId>
-          <groupId>org.opentest4j</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>junit-platform-commons</artifactId>
-          <groupId>org.junit.platform</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>apiguardian-api</artifactId>
-          <groupId>org.apiguardian</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-params</artifactId>
-      <version>5.12.1</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>apiguardian-api</artifactId>
-          <groupId>org.apiguardian</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>4.11.0</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>byte-buddy-agent</artifactId>
-          <groupId>net.bytebuddy</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>objenesis</artifactId>
-          <groupId>org.objenesis</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>byte-buddy</artifactId>
-          <groupId>net.bytebuddy</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-inline</artifactId>
-      <version>4.11.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-junit-jupiter</artifactId>
-      <version>4.11.0</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
   <properties>
     <maven.test.skip>true</maven.test.skip>
-    <proto.shaded.prefix>org.apache.hadoop.shaded</proto.shaded.prefix>
   </properties>
 </project>

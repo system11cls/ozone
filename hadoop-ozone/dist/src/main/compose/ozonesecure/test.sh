@@ -36,7 +36,6 @@ execute_robot_test scm kinit.robot
 execute_robot_test scm basic
 
 execute_robot_test scm security
-execute_robot_test scm repair/bucket-encryption.robot
 
 execute_robot_test scm -v SCHEME:ofs -v BUCKET_TYPE:bucket -N ozonefs-ofs-bucket ozonefs/ozonefs.robot
 

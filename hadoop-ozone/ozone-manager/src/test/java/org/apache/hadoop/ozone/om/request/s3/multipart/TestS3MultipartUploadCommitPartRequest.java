@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,28 +14,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.request.s3.multipart;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.IOException;
-import java.util.UUID;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
 import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Tests S3 Multipart upload commit part request.
@@ -67,7 +65,7 @@ public class TestS3MultipartUploadCommitPartRequest
         bucketName, keyName);
 
     S3InitiateMultipartUploadRequest s3InitiateMultipartUploadRequest =
-        getS3InitiateMultipartUploadReq(initiateMPURequest);
+            getS3InitiateMultipartUploadReq(initiateMPURequest);
 
     OMClientResponse omClientResponse =
         s3InitiateMultipartUploadRequest.validateAndUpdateCache(ozoneManager, 1L);
@@ -89,7 +87,7 @@ public class TestS3MultipartUploadCommitPartRequest
         s3MultipartUploadCommitPartRequest.validateAndUpdateCache(ozoneManager, 2L);
 
 
-    assertSame(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.OK);
 
     String multipartOpenKey = getMultipartOpenKey(volumeName, bucketName,
@@ -98,21 +96,21 @@ public class TestS3MultipartUploadCommitPartRequest
     String multipartKey = omMetadataManager.getMultipartKey(volumeName,
         bucketName, keyName, multipartUploadID);
 
-    assertNotNull(
+    Assertions.assertNotNull(
         omMetadataManager.getMultipartInfoTable().get(multipartKey));
-    assertEquals(1, omMetadataManager.getMultipartInfoTable()
+    Assertions.assertEquals(1, omMetadataManager.getMultipartInfoTable()
         .get(multipartKey).getPartKeyInfoMap().size());
 
     OmKeyInfo mpuOpenKeyInfo = omMetadataManager
         .getOpenKeyTable(s3MultipartUploadCommitPartRequest.getBucketLayout())
         .get(multipartOpenKey);
-    assertNotNull(mpuOpenKeyInfo);
-    assertNotNull(mpuOpenKeyInfo.getLatestVersionLocations());
-    assertTrue(mpuOpenKeyInfo.getLatestVersionLocations()
+    Assertions.assertNotNull(mpuOpenKeyInfo);
+    Assertions.assertNotNull(mpuOpenKeyInfo.getLatestVersionLocations());
+    Assertions.assertTrue(mpuOpenKeyInfo.getLatestVersionLocations()
         .isMultipartKey());
 
     String partKey = getOpenKey(volumeName, bucketName, keyName, clientID);
-    assertNull(omMetadataManager
+    Assertions.assertNull(omMetadataManager
         .getOpenKeyTable(s3MultipartUploadCommitPartRequest.getBucketLayout())
         .get(partKey));
   }
@@ -143,13 +141,14 @@ public class TestS3MultipartUploadCommitPartRequest
     OMClientResponse omClientResponse =
         s3MultipartUploadCommitPartRequest.validateAndUpdateCache(ozoneManager, 2L);
 
-    assertSame(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.NO_SUCH_MULTIPART_UPLOAD_ERROR);
 
     String multipartKey = omMetadataManager.getMultipartKey(volumeName,
         bucketName, keyName, multipartUploadID);
 
-    assertNull(omMetadataManager.getMultipartInfoTable().get(multipartKey));
+    Assertions.assertNull(
+        omMetadataManager.getMultipartInfoTable().get(multipartKey));
 
   }
 
@@ -180,10 +179,10 @@ public class TestS3MultipartUploadCommitPartRequest
         s3MultipartUploadCommitPartRequest.validateAndUpdateCache(ozoneManager, 2L);
 
     if (getBucketLayout() == BucketLayout.FILE_SYSTEM_OPTIMIZED) {
-      assertSame(omClientResponse.getOMResponse().getStatus(),
+      Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
           OzoneManagerProtocolProtos.Status.DIRECTORY_NOT_FOUND);
     } else {
-      assertSame(omClientResponse.getOMResponse().getStatus(),
+      Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
           OzoneManagerProtocolProtos.Status.KEY_NOT_FOUND);
     }
 
@@ -215,15 +214,16 @@ public class TestS3MultipartUploadCommitPartRequest
     OMClientResponse omClientResponse =
         s3MultipartUploadCommitPartRequest.validateAndUpdateCache(ozoneManager, 2L);
 
-    assertSame(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertSame(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND);
 
   }
 
   protected void addKeyToOpenKeyTable(String volumeName, String bucketName,
       String keyName, long clientID) throws Exception {
-    OMRequestTestUtils.addKeyToTable(true, true, volumeName, bucketName,
-        keyName, clientID, RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE), omMetadataManager);
+    OMRequestTestUtils.addKeyToTable(true, true,  volumeName, bucketName,
+            keyName, clientID, HddsProtos.ReplicationType.RATIS,
+            HddsProtos.ReplicationFactor.ONE, omMetadataManager);
   }
 
   protected String getKeyName() {

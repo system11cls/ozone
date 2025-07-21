@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,16 +14,24 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-
 package org.apache.hadoop.hdds.security.x509.certificate.client;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_ROOTCA_CERTIFICATE_POLLING_INTERVAL;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
+import org.apache.hadoop.hdds.security.SecurityConfig;
+import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
+import org.apache.hadoop.hdds.security.x509.certificate.utils.SelfSignedCertificate;
+import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
+import org.apache.ozone.test.GenericTestUtils;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
@@ -35,17 +44,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
-import org.apache.hadoop.hdds.security.SecurityConfig;
-import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
-import org.apache.hadoop.hdds.security.x509.certificate.utils.SelfSignedCertificate;
-import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
-import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_ROOTCA_CERTIFICATE_POLLING_INTERVAL;
 
 /**
  * Test for Root Ca Rotation polling mechanism on client side.
@@ -81,7 +81,7 @@ public class TestRootCaRotationPoller {
         knownCerts, scmSecurityClient, "");
     //When the scm returns the same set of root ca certificates, and they poll
     //for them
-    when(scmSecurityClient.getAllRootCaCertificates())
+    Mockito.when(scmSecurityClient.getAllRootCaCertificates())
         .thenReturn(certsFromScm);
     CompletableFuture<Void> processingResult = new CompletableFuture<>();
     AtomicBoolean isProcessed = new AtomicBoolean(false);
@@ -95,7 +95,7 @@ public class TestRootCaRotationPoller {
     poller.pollRootCas();
     //Then the certificates are not processed. Note that we can't invoke
     // processingResult.join before as it never gets completed
-    assertThrows(TimeoutException.class, () ->
+    Assertions.assertThrows(TimeoutException.class, () ->
         GenericTestUtils.waitFor(isProcessed::get, 50, 5000));
   }
 
@@ -115,7 +115,7 @@ public class TestRootCaRotationPoller {
     RootCaRotationPoller poller = new RootCaRotationPoller(secConf,
         knownCerts, scmSecurityClient, "");
     //when the scm returns the unknown certificate to the poller
-    when(scmSecurityClient.getAllRootCaCertificates())
+    Mockito.when(scmSecurityClient.getAllRootCaCertificates())
         .thenReturn(certsFromScm);
     CompletableFuture<Void> processingResult = new CompletableFuture<>();
     AtomicBoolean isProcessed = new AtomicBoolean(false);
@@ -129,7 +129,7 @@ public class TestRootCaRotationPoller {
     poller.pollRootCas();
     processingResult.join();
     //The root ca processors are invoked
-    assertTrue(isProcessed.get());
+    Assertions.assertTrue(isProcessed.get());
   }
 
   @Test
@@ -147,7 +147,7 @@ public class TestRootCaRotationPoller {
     certsFromScm.add(CertificateCodec.getPEMEncodedString(newRootCa));
     RootCaRotationPoller poller = new RootCaRotationPoller(secConf,
         knownCerts, scmSecurityClient, "");
-    when(scmSecurityClient.getAllRootCaCertificates())
+    Mockito.when(scmSecurityClient.getAllRootCaCertificates())
         .thenReturn(certsFromScm);
     CompletableFuture<Void> processingResult = new CompletableFuture<>();
     //When encountering an error for the first run:
@@ -157,7 +157,7 @@ public class TestRootCaRotationPoller {
           if (runNumber.getAndIncrement() < 2) {
             poller.setCertificateRenewalError();
           }
-          assertEquals(certificates.size(), 2);
+          Assertions.assertEquals(certificates.size(), 2);
           processingResult.complete(null);
           return processingResult;
         }
@@ -165,12 +165,12 @@ public class TestRootCaRotationPoller {
     //Then the first run encounters an error
     poller.pollRootCas();
     processingResult.join();
-    assertThat(logCapturer.getOutput()).contains(
-        "There was a caught exception when trying to sign the certificate");
+    Assertions.assertTrue(logCapturer.getOutput().contains(
+        "There was a caught exception when trying to sign the certificate"));
     //And then the second clean run is successful.
     poller.pollRootCas();
-    assertThat(logCapturer.getOutput()).contains(
-        "Certificate processing was successful.");
+    Assertions.assertTrue(logCapturer.getOutput().contains(
+        "Certificate processing was successful."));
   }
 
   private X509Certificate generateX509Cert(
@@ -178,14 +178,10 @@ public class TestRootCaRotationPoller {
     KeyPair keyPair = KeyStoreTestUtil.generateKeyPair("RSA");
     LocalDateTime start = startDate == null ? LocalDateTime.now() : startDate;
     LocalDateTime end = start.plus(certLifetime);
-    return SelfSignedCertificate.newBuilder()
-        .setBeginDate(start)
-        .setEndDate(end)
-        .setClusterID("cluster")
-        .setKey(keyPair)
-        .setSubject("localhost")
-        .setConfiguration(secConf)
-        .setScmID("test")
-        .build();
+    return new JcaX509CertificateConverter().getCertificate(
+        SelfSignedCertificate.newBuilder().setBeginDate(start)
+            .setEndDate(end).setClusterID("cluster").setKey(keyPair)
+            .setSubject("localhost").setConfiguration(secConf).setScmID("test")
+            .build());
   }
 }

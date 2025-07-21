@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,9 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.security.ssl;
 
+import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+import org.apache.hadoop.hdds.annotation.InterfaceStability;
+import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -29,25 +39,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import javax.security.auth.x500.X500Principal;
-import org.apache.hadoop.hdds.annotation.InterfaceAudience;
-import org.apache.hadoop.hdds.annotation.InterfaceStability;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateNotification;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A {@link TrustManager} implementation that exposes a method,
- * {@link #init(List)} to reload its configuration for
+ * {@link #loadFrom(CertificateClient)} to reload its configuration for
  * example when the truststore file on disk changes.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public final class ReloadingX509TrustManager implements X509TrustManager, CertificateNotification {
+public final class ReloadingX509TrustManager implements X509TrustManager {
 
   public static final Logger LOG =
       LoggerFactory.getLogger(ReloadingX509TrustManager.class);
@@ -57,28 +57,27 @@ public final class ReloadingX509TrustManager implements X509TrustManager, Certif
 
   private final String type;
   private final AtomicReference<X509TrustManager> trustManagerRef;
-
   /**
    * Current Root CA cert in trustManager, to detect if certificate is changed.
    */
-  private List<X509Certificate> currentRootCACerts = new ArrayList<>();
+  private List<String> currentRootCACertIds = new ArrayList<>();
 
   /**
    * Creates a reloadable trustmanager. The trustmanager reloads itself
    * if the underlying truststore materials have changed.
    *
-   * @param type           type of truststore file, typically 'jks'.
-   * @param newRootCaCerts the newest known trusted certificates.
-   * @throws IOException              thrown if the truststore could not be initialized due
-   *                                  to an IO error.
+   * @param type type of truststore file, typically 'jks'.
+   * @param caClient client to get trust certificates.
+   * @throws IOException thrown if the truststore could not be initialized due
+   * to an IO error.
    * @throws GeneralSecurityException thrown if the truststore could not be
-   *                                  initialized due to a security error.
+   * initialized due to a security error.
    */
-  public ReloadingX509TrustManager(String type, List<X509Certificate> newRootCaCerts)
+  public ReloadingX509TrustManager(String type, CertificateClient caClient)
       throws GeneralSecurityException, IOException {
     this.type = type;
     trustManagerRef = new AtomicReference<X509TrustManager>();
-    trustManagerRef.set(init(newRootCaCerts));
+    trustManagerRef.set(loadTrustManager(caClient));
   }
 
   @Override
@@ -134,17 +133,39 @@ public final class ReloadingX509TrustManager implements X509TrustManager, Certif
     return issuers;
   }
 
-  private X509TrustManager init(List<X509Certificate> newRootCaCerts)
+  public ReloadingX509TrustManager loadFrom(CertificateClient caClient) {
+    try {
+      X509TrustManager manager = loadTrustManager(caClient);
+      if (manager != null) {
+        this.trustManagerRef.set(manager);
+        LOG.info("ReloadingX509TrustManager is reloaded.");
+      }
+    } catch (Exception ex) {
+      // The Consumer.accept interface forces us to convert to unchecked
+      throw new RuntimeException(RELOAD_ERROR_MESSAGE, ex);
+    }
+    return this;
+  }
+
+  X509TrustManager loadTrustManager(CertificateClient caClient)
       throws GeneralSecurityException, IOException {
+    // SCM certificate client sets root CA as CA cert instead of root CA cert
+    Set<X509Certificate> certList = caClient.getAllRootCaCerts();
+    Set<X509Certificate> rootCACerts = certList.isEmpty() ?
+        caClient.getAllCaCerts() : certList;
+
     // Certificate keeps the same.
-    if (isAlreadyUsing(newRootCaCerts)) {
+    if (rootCACerts.size() > 0 &&
+        currentRootCACertIds.size() == rootCACerts.size() &&
+        rootCACerts.stream().allMatch(c ->
+            currentRootCACertIds.contains(c.getSerialNumber().toString()))) {
       return null;
     }
 
     X509TrustManager trustManager = null;
     KeyStore ks = KeyStore.getInstance(type);
     ks.load(null, null);
-    insertCertsToKeystore(newRootCaCerts, ks);
+    insertCertsToKeystore(rootCACerts, ks);
 
     TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
         TrustManagerFactory.getDefaultAlgorithm());
@@ -156,18 +177,10 @@ public final class ReloadingX509TrustManager implements X509TrustManager, Certif
         break;
       }
     }
-    currentRootCACerts = newRootCaCerts;
+    currentRootCACertIds.clear();
+    rootCACerts.forEach(
+        c -> currentRootCACertIds.add(c.getSerialNumber().toString()));
     return trustManager;
-  }
-
-  private boolean isAlreadyUsing(List<X509Certificate> newRootCaCerts) {
-    return !newRootCaCerts.isEmpty() &&
-        currentRootCACerts.size() == newRootCaCerts.size() &&
-        newRootCaCerts.stream()
-            .allMatch(
-                newCert -> currentRootCACerts.stream()
-                    .anyMatch(currentCert -> currentCert.getSerialNumber().equals(newCert.getSerialNumber()))
-            );
   }
 
   private void insertCertsToKeystore(Iterable<X509Certificate> certs,
@@ -177,24 +190,6 @@ public final class ReloadingX509TrustManager implements X509TrustManager, Certif
       String certId = certToInsert.getSerialNumber().toString();
       ks.setCertificateEntry(certId, certToInsert);
       LOG.info(certToInsert.toString());
-    }
-  }
-
-  @Override
-  public synchronized void notifyCertificateRenewed(
-      CertificateClient certClient, String oldCertId, String newCertId) {
-    LOG.info("{} notify certificate renewed", certClient.getComponentName());
-    Set<X509Certificate> certList = certClient.getAllRootCaCerts();
-    Set<X509Certificate> rootCaCerts = certList.isEmpty() ? certClient.getAllCaCerts() : certList;
-    try {
-      X509TrustManager manager = init(new ArrayList<>(rootCaCerts));
-      if (manager != null) {
-        this.trustManagerRef.set(manager);
-        LOG.info("ReloadingX509TrustManager is reloaded.");
-      }
-    } catch (Exception ex) {
-      // The Consumer.accept interface forces us to convert to unchecked
-      throw new RuntimeException(RELOAD_ERROR_MESSAGE, ex);
     }
   }
 }

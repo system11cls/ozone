@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,19 +18,20 @@
 
 package org.apache.ozone.fs.http.server;
 
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.hdds.annotation.InterfaceAudience;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
-import org.apache.hadoop.util.JvmPauseMonitor;
 import org.apache.ozone.fs.http.server.metrics.HttpFSServerMetrics;
 import org.apache.ozone.lib.server.ServerException;
 import org.apache.ozone.lib.service.FileSystemAccess;
 import org.apache.ozone.lib.servlet.ServerWebApp;
+import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.util.JvmPauseMonitor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 /**
  * Bootstrap class that manages the initialization and destruction of the
@@ -37,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * </code> implementation that is wired in HttpFSServer's WAR
  * <code>WEB-INF/web.xml</code>.
  * <p>
- * It provides access to the server context via the singleton {@link #get}.
+ * It provides acces to the server context via the singleton {@link #get}.
  * <p>
  * All the configuration is loaded from configuration properties prefixed
  * with <code>httpfs.</code>.
@@ -57,8 +59,8 @@ public class HttpFSServerWebApp extends ServerWebApp {
    */
   public static final String CONF_ADMIN_GROUP = "admin.group";
 
-  private static final AtomicReference<HttpFSServerWebApp> SERVER = new AtomicReference<>();
-  private static final AtomicReference<HttpFSServerMetrics> METRICS = new AtomicReference<>();
+  private static HttpFSServerWebApp server;
+  private static HttpFSServerMetrics metrics;
 
   private String adminGroup;
 
@@ -73,6 +75,21 @@ public class HttpFSServerWebApp extends ServerWebApp {
   }
 
   /**
+   * Constructor used for testing purposes.
+   */
+  public HttpFSServerWebApp(String homeDir, String configDir, String logDir,
+                               String tempDir, Configuration config) {
+    super(NAME, homeDir, configDir, logDir, tempDir, config);
+  }
+
+  /**
+   * Constructor used for testing purposes.
+   */
+  public HttpFSServerWebApp(String homeDir, Configuration config) {
+    super(NAME, homeDir, config);
+  }
+
+  /**
    * Initializes the HttpFSServer server, loads configuration and required
    * services.
    *
@@ -81,12 +98,13 @@ public class HttpFSServerWebApp extends ServerWebApp {
    */
   @Override
   public void init() throws ServerException {
-    if (!SERVER.compareAndSet(null, this)) {
+    if (server != null) {
       throw new RuntimeException("HttpFSServer server already initialized");
     }
+    server = this;
     super.init();
     adminGroup = getConfig().get(getPrefixedName(CONF_ADMIN_GROUP), "admin");
-    LOG.info("Connects to FileSystem [{}]",
+    LOG.info("Connects to Namenode [{}]",
              get().get(FileSystemAccess.class).getFileSystemConfiguration().
                get(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY));
     setMetrics(getConfig());
@@ -97,8 +115,7 @@ public class HttpFSServerWebApp extends ServerWebApp {
    */
   @Override
   public void destroy() {
-    SERVER.set(null);
-    HttpFSServerMetrics metrics = METRICS.getAndSet(null);
+    server = null;
     if (metrics != null) {
       metrics.shutdown();
     }
@@ -107,11 +124,11 @@ public class HttpFSServerWebApp extends ServerWebApp {
 
   private static void setMetrics(Configuration config) {
     LOG.info("Initializing HttpFSServerMetrics");
-    METRICS.updateAndGet(prev -> prev != null ? prev : HttpFSServerMetrics.create(config, "HttpFSServer"));
+    metrics = HttpFSServerMetrics.create(config, "HttpFSServer");
     JvmPauseMonitor pauseMonitor = new JvmPauseMonitor();
     pauseMonitor.init(config);
     pauseMonitor.start();
-    METRICS.get().getJvmMetrics().setPauseMonitor(pauseMonitor);
+    metrics.getJvmMetrics().setPauseMonitor(pauseMonitor);
     FSOperations.setBufferSize(config);
     DefaultMetricsSystem.initialize("HttpFSServer");
   }
@@ -122,7 +139,7 @@ public class HttpFSServerWebApp extends ServerWebApp {
    * @return the HttpFSServer server singleton.
    */
   public static HttpFSServerWebApp get() {
-    return SERVER.get();
+    return server;
   }
 
   /**
@@ -130,7 +147,7 @@ public class HttpFSServerWebApp extends ServerWebApp {
    * @return the HttpFSServerMetrics singleton.
    */
   public static HttpFSServerMetrics getMetrics() {
-    return METRICS.get();
+    return metrics;
   }
 
   /**

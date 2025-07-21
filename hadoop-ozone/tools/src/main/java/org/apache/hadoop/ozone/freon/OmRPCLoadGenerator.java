@@ -1,30 +1,29 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
 import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
-import java.util.concurrent.Callable;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolClientSideTranslatorPB;
-import org.apache.hadoop.ozone.util.PayloadUtils;
-import org.kohsuke.MetaInfServices;
+import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -40,10 +39,11 @@ import picocli.CommandLine.Option;
         versionProvider = HddsVersionProvider.class,
         mixinStandardHelpOptions = true,
         showDefaultValues = true)
-@MetaInfServices(FreonSubcommand.class)
 public class OmRPCLoadGenerator extends BaseFreonGenerator
         implements Callable<Void> {
 
+  private static final int RPC_PAYLOAD_MULTIPLICATION_FACTOR = 1024;
+  private static final int MAX_SIZE_KB = 2097151;
   private Timer timer;
   private OzoneConfiguration configuration;
   private OzoneManagerProtocolClientSideTranslatorPB[] clients;
@@ -88,8 +88,9 @@ public class OmRPCLoadGenerator extends BaseFreonGenerator
     }
 
     init();
-    payloadReqBytes = PayloadUtils.generatePayload(payloadSizeInBytes(payloadReqSizeKB));
-    payloadRespSize = payloadSizeInBytes(payloadRespSizeKB);
+    payloadReqBytes = RandomUtils.nextBytes(
+            calculateMaxPayloadSize(payloadReqSizeKB));
+    payloadRespSize = calculateMaxPayloadSize(payloadRespSizeKB);
     timer = getMetrics().timer("rpc-payload");
     try {
       runTests(this::sendRPCReq);
@@ -103,8 +104,14 @@ public class OmRPCLoadGenerator extends BaseFreonGenerator
     return null;
   }
 
-  private int payloadSizeInBytes(int payloadSizeKB) {
-    return payloadSizeKB > 0 ? payloadSizeKB * 1024 : 0;
+  private int calculateMaxPayloadSize(int payloadSizeKB) {
+    if (payloadSizeKB > 0) {
+      return Math.min(
+              Math.toIntExact((long)payloadSizeKB *
+                      RPC_PAYLOAD_MULTIPLICATION_FACTOR),
+              MAX_SIZE_KB);
+    }
+    return 0;
   }
 
   private void sendRPCReq(long l) throws Exception {

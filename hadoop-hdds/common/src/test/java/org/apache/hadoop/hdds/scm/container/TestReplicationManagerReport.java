@@ -1,53 +1,54 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.container;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.server.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Tests for the ReplicationManagerReport class.
  */
-class TestReplicationManagerReport {
+public class TestReplicationManagerReport {
 
   private ReplicationManagerReport report;
 
   @BeforeEach
-  void setup() {
+  public void setup() {
     report = new ReplicationManagerReport();
   }
 
   @Test
-  void testMetricCanBeIncremented() {
+  public void testMetricCanBeIncremented() {
     report.increment(ReplicationManagerReport.HealthState.UNDER_REPLICATED);
     report.increment(ReplicationManagerReport.HealthState.UNDER_REPLICATED);
     report.increment(ReplicationManagerReport.HealthState.OVER_REPLICATED);
@@ -73,20 +74,20 @@ class TestReplicationManagerReport {
 
 
   @Test
-  void testJsonOutput() throws IOException {
+  public void testJsonOutput() throws IOException {
     report.increment(HddsProtos.LifeCycleState.OPEN);
     report.increment(HddsProtos.LifeCycleState.CLOSED);
     report.increment(HddsProtos.LifeCycleState.CLOSED);
 
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.UNDER_REPLICATED,
-        ContainerID.valueOf(1));
+        new ContainerID(1));
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.UNDER_REPLICATED,
-        ContainerID.valueOf(2));
+        new ContainerID(2));
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.OVER_REPLICATED,
-        ContainerID.valueOf(3));
+        new ContainerID(3));
     report.setComplete();
 
     String jsonString = JsonUtils.toJsonStringWithDefaultPrettyPrinter(report);
@@ -94,7 +95,7 @@ class TestReplicationManagerReport {
     ObjectMapper mapper = new ObjectMapper();
     JsonNode json = mapper.readTree(jsonString);
 
-    assertThat(json.get("reportTimeStamp").longValue()).isPositive();
+    assertTrue(json.get("reportTimeStamp").longValue() > 0);
     JsonNode stats = json.get("stats");
     assertEquals(1, stats.get("OPEN").longValue());
     assertEquals(0, stats.get("CLOSING").longValue());
@@ -121,16 +122,16 @@ class TestReplicationManagerReport {
   }
 
   @Test
-  void testContainerIDsCanBeSampled() {
+  public void testContainerIDsCanBeSampled() {
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.UNDER_REPLICATED,
-        ContainerID.valueOf(1));
+        new ContainerID(1));
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.UNDER_REPLICATED,
-        ContainerID.valueOf(2));
+        new ContainerID(2));
     report.incrementAndSample(
         ReplicationManagerReport.HealthState.OVER_REPLICATED,
-        ContainerID.valueOf(3));
+        new ContainerID(3));
 
     assertEquals(2,
         report.getStat(ReplicationManagerReport.HealthState.UNDER_REPLICATED));
@@ -141,13 +142,13 @@ class TestReplicationManagerReport {
 
     List<ContainerID> sample =
         report.getSample(ReplicationManagerReport.HealthState.UNDER_REPLICATED);
-    assertEquals(ContainerID.valueOf(1), sample.get(0));
-    assertEquals(ContainerID.valueOf(2), sample.get(1));
+    assertEquals(new ContainerID(1), sample.get(0));
+    assertEquals(new ContainerID(2), sample.get(1));
     assertEquals(2, sample.size());
 
     sample =
         report.getSample(ReplicationManagerReport.HealthState.OVER_REPLICATED);
-    assertEquals(ContainerID.valueOf(3), sample.get(0));
+    assertEquals(new ContainerID(3), sample.get(0));
     assertEquals(1, sample.size());
 
     sample =
@@ -156,22 +157,22 @@ class TestReplicationManagerReport {
   }
 
   @Test
-  void testSamplesAreLimited() {
+  public void testSamplesAreLimited() {
     for (int i = 0; i < ReplicationManagerReport.SAMPLE_LIMIT * 2; i++) {
       report.incrementAndSample(
           ReplicationManagerReport.HealthState.UNDER_REPLICATED,
-          ContainerID.valueOf(i));
+          new ContainerID(i));
     }
     List<ContainerID> sample =
         report.getSample(ReplicationManagerReport.HealthState.UNDER_REPLICATED);
     assertEquals(ReplicationManagerReport.SAMPLE_LIMIT, sample.size());
     for (int i = 0; i < ReplicationManagerReport.SAMPLE_LIMIT; i++) {
-      assertEquals(ContainerID.valueOf(i), sample.get(i));
+      assertEquals(new ContainerID(i), sample.get(i));
     }
   }
 
   @Test
-  void testSerializeToProtoAndBack() {
+  public void testSerializeToProtoAndBack() {
     report.setTimestamp(12345);
     Random rand = ThreadLocalRandom.current();
     for (HddsProtos.LifeCycleState s : HddsProtos.LifeCycleState.values()) {
@@ -203,7 +204,7 @@ class TestReplicationManagerReport {
   }
 
   @Test
-  void testDeSerializeCanHandleUnknownMetric() {
+  public void testDeSerializeCanHandleUnknownMetric() {
     HddsProtos.ReplicationManagerReportProto.Builder proto =
         HddsProtos.ReplicationManagerReportProto.newBuilder();
     proto.setTimestamp(12345);
@@ -232,14 +233,14 @@ class TestReplicationManagerReport {
   }
 
   @Test
-  void testStatCannotBeSetTwice() {
+  public void testStatCannotBeSetTwice() {
     report.setStat(HddsProtos.LifeCycleState.CLOSED.toString(), 10);
     assertThrows(IllegalStateException.class, () -> report
         .setStat(HddsProtos.LifeCycleState.CLOSED.toString(), 10));
   }
 
   @Test
-  void testSampleCannotBeSetTwice() {
+  public void testSampleCannotBeSetTwice() {
     List<ContainerID> containers = new ArrayList<>();
     containers.add(ContainerID.valueOf(1));
     report.setSample(HddsProtos.LifeCycleState.CLOSED.toString(), containers);

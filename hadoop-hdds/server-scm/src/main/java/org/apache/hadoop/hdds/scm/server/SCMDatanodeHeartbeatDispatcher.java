@@ -1,57 +1,70 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.scm.server;
 
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.CMD_STATUS_REPORT;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.CONTAINER_ACTIONS;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.CONTAINER_REPORT;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.INCREMENTAL_CONTAINER_REPORT;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.NODE_REPORT;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.PIPELINE_ACTIONS;
-import static org.apache.hadoop.hdds.scm.events.SCMEvents.PIPELINE_REPORT;
-import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.INITIAL_VERSION;
-import static org.apache.hadoop.ozone.container.upgrade.UpgradeUtils.toLayoutVersionProto;
-
 import com.google.common.base.Preconditions;
-import com.google.protobuf.Message;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandStatusReportsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerActionsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.IncrementalContainerReportProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.CRLStatusReport;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.IncrementalContainerReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineActionsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMHeartbeatRequestProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.PipelineActionsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.ContainerActionsProto;
+import org.apache.hadoop.hdds.protocol.proto.
+    StorageContainerDatanodeProtocolProtos.CommandStatusReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.NodeReportProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.SCMHeartbeatRequestProto;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.hdds.server.events.IEventInfo;
 import org.apache.hadoop.ozone.protocol.commands.ReregisterCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+
+import com.google.protobuf.Message;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.CONTAINER_ACTIONS;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.CONTAINER_REPORT;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents
+    .INCREMENTAL_CONTAINER_REPORT;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.NODE_REPORT;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.CMD_STATUS_REPORT;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.PIPELINE_ACTIONS;
+import static org.apache.hadoop.hdds.scm.events.SCMEvents.PIPELINE_REPORT;
+import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.INITIAL_VERSION;
+import static org.apache.hadoop.ozone.container.upgrade.UpgradeUtils.toLayoutVersionProto;
 
 /**
  * This class is responsible for dispatching heartbeat from datanode to
@@ -82,10 +95,10 @@ public final class SCMDatanodeHeartbeatDispatcher {
    *
    * @return list of SCMCommand
    */
-  public List<SCMCommand<?>> dispatch(SCMHeartbeatRequestProto heartbeat) {
+  public List<SCMCommand> dispatch(SCMHeartbeatRequestProto heartbeat) {
     DatanodeDetails datanodeDetails =
         DatanodeDetails.getFromProtoBuf(heartbeat.getDatanodeDetails());
-    List<SCMCommand<?>> commands;
+    List<SCMCommand> commands;
 
     // If node is not registered, ask the node to re-register. Do not process
     // Heartbeat for unregistered nodes.
@@ -117,7 +130,8 @@ public final class SCMDatanodeHeartbeatDispatcher {
         commandQueueReport = heartbeat.getCommandQueueReport();
       }
       // should we dispatch heartbeat through eventPublisher?
-      commands = nodeManager.processHeartbeat(datanodeDetails, commandQueueReport);
+      commands = nodeManager.processHeartbeat(datanodeDetails,
+          layoutVersion, commandQueueReport);
       if (heartbeat.hasNodeReport()) {
         LOG.debug("Dispatching Node Report.");
         eventPublisher.fireEvent(
@@ -140,7 +154,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
       final List<IncrementalContainerReportProto> icrs =
           heartbeat.getIncrementalContainerReportList();
 
-      if (!icrs.isEmpty()) {
+      if (icrs.size() > 0) {
         LOG.debug("Dispatching ICRs.");
         for (IncrementalContainerReportProto icr : icrs) {
           eventPublisher.fireEvent(INCREMENTAL_CONTAINER_REPORT,
@@ -189,9 +203,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
         }
       }
     }
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Heartbeat dispatched: datanode=" + datanodeDetails.getUuid() + ", Commands= " + commands);
-    }
 
     return commands;
   }
@@ -203,7 +214,7 @@ public final class SCMDatanodeHeartbeatDispatcher {
 
     private final DatanodeDetails datanodeDetails;
 
-    private T report;
+    private final T report;
 
     public ReportFromDatanode(DatanodeDetails datanodeDetails, T report) {
       this.datanodeDetails = datanodeDetails;
@@ -216,10 +227,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
 
     public T getReport() {
       return report;
-    }
-
-    public void setReport(T report) {
-      this.report = report;
     }
   }
 
@@ -281,12 +288,12 @@ public final class SCMDatanodeHeartbeatDispatcher {
   public enum ContainerReportType {
     /**
      * Incremental container report type
-     * {@link IncrementalContainerReportFromDatanode}.
+     * {@liks IncrementalContainerReportFromDatanode}.
      */
     ICR,
     /**
      * Full container report type
-     * {@link ContainerReportFromDatanode}.
+     * {@liks ContainerReportFromDatanode}.
      */
     FCR
   }
@@ -298,18 +305,10 @@ public final class SCMDatanodeHeartbeatDispatcher {
       extends ReportFromDatanode<ContainerReportsProto>
       implements ContainerReport, IEventInfo {
     private long createTime = Time.monotonicNow();
-    // Used to identify whether container reporting is from a registration.
-    private boolean isRegister = false;
 
     public ContainerReportFromDatanode(DatanodeDetails datanodeDetails,
         ContainerReportsProto report) {
       super(datanodeDetails, report);
-    }
-
-    public ContainerReportFromDatanode(DatanodeDetails datanodeDetails,
-        ContainerReportsProto report, boolean isRegister) {
-      super(datanodeDetails, report);
-      this.isRegister = isRegister;
     }
 
     @Override
@@ -322,7 +321,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
       return this.getDatanodeDetails().getUuid().hashCode();
     }
     
-    @Override
     public ContainerReportType getType() {
       return ContainerReportType.FCR;
     }
@@ -330,10 +328,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
     @Override
     public long getCreateTime() {
       return createTime;
-    }
-
-    public boolean isRegister() {
-      return isRegister;
     }
 
     @Override
@@ -370,7 +364,6 @@ public final class SCMDatanodeHeartbeatDispatcher {
       return this.getDatanodeDetails().getUuid().hashCode();
     }
 
-    @Override
     public ContainerReportType getType() {
       return ContainerReportType.ICR;
     }
@@ -389,11 +382,9 @@ public final class SCMDatanodeHeartbeatDispatcher {
     @Override
     public void mergeReport(ContainerReport nextReport) {
       if (nextReport.getType() == ContainerReportType.ICR) {
-        // To update existing report list , need to create a builder and then
-        // merge new reports to existing report list.
-        IncrementalContainerReportProto reportProto = getReport().toBuilder().addAllReport(
-            ((ReportFromDatanode<IncrementalContainerReportProto>) nextReport).getReport().getReportList()).build();
-        setReport(reportProto);
+        getReport().getReportList().addAll(
+            ((ReportFromDatanode<IncrementalContainerReportProto>) nextReport)
+                .getReport().getReportList());
       }
     }
   }
@@ -442,6 +433,18 @@ public final class SCMDatanodeHeartbeatDispatcher {
 
     public CommandStatusReportFromDatanode(DatanodeDetails datanodeDetails,
         CommandStatusReportsProto report) {
+      super(datanodeDetails, report);
+    }
+  }
+
+  /**
+   * CRL Status report event payload with origin.
+   */
+  public static class CRLStatusReportFromDatanode
+      extends ReportFromDatanode<CRLStatusReport> {
+
+    public CRLStatusReportFromDatanode(DatanodeDetails datanodeDetails,
+                                           CRLStatusReport report) {
       super(datanodeDetails, report);
     }
   }

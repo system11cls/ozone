@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,15 +18,6 @@
 
 package org.apache.hadoop.ozone.om.response.s3.multipart;
 
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DELETED_TABLE;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DIRECTORY_TABLE;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.FILE_TABLE;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.MULTIPARTINFO_TABLE;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.OPEN_FILE_TABLE;
-
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
-import java.util.List;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -37,6 +29,16 @@ import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 
+import javax.annotation.CheckForNull;
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.List;
+
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DELETED_TABLE;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.FILE_TABLE;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.MULTIPARTINFO_TABLE;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.OPEN_FILE_TABLE;
+
 /**
  * Response for Multipart Upload Complete request.
  *
@@ -46,7 +48,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
  * 3) Delete unused parts.
  */
 @CleanupTableInfo(cleanupTables = {OPEN_FILE_TABLE, FILE_TABLE, DELETED_TABLE,
-    MULTIPARTINFO_TABLE, DIRECTORY_TABLE})
+    MULTIPARTINFO_TABLE})
 public class S3MultipartUploadCompleteResponseWithFSO
         extends S3MultipartUploadCompleteResponse {
 
@@ -65,7 +67,7 @@ public class S3MultipartUploadCompleteResponseWithFSO
       @Nonnull OmKeyInfo omKeyInfo,
       @Nonnull List<OmKeyInfo> allKeyInfoToRemove,
       @Nonnull BucketLayout bucketLayout,
-      OmBucketInfo omBucketInfo,
+      @CheckForNull OmBucketInfo omBucketInfo,
       @Nonnull long volumeId, @Nonnull long bucketId,
       List<OmDirectoryInfo> missingParentInfos,
       OmMultipartKeyInfo multipartKeyInfo) {
@@ -101,14 +103,11 @@ public class S3MultipartUploadCompleteResponseWithFSO
       }
 
       // namespace quota changes for parent directory
-      OmBucketInfo omBucketInfo = getOmBucketInfo();
-      if (omBucketInfo != null) {
-        String bucketKey = omMetadataManager.getBucketKey(
-                omBucketInfo.getVolumeName(),
-                omBucketInfo.getBucketName());
-        omMetadataManager.getBucketTable().putWithBatch(batchOperation,
-                bucketKey, omBucketInfo);
-      }
+      String bucketKey = omMetadataManager.getBucketKey(
+          getOmBucketInfo().getVolumeName(),
+          getOmBucketInfo().getBucketName());
+      omMetadataManager.getBucketTable().putWithBatch(batchOperation,
+          bucketKey, getOmBucketInfo());
 
       if (OMFileRequest.getOmKeyInfoFromFileTable(true,
           omMetadataManager, getMultiPartKey(), getOmKeyInfo().getKeyName())

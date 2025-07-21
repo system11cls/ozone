@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,33 +18,14 @@
 
 package org.apache.hadoop.hdds;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_BIND_HOST_DEFAULT;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_BIND_HOST_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_PORT_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_DNS_INTERFACE_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_DNS_NAMESERVER_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_HOST_NAME_KEY;
-import static org.apache.hadoop.hdds.recon.ReconConfigKeys.OZONE_RECON_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.recon.ReconConfigKeys.OZONE_RECON_DATANODE_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEFAULT_SERVICE_ID;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SERVICE_IDS_KEY;
-
-import com.google.common.base.Preconditions;
-import com.google.common.net.HostAndPort;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ServiceException;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.management.ObjectName;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
@@ -59,8 +41,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.TreeMap;
 import java.util.UUID;
-import javax.management.ObjectName;
-import org.apache.commons.lang3.StringUtils;
+
 import org.apache.hadoop.conf.ConfigRedactor;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
@@ -74,6 +55,7 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerC
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.ha.SCMHAUtils;
 import org.apache.hadoop.hdds.scm.ha.SCMNodeInfo;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
@@ -83,12 +65,34 @@ import org.apache.hadoop.ipc.RpcNoSuchProtocolException;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.net.DNS;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.ozone.conf.OzoneServiceConfig;
-import org.apache.hadoop.ozone.ha.ConfUtils;
+
+import com.google.common.base.Preconditions;
+import com.google.common.net.HostAndPort;
+import org.apache.commons.lang3.StringUtils;
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_DNS_INTERFACE_KEY;
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_DNS_NAMESERVER_KEY;
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_HOST_NAME_KEY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_BIND_HOST_DEFAULT;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_BIND_HOST_KEY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_CLIENT_PORT_KEY;
+import static org.apache.hadoop.hdds.recon.ReconConfigKeys.OZONE_RECON_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.recon.ReconConfigKeys.OZONE_RECON_DATANODE_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_PORT_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_NAMES;
+
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.token.SecretManager;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.hadoop.ozone.conf.OzoneServiceConfig;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,6 +105,17 @@ public final class HddsUtils {
 
 
   private static final Logger LOG = LoggerFactory.getLogger(HddsUtils.class);
+
+  /**
+   * The service ID of the solitary Ozone SCM service.
+   */
+  public static final String OZONE_SCM_SERVICE_ID = "OzoneScmService";
+  public static final String OZONE_SCM_SERVICE_INSTANCE_ID =
+      "OzoneScmServiceInstance";
+
+  private static final String MULTIPLE_SCM_NOT_YET_SUPPORTED =
+      ScmConfigKeys.OZONE_SCM_NAMES + " must contain a single hostname."
+          + " Multiple SCM hosts are currently unsupported";
 
   public static final ByteString REDACTED =
       ByteString.copyFromUtf8("<redacted>");
@@ -121,7 +136,7 @@ public final class HddsUtils {
   public static Collection<InetSocketAddress> getScmAddressForClients(
       ConfigurationSource conf) {
 
-    if (getScmServiceId(conf) != null) {
+    if (SCMHAUtils.getScmServiceId(conf) != null) {
       List<SCMNodeInfo> scmNodeInfoList = SCMNodeInfo.buildNodeInfo(conf);
       Collection<InetSocketAddress> scmAddressList =
           new HashSet<>(scmNodeInfoList.size());
@@ -205,7 +220,7 @@ public final class HddsUtils {
       return Optional.empty();
     }
     String hostname = value.replaceAll("\\:[0-9]+$", "");
-    if (hostname.isEmpty()) {
+    if (hostname.length() == 0) {
       return Optional.empty();
     } else {
       return Optional.of(hostname);
@@ -284,7 +299,7 @@ public final class HddsUtils {
 
     // First check HA style config, if not defined fall back to OZONE_SCM_NAMES
 
-    if (getScmServiceId(conf) != null) {
+    if (SCMHAUtils.getScmServiceId(conf) != null) {
       List<SCMNodeInfo> scmNodeInfoList = SCMNodeInfo.buildNodeInfo(conf);
       Collection<InetSocketAddress> scmAddressList =
           new HashSet<>(scmNodeInfoList.size());
@@ -356,12 +371,12 @@ public final class HddsUtils {
    * @param conf Configuration
    *
    * @return the hostname (NB: may not be a FQDN)
-   * @throws UnknownHostException if the hdds.datanode.dns.interface
+   * @throws UnknownHostException if the dfs.datanode.dns.interface
    *    option is used and the hostname can not be determined
    */
   public static String getHostName(ConfigurationSource conf)
       throws UnknownHostException {
-    String name = conf.get(HDDS_DATANODE_HOST_NAME_KEY);
+    String name = conf.get(DFS_DATANODE_HOST_NAME_KEY);
     if (name == null) {
       String dnsInterface = conf.get(
           CommonConfigurationKeysPublic.HADOOP_SECURITY_DNS_INTERFACE_KEY);
@@ -371,9 +386,9 @@ public final class HddsUtils {
 
       if (dnsInterface == null) {
         // Try the legacy configuration keys.
-        dnsInterface = conf.get(HDDS_DATANODE_DNS_INTERFACE_KEY);
-        dnsInterface = conf.get(HDDS_DATANODE_DNS_INTERFACE_KEY);
-        nameServer = conf.get(HDDS_DATANODE_DNS_NAMESERVER_KEY);
+        dnsInterface = conf.get(DFS_DATANODE_DNS_INTERFACE_KEY);
+        dnsInterface = conf.get(DFS_DATANODE_DNS_INTERFACE_KEY);
+        nameServer = conf.get(DFS_DATANODE_DNS_NAMESERVER_KEY);
       } else {
         // If HADOOP_SECURITY_DNS_* is set then also attempt hosts file
         // resolution if DNS fails. We will not use hosts file resolution
@@ -434,10 +449,6 @@ public final class HddsUtils {
     case PutSmallFile:
     case StreamInit:
     case StreamWrite:
-    case FinalizeBlock:
-      return false;
-    case Echo:
-      return proto.getEcho().hasReadOnly() && proto.getEcho().getReadOnly();
     default:
       return false;
     }
@@ -476,7 +487,6 @@ public final class HddsUtils {
     case PutSmallFile:
     case ReadChunk:
     case WriteChunk:
-    case FinalizeBlock:
       return true;
     default:
       return false;
@@ -554,11 +564,6 @@ public final class HddsUtils {
     case WriteChunk:
       if (msg.hasWriteChunk()) {
         blockID = msg.getWriteChunk().getBlockID();
-      }
-      break;
-    case FinalizeBlock:
-      if (msg.hasFinalizeBlock()) {
-        blockID = msg.getFinalizeBlock().getBlockID();
       }
       break;
     default:
@@ -644,10 +649,34 @@ public final class HddsUtils {
   }
 
   /**
+   * Leverages the Configuration.getPassword method to attempt to get
+   * passwords from the CredentialProvider API before falling back to
+   * clear text in config - if falling back is allowed.
+   * @param conf Configuration instance
+   * @param alias name of the credential to retrieve
+   * @return String credential value or null
+   */
+  static String getPassword(ConfigurationSource conf, String alias) {
+    String password = null;
+    try {
+      char[] passchars = conf.getPassword(alias);
+      if (passchars != null) {
+        password = new String(passchars);
+      }
+    } catch (IOException ioe) {
+      LOG.warn("Setting password to null since IOException is caught"
+          + " when getting password", ioe);
+
+      password = null;
+    }
+    return password;
+  }
+
+  /**
    * Utility string formatter method to display SCM roles.
    *
    * @param nodes
-   * @return String
+   * @return
    */
   public static String format(List<String> nodes) {
     StringBuilder sb = new StringBuilder();
@@ -677,8 +706,7 @@ public final class HddsUtils {
 
   /**
    * Unwrap exception to check if it is some kind of access control problem
-   * ({@link org.apache.hadoop.security.AccessControlException} or
-   * {@link org.apache.hadoop.security.token.SecretManager.InvalidToken})
+   * ({@link AccessControlException} or {@link SecretManager.InvalidToken})
    * or a RpcException.
    */
   public static Throwable getUnwrappedException(Exception ex) {
@@ -813,10 +841,29 @@ public final class HddsUtils {
   }
 
   @Nonnull
-  public static String threadNamePrefix(@Nullable Object id) {
+  public static String threadNamePrefix(@Nullable String id) {
     return id != null && !"".equals(id)
         ? id + "-"
         : "";
+  }
+
+  /**
+   * Execute some code and ensure thread name is not changed
+   * (workaround for HADOOP-18433).
+   */
+  public static <T, E extends IOException> T preserveThreadName(
+      CheckedSupplier<T, E> supplier) throws E {
+    final Thread thread = Thread.currentThread();
+    final String threadName = thread.getName();
+
+    try {
+      return supplier.get();
+    } finally {
+      if (!Objects.equals(threadName, thread.getName())) {
+        LOG.info("Restoring thread name: {}", threadName);
+        thread.setName(threadName);
+      }
+    }
   }
 
   /**
@@ -860,65 +907,5 @@ public final class HddsUtils {
     return logger.isDebugEnabled()
         ? Thread.currentThread().getStackTrace()
         : null;
-  }
-
-  /**
-   * Logs a warning to report that the class is not closed properly.
-   */
-  public static void reportLeak(Class<?> clazz, String stackTrace, Logger log) {
-    String warning = String.format("%s is not closed properly", clazz.getSimpleName());
-    if (stackTrace != null && log.isDebugEnabled()) {
-      String debugMessage = String.format("%nStackTrace for unclosed instance: %s",
-          stackTrace);
-      warning = warning.concat(debugMessage);
-    }
-    log.warn(warning);
-  }
-
-  /**
-   * Get SCM ServiceId from OzoneConfiguration.
-   * @return SCM service id if defined, else null.
-   */
-  public static String getScmServiceId(ConfigurationSource conf) {
-
-    String localScmServiceId = conf.getTrimmed(
-        ScmConfigKeys.OZONE_SCM_DEFAULT_SERVICE_ID);
-
-    Collection<String> scmServiceIds;
-
-    if (localScmServiceId == null) {
-      // There is no default scm service id is being set, fall back to ozone
-      // .scm.service.ids.
-      scmServiceIds = conf.getTrimmedStringCollection(
-          OZONE_SCM_SERVICE_IDS_KEY);
-      if (scmServiceIds.size() > 1) {
-        throw new ConfigurationException("When multiple SCM Service Ids are " +
-            "configured," + OZONE_SCM_DEFAULT_SERVICE_ID + " need to be " +
-            "defined");
-      } else if (scmServiceIds.size() == 1) {
-        localScmServiceId = scmServiceIds.iterator().next();
-      }
-    }
-    return localScmServiceId;
-  }
-
-  /**
-   * Get a collection of all scmNodeIds for the given scmServiceId.
-   */
-  public static Collection<String> getSCMNodeIds(ConfigurationSource conf,
-                                                 String scmServiceId) {
-    String key = ConfUtils.addSuffix(ScmConfigKeys.OZONE_SCM_NODES_KEY, scmServiceId);
-    return conf.getTrimmedStringCollection(key);
-  }
-
-  /**
-   * Get SCM Node Id list.
-   * @param configuration
-   * @return list of node ids.
-   */
-  public static Collection<String> getSCMNodeIds(
-      ConfigurationSource configuration) {
-    String scmServiceId = getScmServiceId(configuration);
-    return getSCMNodeIds(configuration, scmServiceId);
   }
 }

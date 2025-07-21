@@ -1,44 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.container.ozoneimpl;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.getUnhealthyScanResult;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.atMostOnce;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.hadoop.hdfs.util.Canceler;
 import org.apache.hadoop.hdfs.util.DataTransferThrottler;
@@ -47,10 +27,32 @@ import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.interfaces.Container.ScanResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.getUnhealthyScanResult;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.atMostOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the on-demand container scanner.
@@ -59,7 +61,6 @@ import org.mockito.stubbing.Answer;
 public class TestOnDemandContainerDataScanner extends
     TestContainerScannersAbstract {
 
-  @Override
   @BeforeEach
   public void setup() {
     super.setup();
@@ -70,7 +71,7 @@ public class TestOnDemandContainerDataScanner extends
   public void testRecentlyScannedContainerIsSkipped() throws Exception {
     setScannedTimestampRecent(healthy);
     scanContainer(healthy);
-    verify(healthy, never()).scanData(any(), any());
+    Mockito.verify(healthy, never()).scanData(any(), any());
   }
 
   @Test
@@ -80,17 +81,17 @@ public class TestOnDemandContainerDataScanner extends
     // should be scanned.
     setScannedTimestampOld(healthy);
     scanContainer(healthy);
-    verify(healthy, atLeastOnce()).scanData(any(), any());
+    Mockito.verify(healthy, atLeastOnce()).scanData(any(), any());
   }
 
   @Test
   @Override
   public void testUnscannedContainerIsScanned() throws Exception {
     // If there is no last scanned time, the container should be scanned.
-    when(healthy.getContainerData().lastDataScanTime())
+    Mockito.when(healthy.getContainerData().lastDataScanTime())
         .thenReturn(Optional.empty());
     scanContainer(healthy);
-    verify(healthy, atLeastOnce()).scanData(any(), any());
+    Mockito.verify(healthy, atLeastOnce()).scanData(any(), any());
   }
 
   @AfterEach
@@ -103,20 +104,11 @@ public class TestOnDemandContainerDataScanner extends
     OnDemandContainerDataScanner.init(conf, controller);
     Optional<Future<?>> scanFuture =
         OnDemandContainerDataScanner.scanContainer(healthy);
-    assertTrue(scanFuture.isPresent());
+    Assertions.assertTrue(scanFuture.isPresent());
     scanFuture.get().get();
-    verify(controller, atLeastOnce())
+    Mockito.verify(controller, atLeastOnce())
         .updateDataScanTimestamp(
             eq(healthy.getContainerData().getContainerID()), any());
-
-    // Metrics for deleted container should not be updated.
-    scanFuture =
-        OnDemandContainerDataScanner.scanContainer(healthy);
-    assertTrue(scanFuture.isPresent());
-    scanFuture.get().get();
-    verify(controller, never())
-        .updateDataScanTimestamp(
-            eq(deletedContainer.getContainerData().getContainerID()), any());
   }
 
   @Test
@@ -135,7 +127,7 @@ public class TestOnDemandContainerDataScanner extends
     OnDemandContainerDataScanner.init(conf, controller);
     //Given a container that has not finished scanning
     CountDownLatch latch = new CountDownLatch(1);
-    when(corruptData.scanData(
+    Mockito.when(corruptData.scanData(
             OnDemandContainerDataScanner.getThrottler(),
             OnDemandContainerDataScanner.getCanceler()))
         .thenAnswer((Answer<ScanResult>) invocation -> {
@@ -144,16 +136,16 @@ public class TestOnDemandContainerDataScanner extends
         });
     Optional<Future<?>> onGoingScan = OnDemandContainerDataScanner
         .scanContainer(corruptData);
-    assertTrue(onGoingScan.isPresent());
-    assertFalse(onGoingScan.get().isDone());
+    Assertions.assertTrue(onGoingScan.isPresent());
+    Assertions.assertFalse(onGoingScan.get().isDone());
     //When scheduling the same container again
     Optional<Future<?>> secondScan = OnDemandContainerDataScanner
         .scanContainer(corruptData);
     //Then the second scan is not scheduled and the first scan can still finish
-    assertFalse(secondScan.isPresent());
+    Assertions.assertFalse(secondScan.isPresent());
     latch.countDown();
     onGoingScan.get().get();
-    verify(controller, atLeastOnce()).markContainerUnhealthy(
+    Mockito.verify(controller, atLeastOnce()).markContainerUnhealthy(
         eq(corruptData.getContainerData().getContainerID()), any());
   }
 
@@ -194,7 +186,7 @@ public class TestOnDemandContainerDataScanner extends
     // Without initialization,
     // there shouldn't be interaction with containerController
     OnDemandContainerDataScanner.scanContainer(corruptData);
-    verifyNoInteractions(controller);
+    Mockito.verifyZeroInteractions(controller);
 
     scanContainer(healthy);
     verifyContainerMarkedUnhealthy(healthy, never());
@@ -204,9 +196,6 @@ public class TestOnDemandContainerDataScanner extends
     verifyContainerMarkedUnhealthy(openCorruptMetadata, never());
     scanContainer(openContainer);
     verifyContainerMarkedUnhealthy(openContainer, never());
-    // Deleted containers should not be marked unhealthy
-    scanContainer(deletedContainer);
-    verifyContainerMarkedUnhealthy(deletedContainer, never());
   }
 
   /**
@@ -218,7 +207,7 @@ public class TestOnDemandContainerDataScanner extends
   @Test
   @Override
   public void testWithVolumeFailure() throws Exception {
-    when(vol.isFailed()).thenReturn(true);
+    Mockito.when(vol.isFailed()).thenReturn(true);
 
     OnDemandContainerDataScanner.init(conf, controller);
     OnDemandScannerMetrics metrics = OnDemandContainerDataScanner.getMetrics();
@@ -240,7 +229,7 @@ public class TestOnDemandContainerDataScanner extends
   @Override
   public void testShutdownDuringScan() throws Exception {
     // Make the on demand scan block until interrupt.
-    when(healthy.scanData(any(), any())).then(i -> {
+    Mockito.when(healthy.scanData(any(), any())).then(i -> {
       Thread.sleep(Duration.ofDays(1).toMillis()); return null;
     });
 
@@ -271,10 +260,10 @@ public class TestOnDemandContainerDataScanner extends
     assertEquals(1, metrics.getNumUnHealthyContainers());
 
     // The unhealthy container should have been moved to the unhealthy state.
-    verify(unhealthy.getContainerData(), atMostOnce())
+    Mockito.verify(unhealthy.getContainerData(), atMostOnce())
         .setState(UNHEALTHY);
     // Update the mock to reflect this.
-    when(unhealthy.getContainerState()).thenReturn(UNHEALTHY);
+    Mockito.when(unhealthy.getContainerState()).thenReturn(UNHEALTHY);
     assertFalse(unhealthy.shouldScanData());
 
     // Clear metrics to check the next run.

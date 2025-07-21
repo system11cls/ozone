@@ -1,33 +1,22 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.client.rpc;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.DatanodeRatisServerConfig;
@@ -53,16 +42,36 @@ import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.apache.ozone.test.tag.Flaky;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
 
 /**
  * Tests MultiBlock Writes with Dn failures by Ozone Client.
  */
-@Timeout(300)
 public class TestMultiBlockWritesWithDnFailures {
+
+  /**
+    * Set a timeout for each test.
+    */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
+
   private MiniOzoneCluster cluster;
   private OzoneConfiguration conf;
   private OzoneClient client;
@@ -112,6 +121,7 @@ public class TestMultiBlockWritesWithDnFailures {
     conf.setQuietMode(false);
     cluster = MiniOzoneCluster.newBuilder(conf)
         .setNumDatanodes(datanodes)
+        .setTotalPipelineNumLimit(0)
         .build();
     cluster.waitForClusterToBeReady();
     //the easiest way to create an open container is creating a key
@@ -127,7 +137,7 @@ public class TestMultiBlockWritesWithDnFailures {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterEach
+  @After
   public void shutdown() {
     IOUtils.closeQuietly(client);
     if (cluster != null) {
@@ -146,11 +156,12 @@ public class TestMultiBlockWritesWithDnFailures {
     key.write(data.getBytes(UTF_8));
 
     // get the name of a valid container
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     KeyOutputStream groupOutputStream =
-        assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+        (KeyOutputStream) key.getOutputStream();
     List<OmKeyLocationInfo> locationInfoList =
         groupOutputStream.getLocationInfoList();
-    assertEquals(2, locationInfoList.size());
+    Assert.assertTrue(locationInfoList.size() == 2);
     long containerId = locationInfoList.get(1).getContainerID();
     ContainerInfo container = cluster.getStorageContainerManager()
         .getContainerManager()
@@ -174,11 +185,10 @@ public class TestMultiBlockWritesWithDnFailures {
         .setKeyName(keyName)
         .build();
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
-    assertEquals(2 * data.getBytes(UTF_8).length, keyInfo.getDataSize());
+    Assert.assertEquals(2 * data.getBytes(UTF_8).length, keyInfo.getDataSize());
     validateData(keyName, data.concat(data).getBytes(UTF_8));
   }
 
-  @Flaky("HDDS-11355")
   @Test
   public void testMultiBlockWritesWithIntermittentDnFailures()
       throws Exception {
@@ -191,13 +201,14 @@ public class TestMultiBlockWritesWithDnFailures {
     key.write(data.getBytes(UTF_8));
 
     // get the name of a valid container
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     KeyOutputStream keyOutputStream =
-        assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+        (KeyOutputStream) key.getOutputStream();
     List<BlockOutputStreamEntry> streamEntryList =
         keyOutputStream.getStreamEntries();
 
     // Assert that 6 block will be preallocated
-    assertEquals(6, streamEntryList.size());
+    Assert.assertEquals(6, streamEntryList.size());
     key.write(data.getBytes(UTF_8));
     key.flush();
     long containerId = streamEntryList.get(0).getBlockID().getContainerID();
@@ -226,13 +237,13 @@ public class TestMultiBlockWritesWithDnFailures {
         .setKeyName(keyName)
         .build();
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
-    assertEquals(4 * data.getBytes(UTF_8).length, keyInfo.getDataSize());
+    Assert.assertEquals(4 * data.getBytes(UTF_8).length, keyInfo.getDataSize());
     validateData(keyName,
         data.concat(data).concat(data).concat(data).getBytes(UTF_8));
   }
 
   private OzoneOutputStream createKey(String keyName, ReplicationType type,
-                                      long size) throws Exception {
+      long size) throws Exception {
     return TestHelper
         .createKey(keyName, type, size, objectStore, volumeName, bucketName);
   }

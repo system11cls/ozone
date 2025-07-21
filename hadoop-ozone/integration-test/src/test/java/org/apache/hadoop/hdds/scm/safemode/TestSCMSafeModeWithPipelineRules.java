@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,19 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.safemode;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_PIPELINE_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -45,7 +33,20 @@ import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_PIPELINE_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * This class tests SCM Safe mode with pipeline rules.
@@ -84,7 +85,7 @@ public class TestSCMSafeModeWithPipelineRules {
 
 
   @Test
-  void testScmSafeMode() throws Exception {
+  public void testScmSafeMode() throws Exception {
     int datanodeCount = 6;
     setup(datanodeCount);
     waitForRatis3NodePipelines(datanodeCount / 3);
@@ -130,11 +131,15 @@ public class TestSCMSafeModeWithPipelineRules {
         !scmSafeModeManager.getOneReplicaPipelineSafeModeRule()
             .validate(), 1000, 60000);
 
-    assertTrue(cluster.getStorageContainerManager().isInSafeMode());
+    Assertions.assertTrue(cluster.getStorageContainerManager().isInSafeMode());
 
     DatanodeDetails restartedDatanode = pipelineList.get(1).getFirstNode();
     // Now restart one datanode from the 2nd pipeline
-    cluster.restartHddsDatanode(restartedDatanode, false);
+    try {
+      cluster.restartHddsDatanode(restartedDatanode, false);
+    } catch (Exception ex) {
+      fail("Datanode restart failed");
+    }
 
     GenericTestUtils.waitFor(() ->
         scmSafeModeManager.getOneReplicaPipelineSafeModeRule()
@@ -147,7 +152,8 @@ public class TestSCMSafeModeWithPipelineRules {
 
     // As after safeMode wait time is not completed, we should have total
     // pipeline's as original count 6(1 node pipelines) + 2 (3 node pipeline)
-    assertEquals(totalPipelineCount, pipelineManager.getPipelines().size());
+    Assertions.assertEquals(totalPipelineCount,
+        pipelineManager.getPipelines().size());
 
     // The below check calls pipelineManager.getPipelines()
     // which is a call to the SCM to get the list of pipeline infos.

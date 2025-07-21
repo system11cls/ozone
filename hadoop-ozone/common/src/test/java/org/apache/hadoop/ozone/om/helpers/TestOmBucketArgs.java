@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,15 +18,12 @@
 
 package org.apache.hadoop.ozone.om.helpers;
 
-import static org.apache.hadoop.hdds.client.ReplicationType.EC;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import static org.apache.hadoop.hdds.client.ReplicationType.EC;
 
 /**
  * Tests for the OmBucketArgs class.
@@ -39,14 +37,14 @@ public class TestOmBucketArgs {
         .setVolumeName("volume")
         .build();
 
-    assertFalse(bucketArgs.hasQuotaInBytes());
-    assertFalse(bucketArgs.hasQuotaInNamespace());
+    Assertions.assertFalse(bucketArgs.hasQuotaInBytes());
+    Assertions.assertFalse(bucketArgs.hasQuotaInNamespace());
 
     OmBucketArgs argsFromProto = OmBucketArgs.getFromProtobuf(
         bucketArgs.getProtobuf());
 
-    assertFalse(argsFromProto.hasQuotaInBytes());
-    assertFalse(argsFromProto.hasQuotaInNamespace());
+    Assertions.assertFalse(argsFromProto.hasQuotaInBytes());
+    Assertions.assertFalse(argsFromProto.hasQuotaInNamespace());
 
     bucketArgs = OmBucketArgs.newBuilder()
         .setBucketName("bucket")
@@ -55,14 +53,14 @@ public class TestOmBucketArgs {
         .setQuotaInBytes(456)
         .build();
 
-    assertTrue(bucketArgs.hasQuotaInBytes());
-    assertTrue(bucketArgs.hasQuotaInNamespace());
+    Assertions.assertTrue(bucketArgs.hasQuotaInBytes());
+    Assertions.assertTrue(bucketArgs.hasQuotaInNamespace());
 
     argsFromProto = OmBucketArgs.getFromProtobuf(
         bucketArgs.getProtobuf());
 
-    assertTrue(argsFromProto.hasQuotaInBytes());
-    assertTrue(argsFromProto.hasQuotaInNamespace());
+    Assertions.assertTrue(argsFromProto.hasQuotaInBytes());
+    Assertions.assertTrue(argsFromProto.hasQuotaInNamespace());
   }
 
   @Test
@@ -75,7 +73,7 @@ public class TestOmBucketArgs {
     OmBucketArgs argsFromProto = OmBucketArgs.getFromProtobuf(
         bucketArgs.getProtobuf());
 
-    assertNull(argsFromProto.getDefaultReplicationConfig());
+    Assertions.assertNull(argsFromProto.getDefaultReplicationConfig());
 
     bucketArgs = OmBucketArgs.newBuilder()
         .setBucketName("bucket")
@@ -87,7 +85,7 @@ public class TestOmBucketArgs {
     argsFromProto = OmBucketArgs.getFromProtobuf(
         bucketArgs.getProtobuf());
 
-    assertEquals(EC,
+    Assertions.assertEquals(EC,
         argsFromProto.getDefaultReplicationConfig().getType());
   }
 }

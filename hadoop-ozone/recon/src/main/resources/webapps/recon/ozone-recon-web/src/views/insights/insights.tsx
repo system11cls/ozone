@@ -17,20 +17,19 @@
  */
 
 import React from 'react';
-import axios, { CanceledError, AxiosError } from 'axios';
+import axios from 'axios';
 import filesize from 'filesize';
-import { Row, Col, Tabs, message } from 'antd';
+import { Row, Col, Tabs } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import { ActionMeta, ValueType } from 'react-select';
-import { graphic, type EChartsOption } from 'echarts';
+import { type EChartsOption } from 'echarts';
 
 import { EChart } from '@/components/eChart/eChart';
 import { MultiSelect, IOption } from '@/components/multiSelect/multiSelect';
 import { showDataFetchError } from '@/utils/common';
-import { PromiseAllSettledGetHelper, PromiseAllSettledError } from '@/utils/axiosRequestHelper';
+import { AxiosAllGetHelper } from '@/utils/axiosRequestHelper';
 
 import './insights.less';
-
 
 const size = filesize.partial({ standard: 'iec', round: 0 });
 
@@ -58,8 +57,6 @@ interface IInsightsState {
   bucketOptions: IOption[];
   volumeOptions: IOption[];
   isBucketSelectionDisabled: boolean;
-  fileCountError: string | undefined;
-  containerSizeError: string | undefined;
 }
 
 const allVolumesOption: IOption = {
@@ -88,9 +85,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
       selectedVolumes: [],
       bucketOptions: [],
       volumeOptions: [],
-      isBucketSelectionDisabled: false,
-      fileCountError: undefined,
-      containerSizeError: undefined
+      isBucketSelectionDisabled: false
     };
   }
 
@@ -101,7 +96,9 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
     // Disable bucket selection dropdown if more than one volume is selected
     // If there is only one volume, bucket selection dropdown should not be disabled.
     const isBucketSelectionDisabled = !selectedVolumes ||
-      (selectedVolumes?.length > 1 && volumeBucketMap.size !== 1);
+      (selectedVolumes &&
+        (selectedVolumes.length > 1 &&
+          (volumeBucketMap.size !== 1)));
     let bucketOptions: IOption[] = [];
     // When volume is changed and more than one volume is selected,
     // selected buckets value should be reset to all buckets
@@ -197,82 +194,6 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
         return (size(value));
       });
 
-      let renderFileCountError = (this.state.fileCountError) ? {
-        type: 'group',
-        left: 'center',
-        top: 'middle',
-        z: 100,
-        children: [
-          {
-            type: 'rect',
-            left: 'center',
-            top: 'middle',
-            z: 100,
-            shape: {
-              width: 500,
-              height: 40
-            },
-            style: {
-              fill: '#FC909B'
-            }
-          },
-          {
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            z: 100,
-            style: {
-              text: `No data available. ${this.state.fileCountError}`,
-              font: '20px sans-serif'
-            }
-          }
-        ]
-      } : undefined
-      let renderContainerSizeError = (this.state.containerSizeError) ? {
-        type: 'group',
-        left: 'center',
-        top: 'middle',
-        z: 100,
-        children: [
-          {
-            type: 'rect',
-            left: 'center',
-            top: 'middle',
-            z: 100,
-            shape: {
-              width: 500,
-              height: 500
-            },
-            style: {
-              fill: 'rgba(256, 256, 256, 0.5)'
-            }
-          },
-          {
-            type: 'rect',
-            left: 'center',
-            top: 'middle',
-            z: 100,
-            shape: {
-              width: 500,
-              height: 40
-            },
-            style: {
-              fill: '#FC909B'
-            }
-          },
-          {
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            z: 100,
-            style: {
-              text: `No data available. ${this.state.containerSizeError}`,
-              font: '20px sans-serif'
-            }
-          }
-        ]
-      } : undefined
-
       this.setState({
         fileCountData: {
           title: {
@@ -298,8 +219,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
             },
             data: Array.from(xyFileCountMap.values()),
             type: 'bar'
-          },
-          graphic: renderFileCountError
+          }
         },
         containerCountData: {
           title: {
@@ -325,8 +245,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
                 name: xContainerCountValues[idx]
               }
             }),
-          },
-          graphic: renderContainerSizeError
+          }
         }
       });
     }
@@ -337,50 +256,15 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
     this.setState({
       isLoading: true
     });
-    const { requests, controller } = PromiseAllSettledGetHelper([
+    const { requests, controller } = AxiosAllGetHelper([
       '/api/v1/utilization/fileCount',
       '/api/v1/utilization/containerCount'
     ], cancelInsightSignal);
 
     cancelInsightSignal = controller;
-    requests.then(axios.spread((
-      fileCountresponse: Awaited<Promise<any>>,
-      containerCountresponse: Awaited<Promise<any>>
-    ) => {
-      let fileAPIError = undefined;
-      let containerAPIError = undefined;
-      let responseError = [
-        fileCountresponse,
-        containerCountresponse
-      ].filter((resp) => resp.status === 'rejected');
-
-      if (responseError.length !== 0) {
-        responseError.forEach((err) => {
-          if (err.reason.toString().includes("CanceledError")) {
-            throw new CanceledError('canceled', "ERR_CANCELED");
-          }
-          else {
-            if (err.reason.config.url.includes("fileCount")) {
-              fileAPIError = err.reason.toString();
-            }
-            else {
-              containerAPIError = err.reason.toString();
-            }
-          }
-        })
-      }
-
-      const fileCountsResponse: IFileCountResponse[] = fileCountresponse.value?.data ?? [{
-        volume: '0',
-        bucket: '0',
-        fileSize: '0',
-        count: 0
-      }];
-      const containerCountResponse: IContainerCountResponse[] = containerCountresponse.value?.data ?? [{
-        containerSize: 0,
-        count: 0
-      }];
-
+    requests.then(axios.spread((fileCountresponse, containerCountresponse) => {
+      const fileCountsResponse: IFileCountResponse[] = fileCountresponse.data;
+      const containerCountResponse: IContainerCountResponse[] = containerCountresponse.data;
       // Construct volume -> bucket[] map for populating filters
       // Ex: vol1 -> [bucket1, bucket2], vol2 -> [bucket1]
       const volumeBucketMap: Map<string, Set<string>> = fileCountsResponse.reduce(
@@ -391,7 +275,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
             const buckets = Array.from(map.get(volume)!);
             map.set(volume, new Set([...buckets, bucket]));
           } else {
-            map.set(volume, new Set<string>().add(bucket));
+            map.set(volume, new Set().add(bucket));
           }
 
           return map;
@@ -408,9 +292,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
         volumeBucketMap,
         fileCountsResponse,
         containerCountResponse,
-        volumeOptions,
-        fileCountError: fileAPIError,
-        containerSizeError: containerAPIError
+        volumeOptions
       }, () => {
         this.updatePlotData();
         // Select all volumes by default
@@ -418,7 +300,7 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
       });
     })).catch(error => {
       this.setState({
-        isLoading: false,
+        isLoading: false
       });
       showDataFetchError(error.toString());
     });
@@ -429,19 +311,8 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
   }
 
   render() {
-    const {
-      fileCountData,
-      isLoading,
-      selectedBuckets,
-      volumeOptions,
-      selectedVolumes,
-      fileCountsResponse,
-      bucketOptions,
-      isBucketSelectionDisabled,
-      containerCountResponse,
-      containerCountData
-    } = this.state;
-
+    const { fileCountData, isLoading, selectedBuckets, volumeOptions,
+      selectedVolumes, fileCountsResponse, bucketOptions, isBucketSelectionDisabled, containerCountResponse, containerCountData } = this.state;
     return (
       <div className='insights-container'>
         <div className='page-header'>
@@ -450,70 +321,74 @@ export class Insights extends React.Component<Record<string, object>, IInsightsS
 
         <div className='content-div'>
           <Tabs defaultActiveKey='1'>
-            <Tabs.TabPane tab='File Size' key='1'>
-              <div className='content-div'>
-                {isLoading ? <span><LoadingOutlined /> Loading...</span> :
-                  ((fileCountsResponse?.length > 0) ?
-                    <div>
-                      <Row>
-                        <Col xs={24} xl={18}>
-                          <Row>
-                            <Col>
-                              <div className='filter-block'>
-                                <h4>Volumes</h4>
-                                <MultiSelect
-                                  allowSelectAll
-                                  isMulti
-                                  className='multi-select-container'
-                                  options={volumeOptions}
-                                  closeMenuOnSelect={false}
-                                  hideSelectedOptions={false}
-                                  value={selectedVolumes}
-                                  allOption={allVolumesOption}
-                                  onChange={this.handleVolumeChange}
-                                />
-                              </div>
-                              <div className='filter-block'>
-                                <h4>Buckets</h4>
-                                <MultiSelect
-                                  allowSelectAll
-                                  isMulti
-                                  className='multi-select-container'
-                                  options={bucketOptions}
-                                  closeMenuOnSelect={false}
-                                  hideSelectedOptions={false}
-                                  value={selectedBuckets}
-                                  allOption={allBucketsOption}
-                                  isDisabled={isBucketSelectionDisabled}
-                                  onChange={this.handleBucketChange}
-                                />
-                              </div>
-                            </Col>
-                          </Row>
-                        </Col>
-                      </Row>
-                      <Row>
-                        <Col style={{ margin: 'auto', marginTop: '2%' }}>
-                          <EChart option={fileCountData} />
-                        </Col>
-                      </Row>
-                    </div> :
-                    <div>No data to visualize file size distribution. Add files to Ozone to see a visualization on file size distribution.</div>)}
-              </div>
+            <Tabs.TabPane key='1' tab={`File Size`}>
+              {
+                <div className='content-div'>
+                  {isLoading ? <span><LoadingOutlined /> Loading...</span> :
+                    ((fileCountsResponse && fileCountsResponse.length > 0) ?
+                      <div>
+                        <Row>
+                          <Col xs={24} xl={18}>
+                            <Row>
+                              <Col>
+                                <div className='filter-block'>
+                                  <h4>Volumes</h4>
+                                  <MultiSelect
+                                    allowSelectAll
+                                    isMulti
+                                    className='multi-select-container'
+                                    options={volumeOptions}
+                                    closeMenuOnSelect={false}
+                                    hideSelectedOptions={false}
+                                    value={selectedVolumes}
+                                    allOption={allVolumesOption}
+                                    onChange={this.handleVolumeChange}
+                                  />
+                                </div>
+                                <div className='filter-block'>
+                                  <h4>Buckets</h4>
+                                  <MultiSelect
+                                    allowSelectAll
+                                    isMulti
+                                    className='multi-select-container'
+                                    options={bucketOptions}
+                                    closeMenuOnSelect={false}
+                                    hideSelectedOptions={false}
+                                    value={selectedBuckets}
+                                    allOption={allBucketsOption}
+                                    isDisabled={isBucketSelectionDisabled}
+                                    onChange={this.handleBucketChange}
+                                  />
+                                </div>
+                              </Col>
+                            </Row>
+                          </Col>
+                        </Row>
+                        <Row>
+                          <Col style={{ margin: 'auto', marginTop: '2%' }}>
+                            <EChart option={fileCountData} />
+                          </Col>
+                        </Row>
+                      </div> :
+                      <div>No data to visualize file size distribution. Add files to Ozone to see a visualization on file size distribution.</div>)}
+                </div>
+              }
             </Tabs.TabPane>
-            <Tabs.TabPane tab='Container Size' key='2'>
-              <div className='content-div'>
-                {isLoading ? <span><LoadingOutlined /> Loading...</span> :
-                  ((containerCountResponse?.length > 0) ?
-                    <div>
-                      <Row>
-                        <Col style={{ margin: 'auto', marginTop: '2%' }}>
-                          <EChart option={containerCountData} />
-                        </Col>
-                      </Row>
-                    </div> :
-                    <div>No data available for container size distribution visualization. Add files to Ozone</div>)}
-              </div>
+            <Tabs.TabPane key='2' tab={`Container Size`}>
+              {
+                <div className='content-div'>
+                  {isLoading ? <span><LoadingOutlined/> Loading...</span> :
+                    ((containerCountResponse && containerCountResponse.length > 0) ?
+                      <div>
+                        <Row>
+                          <Col style={{ margin: 'auto', marginTop: '2%' }}>
+                            <EChart option={containerCountData} />
+                          </Col>
+                        </Row>
+                      </div> :
+                      <div>No data available for container size distribution visualization. Add files to Ozone</div>)}
+                </div>
+              }
             </Tabs.TabPane>
           </Tabs>
         </div>

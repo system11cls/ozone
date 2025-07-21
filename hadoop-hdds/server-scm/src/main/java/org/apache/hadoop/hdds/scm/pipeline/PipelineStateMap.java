@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,12 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static java.lang.String.format;
-
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.scm.container.ContainerID;
+import org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,31 +36,34 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import static java.lang.String.format;
 
 /**
  * Holds the data structures which maintain the information about pipeline and
  * its state.
  * Invariant: If a pipeline exists in PipelineStateMap, both pipelineMap and
  * pipeline2container would have a non-null mapping for it.
- *
- * Concurrency consideration:
- *   - thread-unsafe
  */
 class PipelineStateMap {
-  private static final Logger LOG = LoggerFactory.getLogger(PipelineStateMap.class);
 
-  // TODO: Use TreeMap for range operations?
-  private final Map<PipelineID, Pipeline> pipelineMap = new HashMap<>();
-  private final Map<PipelineID, NavigableSet<ContainerID>> pipeline2container = new HashMap<>();
-  private final Map<ReplicationConfig, List<Pipeline>> query2OpenPipelines = new HashMap<>();
+  private static final Logger LOG = LoggerFactory.getLogger(
+      PipelineStateMap.class);
 
-  PipelineStateMap() { }
+  private final Map<PipelineID, Pipeline> pipelineMap;
+  private final Map<PipelineID, NavigableSet<ContainerID>> pipeline2container;
+  private final Map<ReplicationConfig, List<Pipeline>> query2OpenPipelines;
+
+  PipelineStateMap() {
+
+    // TODO: Use TreeMap for range operations?
+    pipelineMap = new ConcurrentHashMap<>();
+    pipeline2container = new ConcurrentHashMap<>();
+    query2OpenPipelines = new HashMap<>();
+
+  }
 
   /**
    * Adds provided pipeline in the data structures.
@@ -79,8 +87,8 @@ class PipelineStateMap {
     }
     pipeline2container.put(pipeline.getId(), new TreeSet<>());
     if (pipeline.getPipelineState() == PipelineState.OPEN) {
-      query2OpenPipelines.computeIfAbsent(pipeline.getReplicationConfig(), any -> new ArrayList<>())
-          .add(pipeline);
+      query2OpenPipelines.computeIfAbsent(pipeline.getReplicationConfig(),
+          any -> new CopyOnWriteArrayList<>()).add(pipeline);
     }
   }
 
@@ -408,7 +416,7 @@ class PipelineStateMap {
     if (updatedPipeline.getPipelineState() == PipelineState.OPEN) {
       // for transition to OPEN state add pipeline to query2OpenPipelines
       if (pipelineList == null) {
-        pipelineList = new ArrayList<>();
+        pipelineList = new CopyOnWriteArrayList<>();
         query2OpenPipelines.put(pipeline.getReplicationConfig(), pipelineList);
       }
       pipelineList.add(updatedPipeline);

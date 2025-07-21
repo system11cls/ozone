@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,14 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static org.apache.hadoop.hdds.conf.ConfigTag.SCM;
-import static org.apache.hadoop.hdds.scm.node.NodeStatus.inServiceHealthy;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.NavigableSet;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.Config;
@@ -44,6 +37,15 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.NavigableSet;
+
+import static org.apache.hadoop.hdds.conf.ConfigTag.SCM;
+import static org.apache.hadoop.hdds.scm.node.NodeStatus.inServiceHealthy;
 
 /**
  * Writable Container provider to obtain a writable container for EC pipelines.
@@ -122,7 +124,7 @@ public class WritableECContainerProvider
         PipelineRequestInformation.Builder.getBuilder()
             .setSize(size)
             .build();
-    while (!existingPipelines.isEmpty()) {
+    while (existingPipelines.size() > 0) {
       int pipelineIndex =
           pipelineChoosePolicy.choosePipelineIndex(existingPipelines, pri);
       if (pipelineIndex < 0) {
@@ -197,7 +199,7 @@ public class WritableECContainerProvider
       throws IOException {
 
     List<DatanodeDetails> excludedNodes = Collections.emptyList();
-    if (!excludeList.getDatanodes().isEmpty()) {
+    if (excludeList.getDatanodes().size() > 0) {
       excludedNodes = new ArrayList<>(excludeList.getDatanodes());
     }
 
@@ -248,7 +250,7 @@ public class WritableECContainerProvider
     NavigableSet<ContainerID> containers =
         pipelineManager.getContainersInPipeline(pipeline.getId());
     // Assume 1 container per pipeline for EC
-    if (containers.isEmpty()) {
+    if (containers.size() == 0) {
       return null;
     }
     ContainerID containerID = containers.first();

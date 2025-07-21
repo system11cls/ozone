@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,33 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.container.replication;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.replicateContainerCommand;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyMap;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -63,6 +37,29 @@ import org.apache.hadoop.ozone.container.common.SCMTestUtils;
 import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.junit.jupiter.api.Assertions;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.replicateContainerCommand;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Tests the MisReplicationHandling functionalities to test implementations.
@@ -77,13 +74,13 @@ public abstract class TestMisReplicationHandler {
       new AtomicBoolean(false);
   private ReplicationManagerMetrics metrics;
 
-  protected void setup(ReplicationConfig repConfig, File testDir)
+  protected void setup(ReplicationConfig repConfig)
       throws NodeNotFoundException, CommandTargetOverloadedException,
       NotLeaderException {
-    conf = SCMTestUtils.getConf(testDir);
+    conf = SCMTestUtils.getConf();
 
-    replicationManager = mock(ReplicationManager.class);
-    when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
+    replicationManager = Mockito.mock(ReplicationManager.class);
+    Mockito.when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
         .thenAnswer(invocation -> {
           DatanodeDetails dd = invocation.getArgument(0);
           return new NodeStatus(dd.getPersistedOpState(),
@@ -91,9 +88,10 @@ public abstract class TestMisReplicationHandler {
         });
     ReplicationManagerConfiguration rmConf =
         conf.getObject(ReplicationManagerConfiguration.class);
-    when(replicationManager.getConfig()).thenReturn(rmConf);
+    Mockito.when(replicationManager.getConfig())
+        .thenReturn(rmConf);
     metrics = ReplicationManagerMetrics.create(replicationManager);
-    when(replicationManager.getMetrics()).thenReturn(metrics);
+    Mockito.when(replicationManager.getMetrics()).thenReturn(metrics);
 
     commandsSent = new HashSet<>();
     ReplicationTestUtil.mockRMSendDatanodeCommand(
@@ -121,10 +119,12 @@ public abstract class TestMisReplicationHandler {
   }
 
   static PlacementPolicy mockPlacementPolicy() {
-    PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
-    ContainerPlacementStatus mockedContainerPlacementStatus = mock(ContainerPlacementStatus.class);
-    when(mockedContainerPlacementStatus.isPolicySatisfied()).thenReturn(false);
-    when(placementPolicy.validateContainerPlacement(anyList(),
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
+    ContainerPlacementStatus mockedContainerPlacementStatus =
+        Mockito.mock(ContainerPlacementStatus.class);
+    Mockito.when(mockedContainerPlacementStatus.isPolicySatisfied())
+        .thenReturn(false);
+    Mockito.when(placementPolicy.validateContainerPlacement(anyList(),
         anyInt())).thenReturn(mockedContainerPlacementStatus);
     return placementPolicy;
   }
@@ -163,9 +163,9 @@ public abstract class TestMisReplicationHandler {
         mockedPlacementPolicy, conf, replicationManager);
 
     ContainerHealthResult.MisReplicatedHealthResult result =
-        mock(ContainerHealthResult.MisReplicatedHealthResult.class);
-    when(result.isReplicatedOkAfterPending()).thenReturn(false);
-    when(result.getContainerInfo()).thenReturn(container);
+            Mockito.mock(ContainerHealthResult.MisReplicatedHealthResult.class);
+    Mockito.when(result.isReplicatedOkAfterPending()).thenReturn(false);
+    Mockito.when(result.getContainerInfo()).thenReturn(container);
     Map<ContainerReplica, Boolean> sources = availableReplicas.stream()
             .collect(Collectors.toMap(Function.identity(),
                     r -> {
@@ -189,7 +189,7 @@ public abstract class TestMisReplicationHandler {
     Set<ContainerReplica> copy = sources.entrySet().stream()
             .filter(Map.Entry::getValue).limit(misreplicationCount)
             .map(Map.Entry::getKey).collect(Collectors.toSet());
-    when(mockedPlacementPolicy.replicasToCopyToFixMisreplication(
+    Mockito.when(mockedPlacementPolicy.replicasToCopyToFixMisreplication(
             anyMap())).thenAnswer(invocation -> copy);
     Set<DatanodeDetails> remainingReplicasAfterCopy =
             availableReplicas.stream().filter(r -> !copy.contains(r))
@@ -200,14 +200,14 @@ public abstract class TestMisReplicationHandler {
                     .mapToObj(i -> MockDatanodeDetails.randomDatanodeDetails())
                     .collect(Collectors.toList());
     if (expectedNumberOfNodes > 0) {
-      when(mockedPlacementPolicy.chooseDatanodes(
+      Mockito.when(mockedPlacementPolicy.chooseDatanodes(
                       any(), any(), any(),
-                      eq(copy.size()), anyLong(), anyLong()))
+                      eq(copy.size()), Mockito.anyLong(), Mockito.anyLong()))
               .thenAnswer(invocation -> {
                 List<DatanodeDetails> datanodeDetails =
                         invocation.getArgument(0);
-                assertThat(remainingReplicasAfterCopy)
-                    .containsAll(datanodeDetails);
+                Assertions.assertTrue(remainingReplicasAfterCopy
+                        .containsAll(datanodeDetails));
                 return targetNodes;
               });
     }
@@ -218,18 +218,18 @@ public abstract class TestMisReplicationHandler {
       misReplicationHandler.processAndSendCommands(availableReplicas,
           pendingOp, result, maintenanceCnt);
     } finally {
-      assertEquals(expectedNumberOfCommands, commandsSent.size());
+      Assertions.assertEquals(expectedNumberOfCommands, commandsSent.size());
       for (Pair<DatanodeDetails, SCMCommand<?>> pair : commandsSent) {
         SCMCommand<?> command = pair.getValue();
-        assertSame(replicateContainerCommand, command.getType());
+        Assertions.assertSame(replicateContainerCommand, command.getType());
         ReplicateContainerCommand replicateContainerCommand =
             (ReplicateContainerCommand) command;
-        assertEquals(replicateContainerCommand.getContainerID(),
+        Assertions.assertEquals(replicateContainerCommand.getContainerID(),
             container.getContainerID());
         DatanodeDetails replicateSrcDn = pair.getKey();
         DatanodeDetails target = replicateContainerCommand.getTargetDatanode();
-        assertThat(sourceDns).contains(replicateSrcDn);
-        assertThat(targetNodes).contains(target);
+        Assertions.assertTrue(sourceDns.contains(replicateSrcDn));
+        Assertions.assertTrue(targetNodes.contains(target));
         int replicaIndex = replicateContainerCommand.getReplicaIndex();
         assertReplicaIndex(replicaIndexMap, replicateSrcDn, replicaIndex);
       }

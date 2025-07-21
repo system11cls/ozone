@@ -1,35 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.keyvalue;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.COMMIT_STAGE;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.createDbInstancesForTestIfNeeded;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import java.io.File;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -41,14 +30,28 @@ import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
-import org.apache.hadoop.ozone.container.common.volume.RoundRobinVolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
+import org.apache.hadoop.ozone.container.common.volume.RoundRobinVolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.COMMIT_STAGE;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.createDbInstancesForTestIfNeeded;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Base class for tests identifying issues with key value container contents.
@@ -61,7 +64,6 @@ public class TestKeyValueContainerIntegrityChecks {
   private ContainerLayoutTestInfo containerLayoutTestInfo;
   private MutableVolumeSet volumeSet;
   private OzoneConfiguration conf;
-  @TempDir
   private File testRoot;
   private ChunkManager chunkManager;
   private String clusterID = UUID.randomUUID().toString();
@@ -70,9 +72,9 @@ public class TestKeyValueContainerIntegrityChecks {
   protected static final int CHUNK_LEN = 3 * UNIT_LEN;
   protected static final int CHUNKS_PER_BLOCK = 4;
 
-  void initTestData(ContainerTestVersionInfo versionInfo) throws Exception {
-    LOG.info("new {} for {}", getClass().getSimpleName(), versionInfo);
-    this.conf = new OzoneConfiguration();
+  private void initialize(ContainerTestVersionInfo versionInfo) {
+    LOG.info("new TestKeyValueContainerIntegrityChecks for {}", versionInfo);
+    conf = new OzoneConfiguration();
     ContainerTestVersionInfo.setTestSchemaVersion(
         versionInfo.getSchemaVersion(), conf);
     if (versionInfo.getLayout()
@@ -81,11 +83,16 @@ public class TestKeyValueContainerIntegrityChecks {
     } else {
       containerLayoutTestInfo = ContainerLayoutTestInfo.FILE_PER_CHUNK;
     }
-    setup();
   }
 
-  private void setup() throws Exception {
+  private static Stream<Object> data() {
+    return ContainerTestVersionInfo.versionParametersStream();
+  }
+
+  public void setUp(ContainerTestVersionInfo versionInfo) throws Exception {
+    initialize(versionInfo);
     LOG.info("Testing  layout:{}", containerLayoutTestInfo.getLayout());
+    this.testRoot = GenericTestUtils.getRandomizedTestDir();
     conf.set(HDDS_DATANODE_DIR_KEY, testRoot.getAbsolutePath());
     conf.set(OzoneConfigKeys.OZONE_METADATA_DIRS, testRoot.getAbsolutePath());
     containerLayoutTestInfo.updateConfig(conf);
@@ -99,6 +106,7 @@ public class TestKeyValueContainerIntegrityChecks {
   public void teardown() {
     BlockUtils.shutdownCache(conf);
     volumeSet.shutdown();
+    FileUtil.fullyDelete(testRoot);
   }
 
   protected ContainerLayoutVersion getChunkLayout() {
@@ -116,8 +124,7 @@ public class TestKeyValueContainerIntegrityChecks {
    * deleted blocks.
    */
   protected KeyValueContainer createContainerWithBlocks(long containerId,
-      int normalBlocks, int deletedBlocks, boolean writeToDisk)
-      throws Exception {
+      int normalBlocks, int deletedBlocks) throws Exception {
     String strBlock = "block";
     String strChunk = "-chunkFile";
     long totalBlocks = normalBlocks + deletedBlocks;
@@ -152,12 +159,10 @@ public class TestKeyValueContainerIntegrityChecks {
           ChunkInfo info = new ChunkInfo(chunkName, offset, CHUNK_LEN);
           info.setChecksumData(checksumData);
           chunkList.add(info.getProtoBufMessage());
-          if (writeToDisk) {
-            chunkManager.writeChunk(container, blockID, info,
-                ByteBuffer.wrap(chunkData), WRITE_STAGE);
-            chunkManager.writeChunk(container, blockID, info,
-                ByteBuffer.wrap(chunkData), COMMIT_STAGE);
-          }
+          chunkManager.writeChunk(container, blockID, info,
+              ByteBuffer.wrap(chunkData), WRITE_STAGE);
+          chunkManager.writeChunk(container, blockID, info,
+              ByteBuffer.wrap(chunkData), COMMIT_STAGE);
         }
         blockData.setChunks(chunkList);
 
@@ -170,10 +175,8 @@ public class TestKeyValueContainerIntegrityChecks {
         metadataStore.getStore().getBlockDataTable().put(key, blockData);
       }
 
-      if (writeToDisk) {
-        containerLayoutTestInfo.validateFileCount(chunksPath, totalBlocks,
-            totalBlocks * CHUNKS_PER_BLOCK);
-      }
+      containerLayoutTestInfo.validateFileCount(chunksPath, totalBlocks,
+          totalBlocks * CHUNKS_PER_BLOCK);
     }
 
     return container;

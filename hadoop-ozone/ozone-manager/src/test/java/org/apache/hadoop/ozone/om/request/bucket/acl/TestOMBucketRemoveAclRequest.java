@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,13 +18,6 @@
 
 package org.apache.hadoop.ozone.om.request.bucket.acl;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import java.util.List;
-import java.util.UUID;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.request.bucket.TestBucketRequest;
@@ -31,7 +25,11 @@ import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Tests bucket removeAcl request.
@@ -52,13 +50,13 @@ public class TestOMBucketRemoveAclRequest extends TestBucketRequest {
         new OMBucketRemoveAclRequest(originalRequest);
     OMRequest preExecuteRequest = omBucketRemoveAclRequest
         .preExecute(ozoneManager);
-    assertNotEquals(originalRequest, preExecuteRequest);
+    Assertions.assertNotEquals(originalRequest, preExecuteRequest);
 
     long newModTime = preExecuteRequest.getRemoveAclRequest()
         .getModificationTime();
     // When preExecute() of removing acl,
     // the new modification time is greater than origin one.
-    assertThat(newModTime).isGreaterThan(originModTime);
+    Assertions.assertTrue(newModTime > originModTime);
   }
 
   @Test
@@ -82,16 +80,16 @@ public class TestOMBucketRemoveAclRequest extends TestBucketRequest {
     OMClientResponse omClientAddAclResponse = omBucketAddAclRequest
         .validateAndUpdateCache(ozoneManager, 1);
     OMResponse omAddAclResponse = omClientAddAclResponse.getOMResponse();
-    assertNotNull(omAddAclResponse.getAddAclResponse());
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertNotNull(omAddAclResponse.getAddAclResponse());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omAddAclResponse.getStatus());
 
     // Verify result of adding acl.
     String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
     List<OzoneAcl> bucketAcls = omMetadataManager.getBucketTable()
         .get(bucketKey).getAcls();
-    assertEquals(1, bucketAcls.size());
-    assertEquals(acl, bucketAcls.get(0));
+    Assertions.assertEquals(1, bucketAcls.size());
+    Assertions.assertEquals(acl, bucketAcls.get(0));
 
     // Remove acl.
     OMRequest removeAclRequest = OMRequestTestUtils
@@ -102,14 +100,14 @@ public class TestOMBucketRemoveAclRequest extends TestBucketRequest {
     OMClientResponse omClientRemoveAclResponse = omBucketRemoveAclRequest
         .validateAndUpdateCache(ozoneManager, 2);
     OMResponse omRemoveAclResponse = omClientRemoveAclResponse.getOMResponse();
-    assertNotNull(omRemoveAclResponse.getRemoveAclResponse());
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertNotNull(omRemoveAclResponse.getRemoveAclResponse());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omRemoveAclResponse.getStatus());
 
     // Verify result of removing acl.
     List<OzoneAcl> newAcls = omMetadataManager.getBucketTable()
         .get(bucketKey).getAcls();
-    assertEquals(0, newAcls.size());
+    Assertions.assertEquals(0, newAcls.size());
   }
 
   @Test
@@ -128,9 +126,9 @@ public class TestOMBucketRemoveAclRequest extends TestBucketRequest {
         .validateAndUpdateCache(ozoneManager, 1);
     OMResponse omResponse = omClientResponse.getOMResponse();
 
-    assertNotNull(omResponse.getRemoveAclResponse());
+    Assertions.assertNotNull(omResponse.getRemoveAclResponse());
     // The bucket is not created.
-    assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
         omResponse.getStatus());
   }
 }

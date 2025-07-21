@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,25 +18,19 @@
 
 package org.apache.hadoop.ozone.container.common.utils;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
-
 import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.SyncFailedException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ratis.util.FileUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utility class that supports checking disk health when provided a directory
@@ -139,9 +134,10 @@ public final class DiskCheckUtil {
       File testFile = new File(testFileDir, "disk-check-" + UUID.randomUUID());
       byte[] writtenBytes = new byte[numBytesToWrite];
       RANDOM.nextBytes(writtenBytes);
-      try (OutputStream fos = FileUtils.newOutputStreamForceAtClose(testFile, CREATE, TRUNCATE_EXISTING, WRITE)) {
+      try (FileOutputStream fos = new FileOutputStream(testFile)) {
         fos.write(writtenBytes);
-      } catch (FileNotFoundException | NoSuchFileException notFoundEx) {
+        fos.getFD().sync();
+      } catch (FileNotFoundException notFoundEx) {
         logError(storageDir, String.format("Could not find file %s for " +
             "volume check.", testFile.getAbsolutePath()), notFoundEx);
         return false;
@@ -157,7 +153,7 @@ public final class DiskCheckUtil {
 
       // Read data back from the test file.
       byte[] readBytes = new byte[numBytesToWrite];
-      try (InputStream fis = Files.newInputStream(testFile.toPath())) {
+      try (FileInputStream fis = new FileInputStream(testFile)) {
         int numBytesRead = fis.read(readBytes);
         if (numBytesRead != numBytesToWrite) {
           logError(storageDir, String.format("%d bytes written to file %s " +
@@ -165,7 +161,7 @@ public final class DiskCheckUtil {
               testFile.getAbsolutePath(), numBytesRead));
           return false;
         }
-      } catch (FileNotFoundException | NoSuchFileException notFoundEx) {
+      } catch (FileNotFoundException notFoundEx) {
         logError(storageDir, String.format("Could not find file %s " +
             "for volume check.", testFile.getAbsolutePath()), notFoundEx);
         return false;

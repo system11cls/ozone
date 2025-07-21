@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +18,7 @@
 
 package org.apache.hadoop.hdds.scm.server.upgrade;
 
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer;
 
 /**
  * A finalization checkpoint is an abstraction over SCM's disk state,
@@ -30,23 +31,23 @@ import org.apache.hadoop.ozone.upgrade.UpgradeFinalization;
  */
 public enum FinalizationCheckpoint {
   FINALIZATION_REQUIRED(false, true,
-      UpgradeFinalization.Status.FINALIZATION_REQUIRED),
+      UpgradeFinalizer.Status.FINALIZATION_REQUIRED),
   FINALIZATION_STARTED(true, true,
-      UpgradeFinalization.Status.FINALIZATION_IN_PROGRESS),
+      UpgradeFinalizer.Status.FINALIZATION_IN_PROGRESS),
   MLV_EQUALS_SLV(true, false,
-      UpgradeFinalization.Status.FINALIZATION_IN_PROGRESS),
+      UpgradeFinalizer.Status.FINALIZATION_IN_PROGRESS),
   FINALIZATION_COMPLETE(false, false,
-      UpgradeFinalization.Status.FINALIZATION_DONE);
+      UpgradeFinalizer.Status.FINALIZATION_DONE);
 
   private final boolean needsFinalizingMark;
   private final boolean needsMlvBehindSlv;
   // The upgrade status that should be reported back to the client when this
   // checkpoint is crossed.
-  private final UpgradeFinalization.Status status;
+  private final UpgradeFinalizer.Status status;
 
   FinalizationCheckpoint(boolean needsFinalizingMark,
                          boolean needsMlvBehindSlv,
-                         UpgradeFinalization.Status status) {
+                         UpgradeFinalizer.Status status) {
     this.needsFinalizingMark = needsFinalizingMark;
     this.needsMlvBehindSlv = needsMlvBehindSlv;
     this.status = status;
@@ -81,7 +82,7 @@ public enum FinalizationCheckpoint {
     return this.compareTo(query) >= 0;
   }
 
-  public UpgradeFinalization.Status getStatus() {
+  public UpgradeFinalizer.Status getStatus() {
     return status;
   }
 }

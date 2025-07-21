@@ -1,32 +1,32 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.server.http;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-
-import javax.servlet.http.HttpServletRequest;
-import org.junit.jupiter.api.Test;
 
 /**
  * Testing HTML Quoting.
@@ -76,24 +76,24 @@ public class TestHtmlQuoting {
 
   @Test
   public void testRequestQuoting() throws Exception {
-    HttpServletRequest mockReq = mock(HttpServletRequest.class);
+    HttpServletRequest mockReq = Mockito.mock(HttpServletRequest.class);
     HttpServer2.QuotingInputFilter.RequestQuoter quoter =
         new HttpServer2.QuotingInputFilter.RequestQuoter(mockReq);
 
-    doReturn("a<b").when(mockReq).getParameter("x");
+    Mockito.doReturn("a<b").when(mockReq).getParameter("x");
     assertEquals("a&lt;b", quoter.getParameter("x"),
         "Test simple param quoting");
 
-    doReturn(null).when(mockReq).getParameter("x");
+    Mockito.doReturn(null).when(mockReq).getParameter("x");
     assertNull(quoter.getParameter("x"),
         "Test that missing parameters dont cause NPE");
 
-    doReturn(new String[] {"a<b", "b"}).when(mockReq)
+    Mockito.doReturn(new String[] {"a<b", "b"}).when(mockReq)
         .getParameterValues("x");
     assertArrayEquals(new String[] {"a&lt;b", "b"},
         quoter.getParameterValues("x"), "Test escaping of an array");
 
-    doReturn(null).when(mockReq).getParameterValues("x");
+    Mockito.doReturn(null).when(mockReq).getParameterValues("x");
     assertNull(quoter.getParameterValues("x"),
         "Test that missing parameters dont cause NPE for array");
   }

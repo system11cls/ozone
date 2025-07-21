@@ -1,35 +1,35 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om.helpers;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
+
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.utils.db.Codec;
-import org.apache.hadoop.hdds.utils.db.CopyObject;
 import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
 import org.apache.hadoop.hdds.utils.db.Proto2Codec;
 import org.apache.hadoop.ozone.OzoneAcl;
@@ -38,15 +38,16 @@ import org.apache.hadoop.ozone.audit.Auditable;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketInfo;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
 
+import com.google.common.base.Preconditions;
+
 /**
  * A class that encapsulates Bucket Info.
  */
-public final class OmBucketInfo extends WithObjectID implements Auditable, CopyObject<OmBucketInfo> {
+public final class OmBucketInfo extends WithObjectID implements Auditable {
   private static final Codec<OmBucketInfo> CODEC = new DelegatedCodec<>(
       Proto2Codec.get(BucketInfo.getDefaultInstance()),
       OmBucketInfo::getFromProtobuf,
-      OmBucketInfo::getProtobuf,
-      OmBucketInfo.class);
+      OmBucketInfo::getProtobuf);
 
   public static Codec<OmBucketInfo> getCodec() {
     return CODEC;
@@ -63,7 +64,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
   /**
    * ACL Information (mutable).
    */
-  private final CopyOnWriteArrayList<OzoneAcl> acls;
+  private final List<OzoneAcl> acls;
   /**
    * Bucket Version flag.
    */
@@ -104,29 +105,72 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
   /**
    * Bucket Layout.
    */
-  private final BucketLayout bucketLayout;
+  private BucketLayout bucketLayout;
 
   private String owner;
 
-  private OmBucketInfo(Builder b) {
-    super(b);
-    this.volumeName = b.volumeName;
-    this.bucketName = b.bucketName;
-    this.acls = new CopyOnWriteArrayList<>(b.acls);
-    this.isVersionEnabled = b.isVersionEnabled;
-    this.storageType = b.storageType;
-    this.creationTime = b.creationTime;
-    this.modificationTime = b.modificationTime;
-    this.bekInfo = b.bekInfo;
-    this.sourceVolume = b.sourceVolume;
-    this.sourceBucket = b.sourceBucket;
-    this.usedBytes = b.usedBytes;
-    this.usedNamespace = b.usedNamespace;
-    this.quotaInBytes = b.quotaInBytes;
-    this.quotaInNamespace = b.quotaInNamespace;
-    this.bucketLayout = b.bucketLayout;
-    this.owner = b.owner;
-    this.defaultReplicationConfig = b.defaultReplicationConfig;
+  /**
+   * Private constructor, constructed via builder.
+   * @param volumeName - Volume name.
+   * @param bucketName - Bucket name.
+   * @param acls - list of ACLs.
+   * @param isVersionEnabled - Bucket version flag.
+   * @param storageType - Storage type to be used.
+   * @param creationTime - Bucket creation time.
+   * @param modificationTime - Bucket modification time.
+   * @param metadata - metadata.
+   * @param bekInfo - bucket encryption key info.
+   * @param sourceVolume - source volume for bucket links, null otherwise
+   * @param sourceBucket - source bucket for bucket links, null otherwise
+   * @param usedBytes - Bucket Quota Usage in bytes.
+   * @param quotaInBytes Bucket quota in bytes.
+   * @param quotaInNamespace Bucket quota in counts.
+   * @param bucketLayout bucket layout.
+   * @param owner owner of the bucket.
+   * @param defaultReplicationConfig default replication config.
+   * @param bucketLayout Bucket Layout.
+   */
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  private OmBucketInfo(String volumeName,
+      String bucketName,
+      List<OzoneAcl> acls,
+      boolean isVersionEnabled,
+      StorageType storageType,
+      long creationTime,
+      long modificationTime,
+      long objectID,
+      long updateID,
+      Map<String, String> metadata,
+      BucketEncryptionKeyInfo bekInfo,
+      String sourceVolume,
+      String sourceBucket,
+      long usedBytes,
+      long usedNamespace,
+      long quotaInBytes,
+      long quotaInNamespace,
+      BucketLayout bucketLayout,
+      String owner,
+      DefaultReplicationConfig defaultReplicationConfig) {
+    this.volumeName = volumeName;
+    this.bucketName = bucketName;
+    this.acls = acls;
+    this.isVersionEnabled = isVersionEnabled;
+    this.storageType = storageType;
+    this.creationTime = creationTime;
+    this.modificationTime = modificationTime;
+    this.objectID = objectID;
+    this.updateID = updateID;
+    this.metadata = metadata;
+    this.bekInfo = bekInfo;
+    this.sourceVolume = sourceVolume;
+    this.sourceBucket = sourceBucket;
+    this.usedBytes = usedBytes;
+    this.usedNamespace = usedNamespace;
+    this.quotaInBytes = quotaInBytes;
+    this.quotaInNamespace = quotaInNamespace;
+    this.bucketLayout = bucketLayout;
+    this.owner = owner;
+    this.defaultReplicationConfig = defaultReplicationConfig;
   }
 
   /**
@@ -150,7 +194,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    * @return {@literal List<OzoneAcl>}
    */
   public List<OzoneAcl> getAcls() {
-    return ImmutableList.copyOf(acls);
+    return acls;
   }
 
   /**
@@ -307,7 +351,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     auditMap.put(OzoneConsts.BUCKET, this.bucketName);
     auditMap.put(OzoneConsts.BUCKET_LAYOUT, String.valueOf(this.bucketLayout));
     auditMap.put(OzoneConsts.GDPR_FLAG,
-        getMetadata().get(OzoneConsts.GDPR_FLAG));
+        this.metadata.get(OzoneConsts.GDPR_FLAG));
     auditMap.put(OzoneConsts.ACLS,
         (this.acls != null) ? this.acls.toString() : null);
     auditMap.put(OzoneConsts.IS_VERSION_ENABLED,
@@ -340,13 +384,20 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     return auditMap;
   }
 
-  @Override
+  /**
+   * Return a new copy of the object.
+   */
   public OmBucketInfo copyObject() {
     Builder builder = toBuilder();
 
     if (bekInfo != null) {
       builder.setBucketEncryptionKey(bekInfo.copy());
     }
+
+    builder.acls.clear();
+    acls.forEach(acl -> builder.addAcl(new OzoneAcl(acl.getType(),
+        acl.getName(), (BitSet) acl.getAclBitSet().clone(),
+        acl.getAclScope())));
 
     if (defaultReplicationConfig != null) {
       builder.setDefaultReplicationConfig(defaultReplicationConfig.copy());
@@ -356,17 +407,20 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
   }
 
   public Builder toBuilder() {
-    return new Builder(this)
+    return new Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
         .setStorageType(storageType)
         .setIsVersionEnabled(isVersionEnabled)
         .setCreationTime(creationTime)
         .setModificationTime(modificationTime)
+        .setObjectID(objectID)
+        .setUpdateID(updateID)
         .setBucketEncryptionKey(bekInfo)
         .setSourceVolume(sourceVolume)
         .setSourceBucket(sourceBucket)
         .setAcls(acls)
+        .addAllMetadata(metadata)
         .setUsedBytes(usedBytes)
         .setUsedNamespace(usedNamespace)
         .setQuotaInBytes(quotaInBytes)
@@ -379,30 +433,37 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
   /**
    * Builder for OmBucketInfo.
    */
-  public static class Builder extends WithObjectID.Builder {
+  public static class Builder {
     private String volumeName;
     private String bucketName;
-    private final List<OzoneAcl> acls = new ArrayList<>();
-    private boolean isVersionEnabled;
-    private StorageType storageType = StorageType.DISK;
+    private List<OzoneAcl> acls;
+    private Boolean isVersionEnabled;
+    private StorageType storageType;
     private long creationTime;
     private long modificationTime;
+    private long objectID;
+    private long updateID;
+    private Map<String, String> metadata;
     private BucketEncryptionKeyInfo bekInfo;
     private String sourceVolume;
     private String sourceBucket;
     private long usedBytes;
     private long usedNamespace;
-    private long quotaInBytes = OzoneConsts.QUOTA_RESET;
-    private long quotaInNamespace = OzoneConsts.QUOTA_RESET;
-    private BucketLayout bucketLayout = BucketLayout.DEFAULT;
+    private long quotaInBytes;
+    private long quotaInNamespace;
+    private BucketLayout bucketLayout;
     private String owner;
     private DefaultReplicationConfig defaultReplicationConfig;
 
     public Builder() {
-    }
-
-    private Builder(OmBucketInfo obj) {
-      super(obj);
+      //Default values
+      this.acls = new ArrayList<>();
+      this.isVersionEnabled = false;
+      this.storageType = StorageType.DISK;
+      this.metadata = new HashMap<>();
+      this.quotaInBytes = OzoneConsts.QUOTA_RESET;
+      this.quotaInNamespace = OzoneConsts.QUOTA_RESET;
+      this.bucketLayout = BucketLayout.DEFAULT;
     }
 
     public Builder setVolumeName(String volume) {
@@ -433,7 +494,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
-    public Builder setIsVersionEnabled(boolean versionFlag) {
+    public Builder setIsVersionEnabled(Boolean versionFlag) {
       this.isVersionEnabled = versionFlag;
       return this;
     }
@@ -453,27 +514,25 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
-    @Override
     public Builder setObjectID(long obId) {
-      super.setObjectID(obId);
+      this.objectID = obId;
       return this;
     }
 
-    @Override
     public Builder setUpdateID(long id) {
-      super.setUpdateID(id);
+      this.updateID = id;
       return this;
     }
 
-    @Override
     public Builder addMetadata(String key, String value) {
-      super.addMetadata(key, value);
+      metadata.put(key, value);
       return this;
     }
 
-    @Override
     public Builder addAllMetadata(Map<String, String> additionalMetadata) {
-      super.addAllMetadata(additionalMetadata);
+      if (additionalMetadata != null) {
+        metadata.putAll(additionalMetadata);
+      }
       return this;
     }
 
@@ -483,37 +542,31 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
-    /** @param volume - source volume for bucket links, null otherwise */
     public Builder setSourceVolume(String volume) {
       this.sourceVolume = volume;
       return this;
     }
 
-    /** @param bucket - source bucket for bucket links, null otherwise */
     public Builder setSourceBucket(String bucket) {
       this.sourceBucket = bucket;
       return this;
     }
 
-    /** @param quotaUsage - Bucket Quota Usage in bytes. */
     public Builder setUsedBytes(long quotaUsage) {
       this.usedBytes = quotaUsage;
       return this;
     }
 
-    /** @param quotaUsage - Bucket Quota Usage in counts. */
     public Builder setUsedNamespace(long quotaUsage) {
       this.usedNamespace = quotaUsage;
       return this;
     }
 
-    /** @param quota Bucket quota in bytes. */
     public Builder setQuotaInBytes(long quota) {
       this.quotaInBytes = quota;
       return this;
     }
 
-    /** @param quota Bucket quota in counts. */
     public Builder setQuotaInNamespace(long quota) {
       this.quotaInNamespace = quota;
       return this;
@@ -543,8 +596,13 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       Preconditions.checkNotNull(volumeName);
       Preconditions.checkNotNull(bucketName);
       Preconditions.checkNotNull(acls);
+      Preconditions.checkNotNull(isVersionEnabled);
       Preconditions.checkNotNull(storageType);
-      return new OmBucketInfo(this);
+      return new OmBucketInfo(volumeName, bucketName, acls, isVersionEnabled,
+          storageType, creationTime, modificationTime, objectID, updateID,
+          metadata, bekInfo, sourceVolume, sourceBucket, usedBytes,
+          usedNamespace, quotaInBytes, quotaInNamespace, bucketLayout, owner,
+          defaultReplicationConfig);
     }
   }
 
@@ -560,11 +618,11 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         .setStorageType(storageType.toProto())
         .setCreationTime(creationTime)
         .setModificationTime(modificationTime)
-        .setObjectID(getObjectID())
-        .setUpdateID(getUpdateID())
+        .setObjectID(objectID)
+        .setUpdateID(updateID)
         .setUsedBytes(usedBytes)
         .setUsedNamespace(usedNamespace)
-        .addAllMetadata(KeyValueUtil.toProtobuf(getMetadata()))
+        .addAllMetadata(KeyValueUtil.toProtobuf(metadata))
         .setQuotaInBytes(quotaInBytes)
         .setQuotaInNamespace(quotaInNamespace);
     if (bucketLayout != null) {
@@ -692,13 +750,13 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         Objects.equals(acls, that.acls) &&
         Objects.equals(isVersionEnabled, that.isVersionEnabled) &&
         storageType == that.storageType &&
-        getObjectID() == that.getObjectID() &&
-        getUpdateID() == that.getUpdateID() &&
+        objectID == that.objectID &&
+        updateID == that.updateID &&
         usedBytes == that.usedBytes &&
         usedNamespace == that.usedNamespace &&
         Objects.equals(sourceVolume, that.sourceVolume) &&
         Objects.equals(sourceBucket, that.sourceBucket) &&
-        Objects.equals(getMetadata(), that.getMetadata()) &&
+        Objects.equals(metadata, that.metadata) &&
         Objects.equals(bekInfo, that.bekInfo) &&
         Objects.equals(owner, that.owner) &&
         Objects.equals(defaultReplicationConfig, that.defaultReplicationConfig);
@@ -721,9 +779,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         ", bekInfo=" + bekInfo +
         ", sourceVolume='" + sourceVolume + "'" +
         ", sourceBucket='" + sourceBucket + "'" +
-        ", objectID=" + getObjectID() +
-        ", updateID=" + getUpdateID() +
-        ", metadata=" + getMetadata() +
+        ", objectID=" + objectID +
+        ", updateID=" + updateID +
+        ", metadata=" + metadata +
         ", usedBytes=" + usedBytes +
         ", usedNamespace=" + usedNamespace +
         ", quotaInBytes=" + quotaInBytes +

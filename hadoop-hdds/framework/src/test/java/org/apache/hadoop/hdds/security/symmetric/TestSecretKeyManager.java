@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,29 +18,30 @@
 
 package org.apache.hadoop.hdds.security.symmetric;
 
-import static com.google.common.collect.Lists.newArrayList;
-import static java.time.Instant.now;
-import static java.time.temporal.ChronoUnit.DAYS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.params.provider.Arguments.of;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableList;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.Lists.newArrayList;
+import static java.time.Instant.now;
+import static java.time.temporal.ChronoUnit.DAYS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.of;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests cases for {@link SecretKeyManager} implementation.
@@ -52,8 +54,8 @@ public class TestSecretKeyManager {
   private SecretKeyStore mockedKeyStore;
 
   @BeforeEach
-  void setup() {
-    mockedKeyStore = mock(SecretKeyStore.class);
+  private void setup() {
+    mockedKeyStore = Mockito.mock(SecretKeyStore.class);
   }
 
   public static Stream<Arguments> loadSecretKeysTestCases() throws Exception {
@@ -105,9 +107,10 @@ public class TestSecretKeyManager {
       assertSameKeys(expectedLoadedKeys, allKeys);
     } else {
       // expect the current key is newly generated.
-      assertThat(savedSecretKey).doesNotContain(state.getCurrentKey());
+      assertFalse(savedSecretKey.contains(state.getCurrentKey()));
       assertEquals(1, state.getSortedKeys().size());
-      assertThat(state.getSortedKeys()).contains(state.getCurrentKey());
+      assertTrue(state.getSortedKeys().contains(
+          state.getCurrentKey()));
     }
   }
 
@@ -115,7 +118,7 @@ public class TestSecretKeyManager {
                                      Collection<ManagedSecretKey> actual) {
     assertEquals(expected.size(), actual.size());
     for (ManagedSecretKey expectedKey : expected) {
-      assertThat(actual).contains(expectedKey);
+      assertTrue(actual.contains(expectedKey));
     }
   }
 
@@ -157,7 +160,7 @@ public class TestSecretKeyManager {
     // Set the initial state.
     state.updateKeys(initialKeys);
     ManagedSecretKey initialCurrentKey = state.getCurrentKey();
-    reset(mockedKeyStore);
+    Mockito.reset(mockedKeyStore);
 
     assertEquals(expectRotate, lifeCycleManager.checkAndRotate(false));
 
@@ -167,7 +170,7 @@ public class TestSecretKeyManager {
       // 1. A new key is generated as current key.
       ManagedSecretKey currentKey = state.getCurrentKey();
       assertNotEquals(initialCurrentKey, currentKey);
-      assertThat(initialKeys).doesNotContain(currentKey);
+      assertFalse(initialKeys.contains(currentKey));
 
       // 2. keys are correctly rotated, expired ones are excluded.
       List<ManagedSecretKey> expectedAllKeys = expectedRetainedKeys;

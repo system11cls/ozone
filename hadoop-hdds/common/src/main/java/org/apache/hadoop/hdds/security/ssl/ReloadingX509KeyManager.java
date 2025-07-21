@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,9 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.security.ssl;
 
+import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+import org.apache.hadoop.hdds.annotation.InterfaceStability;
+import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.X509ExtendedKeyManager;
 import java.io.IOException;
 import java.net.Socket;
 import java.security.GeneralSecurityException;
@@ -24,30 +34,22 @@ import java.security.KeyStore;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.X509ExtendedKeyManager;
-import org.apache.hadoop.hdds.annotation.InterfaceAudience;
-import org.apache.hadoop.hdds.annotation.InterfaceStability;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateNotification;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * An implementation of <code>X509KeyManager</code> that can be notified of certificate changes.
+ * An implementation of <code>X509KeyManager</code> that exposes a method,
+ * {@link #loadFrom(CertificateClient)} to reload its configuration.
  * Note that it is necessary to implement the
  * <code>X509ExtendedKeyManager</code> to properly delegate
  * the additional methods, otherwise the SSL handshake will fail.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public class ReloadingX509KeyManager extends X509ExtendedKeyManager implements CertificateNotification {
+public class ReloadingX509KeyManager extends X509ExtendedKeyManager {
 
   public static final Logger LOG =
       LoggerFactory.getLogger(ReloadingX509KeyManager.class);
@@ -65,30 +67,27 @@ public class ReloadingX509KeyManager extends X509ExtendedKeyManager implements C
    * materials are changed.
    */
   private PrivateKey currentPrivateKey;
-  private List<X509Certificate> currentTrustChain;
-  private final String alias;
+  private List<String> currentCertIdsList = new ArrayList<>();
+  private String alias;
 
   /**
    * Construct a <code>Reloading509KeystoreManager</code>.
    *
-   * @param type          type of keystore file, typically 'jks'.
-   * @param componentName the name of the component for which the keys are created.
-   * @param privateKey    private key for this key manager.
-   * @param trustChain    list of the trusted certificates.
+   * @param type type of keystore file, typically 'jks'.
+   * @param caClient client to get the private key and certificate materials.
    * @throws IOException
    * @throws GeneralSecurityException
    */
-  public ReloadingX509KeyManager(String type, String componentName, PrivateKey privateKey,
-      List<X509Certificate> trustChain)
+  public ReloadingX509KeyManager(String type, CertificateClient caClient)
       throws GeneralSecurityException, IOException {
     this.type = type;
-    alias = componentName + "_key";
     keyManagerRef = new AtomicReference<>();
-    keyManagerRef.set(init(privateKey, trustChain));
+    keyManagerRef.set(loadKeyManager(caClient));
   }
 
   @Override
-  public String chooseEngineClientAlias(String[] strings, Principal[] principals, SSLEngine sslEngine) {
+  public String chooseEngineClientAlias(String[] strings,
+      Principal[] principals, SSLEngine sslEngine) {
     String ret = keyManagerRef.get()
         .chooseEngineClientAlias(strings, principals, sslEngine);
 
@@ -185,58 +184,9 @@ public class ReloadingX509KeyManager extends X509ExtendedKeyManager implements C
     return keyManagerRef.get().getPrivateKey(s.toLowerCase(Locale.ROOT));
   }
 
-  private X509ExtendedKeyManager init(PrivateKey newPrivateKey, List<X509Certificate> newTrustChain)
-      throws GeneralSecurityException, IOException {
-    if (isAlreadyUsing(newPrivateKey, newTrustChain)) {
-      // Security materials(key and certificates) keep the same.
-      return null;
-    }
-
-    X509ExtendedKeyManager keyManager = null;
-    KeyStore keystore = KeyStore.getInstance(type);
-    keystore.load(null, null);
-
-    keystore.setKeyEntry(alias, newPrivateKey, EMPTY_PASSWORD,
-        newTrustChain.toArray(new X509Certificate[0]));
-
-    LOG.info("Key manager is loaded with certificate chain");
-    for (X509Certificate x509Certificate : newTrustChain) {
-      LOG.info(x509Certificate.toString());
-    }
-
-    KeyManagerFactory keyMgrFactory = KeyManagerFactory.getInstance(
-        KeyManagerFactory.getDefaultAlgorithm());
-    keyMgrFactory.init(keystore, EMPTY_PASSWORD);
-    for (KeyManager candidate : keyMgrFactory.getKeyManagers()) {
-      if (candidate instanceof X509ExtendedKeyManager) {
-        keyManager = (X509ExtendedKeyManager) candidate;
-        break;
-      }
-    }
-
-    currentPrivateKey = newPrivateKey;
-    currentTrustChain = newTrustChain;
-    return keyManager;
-  }
-
-  private boolean isAlreadyUsing(PrivateKey privateKey, List<X509Certificate> newTrustChain) {
-    return currentPrivateKey != null && currentPrivateKey.equals(privateKey) &&
-        !currentTrustChain.isEmpty() &&
-        newTrustChain.size() == currentTrustChain.size() &&
-        newTrustChain.stream()
-            .allMatch(
-                newCertificate -> (currentTrustChain.stream()
-                    .anyMatch(oldCert -> oldCert.getSerialNumber().equals(newCertificate.getSerialNumber()))
-                )
-            );
-  }
-
-  @Override
-  public synchronized void notifyCertificateRenewed(
-      CertificateClient certClient, String oldCertId, String newCertId) {
-    LOG.info("{} notify certificate renewed", certClient.getComponentName());
+  public ReloadingX509KeyManager loadFrom(CertificateClient caClient) {
     try {
-      X509ExtendedKeyManager manager = init(certClient.getPrivateKey(), certClient.getTrustChain());
+      X509ExtendedKeyManager manager = loadKeyManager(caClient);
       if (manager != null) {
         keyManagerRef.set(manager);
         LOG.info("ReloadingX509KeyManager is reloaded");
@@ -245,5 +195,50 @@ public class ReloadingX509KeyManager extends X509ExtendedKeyManager implements C
       // The Consumer.accept interface forces us to convert to unchecked
       throw new RuntimeException(ex);
     }
+    return this;
+  }
+
+  private X509ExtendedKeyManager loadKeyManager(CertificateClient caClient)
+      throws GeneralSecurityException, IOException {
+    PrivateKey privateKey = caClient.getPrivateKey();
+    List<X509Certificate> newCertList = caClient.getTrustChain();
+    if (currentPrivateKey != null && currentPrivateKey.equals(privateKey) &&
+        currentCertIdsList.size() > 0 &&
+        newCertList.size() == currentCertIdsList.size() &&
+        newCertList.stream().allMatch(c ->
+            currentCertIdsList.contains(c.getSerialNumber().toString()))) {
+      // Security materials(key and certificates) keep the same.
+      return null;
+    }
+
+    X509ExtendedKeyManager keyManager = null;
+    KeyStore keystore = KeyStore.getInstance(type);
+    keystore.load(null, null);
+
+    alias = caClient.getComponentName() + "_key";
+    keystore.setKeyEntry(alias, privateKey, EMPTY_PASSWORD,
+        newCertList.toArray(new X509Certificate[0]));
+
+    LOG.info("Key manager is loaded with certificate chain");
+    for (X509Certificate x509Certificate : newCertList) {
+      LOG.info(x509Certificate.toString());
+    }
+
+    KeyManagerFactory keyMgrFactory = KeyManagerFactory.getInstance(
+        KeyManagerFactory.getDefaultAlgorithm());
+    keyMgrFactory.init(keystore, EMPTY_PASSWORD);
+    for (KeyManager candidate: keyMgrFactory.getKeyManagers()) {
+      if (candidate instanceof X509ExtendedKeyManager) {
+        keyManager = (X509ExtendedKeyManager)candidate;
+        break;
+      }
+    }
+
+    currentPrivateKey = privateKey;
+    currentCertIdsList.clear();
+    for (X509Certificate cert: newCertList) {
+      currentCertIdsList.add(cert.getSerialNumber().toString());
+    }
+    return keyManager;
   }
 }

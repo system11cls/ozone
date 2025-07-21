@@ -1,53 +1,54 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.common.impl;
-
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.RECOVERING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
-import java.io.IOException;
-import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.common.utils.ContainerLogger;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Clock;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.RECOVERING;
+
 
 /**
  * Class that manages Containers created on the datanode.
@@ -56,32 +57,17 @@ public class ContainerSet implements Iterable<Container<?>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerSet.class);
 
-  public static ContainerSet newReadOnlyContainerSet(long recoveringTimeout) {
-    return new ContainerSet(null, recoveringTimeout);
-  }
-
-  public static ContainerSet newRwContainerSet(Table<Long, String> containerIdsTable, long recoveringTimeout) {
-    Objects.requireNonNull(containerIdsTable, "containerIdsTable == null");
-    return new ContainerSet(containerIdsTable, recoveringTimeout);
-  }
-
   private final ConcurrentSkipListMap<Long, Container<?>> containerMap = new
       ConcurrentSkipListMap<>();
   private final ConcurrentSkipListSet<Long> missingContainerSet =
       new ConcurrentSkipListSet<>();
   private final ConcurrentSkipListMap<Long, Long> recoveringContainerMap =
       new ConcurrentSkipListMap<>();
-  private final Clock clock;
+  private Clock clock;
   private long recoveringTimeout;
-  private final Table<Long, String> containerIdsTable;
 
-  private ContainerSet(Table<Long, String> continerIdsTable, long recoveringTimeout) {
-    this(continerIdsTable, recoveringTimeout, null);
-  }
-
-  ContainerSet(Table<Long, String> continerIdsTable, long recoveringTimeout, Clock clock) {
-    this.clock = clock != null ? clock : Clock.systemUTC();
-    this.containerIdsTable = continerIdsTable;
+  public ContainerSet(long recoveringTimeout) {
+    this.clock = Clock.system(ZoneOffset.UTC);
     this.recoveringTimeout = recoveringTimeout;
   }
 
@@ -90,68 +76,31 @@ public class ContainerSet implements Iterable<Container<?>> {
   }
 
   @VisibleForTesting
+  public void setClock(Clock clock) {
+    this.clock = clock;
+  }
+
+  @VisibleForTesting
   public void setRecoveringTimeout(long recoveringTimeout) {
     this.recoveringTimeout = recoveringTimeout;
   }
 
   /**
-   * Add Container to container map. This would fail if the container is already present or has been marked as missing.
-   * @param container container to be added
-   * @return If container is added to containerMap returns true, otherwise
-   * false
-   */
-  public boolean addContainer(Container<?> container) throws StorageContainerException {
-    return addContainer(container, false);
-  }
-
-  /**
-   * Add Container to container map. This would overwrite the container even if it is missing. But would fail if the
-   * container is already present.
-   * @param container container to be added
-   * @return If container is added to containerMap returns true, otherwise
-   * false
-   */
-  public boolean addContainerByOverwriteMissingContainer(Container<?> container) throws StorageContainerException {
-    return addContainer(container, true);
-  }
-
-  public void ensureContainerNotMissing(long containerId, State state) throws StorageContainerException {
-    if (missingContainerSet.contains(containerId)) {
-      throw new StorageContainerException(String.format("Container with container Id %d with state : %s is missing in" +
-          " the DN.", containerId, state),
-          ContainerProtos.Result.CONTAINER_MISSING);
-    }
-  }
-
-  /**
    * Add Container to container map.
    * @param container container to be added
-   * @param overwrite if true should overwrite the container if the container was missing.
    * @return If container is added to containerMap returns true, otherwise
    * false
    */
-  private boolean addContainer(Container<?> container, boolean overwrite) throws
+  public boolean addContainer(Container<?> container) throws
       StorageContainerException {
     Preconditions.checkNotNull(container, "container cannot be null");
 
     long containerId = container.getContainerData().getContainerID();
-    State containerState = container.getContainerData().getState();
-    if (!overwrite) {
-      ensureContainerNotMissing(containerId, containerState);
-    }
     if (containerMap.putIfAbsent(containerId, container) == null) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Container with container Id {} is added to containerMap",
             containerId);
       }
-      try {
-        if (containerIdsTable != null) {
-          containerIdsTable.put(containerId, containerState.toString());
-        }
-      } catch (IOException e) {
-        throw new StorageContainerException(e, ContainerProtos.Result.IO_EXCEPTION);
-      }
-      missingContainerSet.remove(containerId);
       // wish we could have done this from ContainerData.setState
       container.getContainerData().commitSpace();
       if (container.getContainerData().getState() == RECOVERING) {
@@ -173,41 +122,9 @@ public class ContainerSet implements Iterable<Container<?>> {
    * @return Container
    */
   public Container<?> getContainer(long containerId) {
-    Preconditions.checkState(containerId >= 0, "Container Id cannot be negative.");
+    Preconditions.checkState(containerId >= 0,
+        "Container Id cannot be negative.");
     return containerMap.get(containerId);
-  }
-
-  /**
-   * Removes container from both memory and database. This should be used when the containerData on disk has been
-   * removed completely from the node.
-   * @param containerId
-   * @return True if container is removed from containerMap.
-   * @throws StorageContainerException
-   */
-  public boolean removeContainer(long containerId) throws StorageContainerException {
-    return removeContainer(containerId, false, true);
-  }
-
-  /**
-   * Removes containerId from memory. This needs to be used when the container is still present on disk, and the
-   * inmemory state of the container needs to be updated.
-   * @param containerId
-   * @return True if container is removed from containerMap.
-   * @throws StorageContainerException
-   */
-  public boolean removeContainerOnlyFromMemory(long containerId) throws StorageContainerException {
-    return removeContainer(containerId, false, false);
-  }
-
-  /**
-   * Marks a container to be missing, thus it removes the container from inmemory containerMap and marks the
-   * container as missing.
-   * @param containerId
-   * @return True if container is removed from containerMap.
-   * @throws StorageContainerException
-   */
-  public boolean removeMissingContainer(long containerId) throws StorageContainerException {
-    return removeContainer(containerId, true, false);
   }
 
   /**
@@ -216,26 +133,10 @@ public class ContainerSet implements Iterable<Container<?>> {
    * @return If container is removed from containerMap returns true, otherwise
    * false
    */
-  private boolean removeContainer(long containerId, boolean markMissing, boolean removeFromDB)
-      throws StorageContainerException {
+  public boolean removeContainer(long containerId) {
     Preconditions.checkState(containerId >= 0,
         "Container Id cannot be negative.");
-    //We need to add to missing container set before removing containerMap since there could be write chunk operation
-    // that could recreate the container in another volume if we remove it from the map before adding to missing
-    // container.
-    if (markMissing) {
-      missingContainerSet.add(containerId);
-    }
     Container<?> removed = containerMap.remove(containerId);
-    if (removeFromDB) {
-      try {
-        if (containerIdsTable != null) {
-          containerIdsTable.delete(containerId);
-        }
-      } catch (IOException e) {
-        throw new StorageContainerException(e, ContainerProtos.Result.IO_EXCEPTION);
-      }
-    }
     if (removed == null) {
       LOG.debug("Container with containerId {} is not present in " +
           "containerMap", containerId);
@@ -288,21 +189,22 @@ public class ContainerSet implements Iterable<Container<?>> {
    * Send FCR which will not contain removed containers.
    *
    * @param  context StateContext
+   * @return
    */
-  public void handleVolumeFailures(StateContext context) throws StorageContainerException {
+  public void handleVolumeFailures(StateContext context) {
     AtomicBoolean failedVolume = new AtomicBoolean(false);
     AtomicInteger containerCount = new AtomicInteger(0);
-    for (Container<?> c : containerMap.values()) {
+    containerMap.values().forEach(c -> {
       ContainerData data = c.getContainerData();
       if (data.getVolume().isFailed()) {
-        removeMissingContainer(data.getContainerID());
+        removeContainer(data.getContainerID());
         LOG.debug("Removing Container {} as the Volume {} " +
-            "has failed", data.getContainerID(), data.getVolume());
+              "has failed", data.getContainerID(), data.getVolume());
         failedVolume.set(true);
         containerCount.incrementAndGet();
         ContainerLogger.logLost(data, "Volume failure");
       }
-    }
+    });
 
     if (failedVolume.get()) {
       try {
@@ -348,21 +250,6 @@ public class ContainerSet implements Iterable<Container<?>> {
             .getStorageID()))
         .sorted(ContainerDataScanOrder.INSTANCE)
         .iterator();
-  }
-
-  /**
-   * Get the number of containers based on the given volume.
-   *
-   * @param volume hdds volume.
-   * @return number of containers
-   */
-  public long containerCount(HddsVolume volume) {
-    Preconditions.checkNotNull(volume);
-    Preconditions.checkNotNull(volume.getStorageID());
-    String volumeUuid = volume.getStorageID();
-    return containerMap.values().stream()
-        .filter(x -> volumeUuid.equals(x.getContainerData().getVolume()
-        .getStorageID())).count();
   }
 
   /**
@@ -459,10 +346,6 @@ public class ContainerSet implements Iterable<Container<?>> {
 
   public Set<Long> getMissingContainerSet() {
     return missingContainerSet;
-  }
-
-  public Table<Long, String> getContainerIdsTable() {
-    return containerIdsTable;
   }
 
   /**

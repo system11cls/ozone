@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,14 +18,16 @@
 
 package org.apache.hadoop.hdds.security.symmetric;
 
-import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.collect.Sets.newHashSet;
-import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,33 +42,28 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+
+import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test cases for {@link LocalSecretKeyStore}.
  */
-class TestLocalKeyStore {
+public class TestLocalKeyStore {
   private SecretKeyStore secretKeyStore;
   private Path testSecretFile;
 
-  @TempDir
-  private Path tempDir;
-
   @BeforeEach
-  void setup() throws IOException {
-    testSecretFile = Files.createFile(tempDir.resolve("key-store-test.json"));
+  private void setup() throws Exception {
+    testSecretFile = Files.createTempFile("key-strore-test", ".json");
     secretKeyStore = new LocalSecretKeyStore(testSecretFile);
   }
 
-  static Stream<Arguments> saveAndLoadTestCases() throws Exception {
+  public static Stream<Arguments> saveAndLoadTestCases() throws Exception {
     return Stream.of(
         // empty
         Arguments.of(ImmutableList.of()),
@@ -83,7 +81,7 @@ class TestLocalKeyStore {
 
   @ParameterizedTest
   @MethodSource("saveAndLoadTestCases")
-  void testSaveAndLoad(List<ManagedSecretKey> keys) throws IOException {
+  public void testSaveAndLoad(List<ManagedSecretKey> keys) throws IOException {
     secretKeyStore.save(keys);
 
     // Ensure the intended file exists and is readable and writeable to
@@ -102,7 +100,7 @@ class TestLocalKeyStore {
    * Verifies that secret keys are overwritten by subsequent writes.
    */
   @Test
-  void testOverwrite() throws Exception {
+  public void testOverwrite() throws Exception {
     List<ManagedSecretKey> initialKeys =
         newArrayList(generateKey("HmacSHA256"));
     secretKeyStore.save(initialKeys);
@@ -125,7 +123,7 @@ class TestLocalKeyStore {
    * test fails, instead, analyse the backward-compatibility of the change.
    */
   @Test
-  void testLoadExistingFile() throws Exception {
+  public void testLoadExistingFile() throws Exception {
     // copy test file content to the backing file.
     String testJson = "[\n" +
         "  {\n" +

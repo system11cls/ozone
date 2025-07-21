@@ -16,13 +16,14 @@
 *** Settings ***
 Documentation       Finalize Upgrade of the Ozone cluster
 Resource            ../commonlib.robot
-Resource            lib.robot
 Test Timeout        10 minutes
 Test Setup          Run Keyword if    '${SECURITY_ENABLED}' == 'true'    Kinit test user     testuser     testuser.keytab
 
 *** Test Cases ***
 Finalize HDDS
-    Finalize SCM
+    ${result} =        Execute      ozone admin scm finalizeupgrade
+                       Log    ${result}
 
 Finalize OMs
-    Finalize OM
+    ${result} =        Execute      ozone admin om finalizeupgrade -id %{OM_SERVICE_ID}
+                       Log    ${result}

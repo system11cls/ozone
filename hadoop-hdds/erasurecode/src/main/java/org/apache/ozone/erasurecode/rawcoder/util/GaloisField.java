@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ozone.erasurecode.rawcoder.util;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 
 /**
@@ -315,8 +316,11 @@ public final class GaloisField {
   public int[] multiply(int[] p, int[] q) {
     int len = p.length + q.length - 1;
     int[] result = new int[len];
-
+    for (int i = 0; i < len; i++) {
+      result[i] = 0;
+    }
     for (int i = 0; i < p.length; i++) {
+
       for (int j = 0; j < q.length; j++) {
         result[i + j] = add(result[i + j], multiply(p[i], q[j]));
       }
@@ -378,9 +382,8 @@ public final class GaloisField {
   public int substitute(int[] p, int x) {
     int result = 0;
     int y = 1;
-
-    for (int j : p) {
-      result = result ^ mulTable[j][y];
+    for (int i = 0; i < p.length; i++) {
+      result = result ^ mulTable[p[i]][y];
       y = mulTable[x][y];
     }
     return result;
@@ -396,8 +399,8 @@ public final class GaloisField {
    */
   public void substitute(byte[][] p, byte[] q, int x) {
     int y = 1;
-
-    for (byte[] pi : p) {
+    for (int i = 0; i < p.length; i++) {
+      byte[] pi = p[i];
       for (int j = 0; j < pi.length; j++) {
         int pij = pi[j] & 0x000000FF;
         q[j] = (byte) (q[j] ^ mulTable[pij][y]);
@@ -441,7 +444,8 @@ public final class GaloisField {
    */
   public void substitute(ByteBuffer[] p, int len, ByteBuffer q, int x) {
     int y = 1, iIdx, oIdx;
-    for (ByteBuffer pi : p) {
+    for (int i = 0; i < p.length; i++) {
+      ByteBuffer pi = p[i];
       int pos = pi != null ? pi.position() : 0;
       int limit = pi != null ? pi.limit() : len;
       for (oIdx = q.position(), iIdx = pos;

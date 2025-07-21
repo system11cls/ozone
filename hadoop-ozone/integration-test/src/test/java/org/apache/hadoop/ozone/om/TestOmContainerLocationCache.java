@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,43 +18,8 @@
 
 package org.apache.hadoop.ozone.om;
 
-import static com.google.common.collect.Sets.newHashSet;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.NO_REPLICA_FOUND;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_KEY_PREALLOCATION_BLOCKS_MAX;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableMap;
-import jakarta.annotation.Nonnull;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
@@ -86,9 +52,6 @@ import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
-import org.apache.hadoop.hdds.scm.net.InnerNode;
-import org.apache.hadoop.hdds.scm.net.InnerNodeImpl;
-import org.apache.hadoop.hdds.scm.net.NetConstants;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocol;
@@ -97,7 +60,6 @@ import org.apache.hadoop.hdds.security.exception.SCMSecurityException;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.rpc.RpcClient;
@@ -106,21 +68,60 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.ServiceInfoEx;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusException;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.util.ExitUtils;
+import org.jetbrains.annotations.NotNull;
+import org.junit.Rule;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 import org.mockito.ArgumentMatcher;
+import org.mockito.Mockito;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.Sets.newHashSet;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.NO_REPLICA_FOUND;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_KEY_PREALLOCATION_BLOCKS_MAX;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * This class includes the integration test-cases to verify the integration
@@ -132,14 +133,18 @@ import org.mockito.ArgumentMatcher;
  * This integration verifies clients and OM using mocked Datanode and SCM
  * protocols.
  */
-@Timeout(300)
 public class TestOmContainerLocationCache {
-  @TempDir
-  private static File dir;
+
+  /**
+   * Set a timeout for each test.
+   */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
   private static ScmBlockLocationProtocol mockScmBlockLocationProtocol;
   private static StorageContainerLocationProtocol mockScmContainerClient;
   private static OzoneConfiguration conf;
   private static OMMetadataManager metadataManager;
+  private static File dir;
   private static final String BUCKET_NAME = "bucket1";
   private static final String VERSIONED_BUCKET_NAME = "versionedBucket1";
   private static final String VOLUME_NAME = "vol1";
@@ -160,32 +165,29 @@ public class TestOmContainerLocationCache {
   private static final DatanodeDetails DN5 =
       MockDatanodeDetails.createDatanodeDetails(UUID.randomUUID());
   private static final AtomicLong CONTAINER_ID = new AtomicLong(1);
-  private static OzoneClient ozoneClient;
+
 
   @BeforeAll
   public static void setUp() throws Exception {
     ExitUtils.disableSystemExit();
 
     conf = new OzoneConfiguration();
+    dir = GenericTestUtils.getRandomizedTestDir();
     conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, dir.toString());
     conf.set(OzoneConfigKeys.OZONE_NETWORK_TOPOLOGY_AWARE_READ_KEY, "true");
     conf.setLong(OZONE_KEY_PREALLOCATION_BLOCKS_MAX, 10);
 
     mockScmBlockLocationProtocol = mock(ScmBlockLocationProtocol.class);
     mockScmContainerClient =
-        mock(StorageContainerLocationProtocol.class);
-    InnerNode.Factory factory = InnerNodeImpl.FACTORY;
-    when(mockScmBlockLocationProtocol.getNetworkTopology()).thenReturn(
-        factory.newInnerNode("", "", null, NetConstants.ROOT_LEVEL, 1));
+        Mockito.mock(StorageContainerLocationProtocol.class);
 
     OmTestManagers omTestManagers = new OmTestManagers(conf,
         mockScmBlockLocationProtocol, mockScmContainerClient);
     om = omTestManagers.getOzoneManager();
-    ozoneClient = omTestManagers.getRpcClient();
     metadataManager = omTestManagers.getMetadataManager();
 
     rpcClient = new RpcClient(conf, null) {
-      @Nonnull
+      @NotNull
       @Override
       protected XceiverClientFactory createXceiverClientFactory(
           ServiceInfoEx serviceInfo) throws IOException {
@@ -202,8 +204,8 @@ public class TestOmContainerLocationCache {
 
   @AfterAll
   public static void cleanup() throws Exception {
-    ozoneClient.close();
     om.stop();
+    FileUtils.deleteDirectory(dir);
   }
 
   private static XceiverClientManager mockDataNodeClientFactory()
@@ -216,7 +218,7 @@ public class TestOmContainerLocationCache {
     when(manager.acquireClient(argThat(matchEmptyPipeline())))
         .thenCallRealMethod();
     when(manager.acquireClient(argThat(matchEmptyPipeline()),
-        anyBoolean())).thenCallRealMethod();
+        Mockito.anyBoolean())).thenCallRealMethod();
     when(manager.acquireClientForReadData(argThat(matchEmptyPipeline())))
         .thenCallRealMethod();
 
@@ -275,13 +277,10 @@ public class TestOmContainerLocationCache {
   }
 
   @BeforeEach
-  public void beforeEach() throws IOException {
+  public void beforeEach() {
     CONTAINER_ID.getAndIncrement();
-    reset(mockScmBlockLocationProtocol, mockScmContainerClient,
+    Mockito.reset(mockScmBlockLocationProtocol, mockScmContainerClient,
         mockDn1Protocol, mockDn2Protocol, mockDnEcProtocol);
-    InnerNode.Factory factory = InnerNodeImpl.FACTORY;
-    when(mockScmBlockLocationProtocol.getNetworkTopology()).thenReturn(
-        factory.newInnerNode("", "", null, NetConstants.ROOT_LEVEL, 1));
     when(mockDn1Protocol.getPipeline()).thenReturn(createPipeline(DN1));
     when(mockDn2Protocol.getPipeline()).thenReturn(createPipeline(DN2));
     when(mockDnEcProtocol.getPipeline()).thenReturn(createEcPipeline(
@@ -321,7 +320,7 @@ public class TestOmContainerLocationCache {
     try (InputStream is = key1.getContent()) {
       byte[] read = new byte[(int) key1.getDataSize()];
       IOUtils.read(is, read);
-      assertArrayEquals(data, read);
+      Assertions.assertArrayEquals(data, read);
     }
 
     // Create keyName2 in the same container to reuse the cache
@@ -334,7 +333,7 @@ public class TestOmContainerLocationCache {
     try (InputStream is = key2.getContent()) {
       byte[] read = new byte[(int) key2.getDataSize()];
       IOUtils.read(is, read);
-      assertArrayEquals(data, read);
+      Assertions.assertArrayEquals(data, read);
     }
     // Ensure SCM is not called once again.
     verify(mockScmContainerClient, times(1))
@@ -399,7 +398,7 @@ public class TestOmContainerLocationCache {
 
       byte[] read = new byte[(int) key1.getDataSize()];
       IOUtils.read(is, read);
-      assertArrayEquals(data, read);
+      Assertions.assertArrayEquals(data, read);
     }
 
     // verify SCM is called one more time to refresh.
@@ -448,7 +447,7 @@ public class TestOmContainerLocationCache {
 
       byte[] read = new byte[(int) key1.getDataSize()];
       IOUtils.read(is, read);
-      assertArrayEquals(data, read);
+      Assertions.assertArrayEquals(data, read);
     }
 
     // verify SCM is called one more time to refresh.
@@ -592,7 +591,7 @@ public class TestOmContainerLocationCache {
     try (InputStream is = updatedKey1.getContent()) {
       byte[] read = new byte[(int) key1.getDataSize()];
       IOUtils.read(is, read);
-      assertArrayEquals(data, read);
+      Assertions.assertArrayEquals(data, read);
     }
     // verify SCM is called one more time to refetch the container pipeline..
     verify(mockScmContainerClient, times(2))
@@ -663,7 +662,7 @@ public class TestOmContainerLocationCache {
         .sendCommandAsync(argThat(matchCmd(Type.PutBlock)));
   }
 
-  @Nonnull
+  @NotNull
   private ContainerProtos.DatanodeBlockID createBlockId(long containerId,
                                                         long localId) {
     return ContainerProtos.DatanodeBlockID.newBuilder()
@@ -673,38 +672,16 @@ public class TestOmContainerLocationCache {
 
   private void mockWriteChunkResponse(XceiverClientSpi mockDnProtocol)
       throws IOException, ExecutionException, InterruptedException {
+    ContainerCommandResponseProto writeResponse =
+        ContainerCommandResponseProto.newBuilder()
+            .setWriteChunk(WriteChunkResponseProto.newBuilder().build())
+            .setResult(Result.SUCCESS)
+            .setCmdType(Type.WriteChunk)
+            .build();
     doAnswer(invocation ->
-        new XceiverClientReply(
-            completedFuture(
-                createWriteChunkResponse(
-                    (ContainerCommandRequestProto)invocation.getArgument(0)))))
+        new XceiverClientReply(completedFuture(writeResponse)))
         .when(mockDnProtocol)
         .sendCommandAsync(argThat(matchCmd(Type.WriteChunk)));
-  }
-
-  ContainerCommandResponseProto createWriteChunkResponse(
-      ContainerCommandRequestProto request) {
-    ContainerProtos.WriteChunkRequestProto writeChunk = request.getWriteChunk();
-
-    WriteChunkResponseProto.Builder builder =
-        WriteChunkResponseProto.newBuilder();
-    if (writeChunk.hasBlock()) {
-      ContainerProtos.BlockData
-          blockData = writeChunk.getBlock().getBlockData();
-
-      GetCommittedBlockLengthResponseProto response =
-          GetCommittedBlockLengthResponseProto.newBuilder()
-          .setBlockID(blockData.getBlockID())
-          .setBlockLength(blockData.getSize())
-          .build();
-
-      builder.setCommittedBlockLength(response);
-    }
-    return ContainerCommandResponseProto.newBuilder()
-        .setWriteChunk(builder.build())
-        .setResult(Result.SUCCESS)
-        .setCmdType(Type.WriteChunk)
-        .build();
   }
 
   private ArgumentMatcher<ContainerCommandRequestProto> matchCmd(Type type) {
@@ -823,7 +800,7 @@ public class TestOmContainerLocationCache {
         .sendCommandAsync(argThat(matchCmd(Type.GetBlock)), any());
   }
 
-  @Nonnull
+  @NotNull
   private ChunkInfo createChunkInfo(byte[] data) throws Exception {
     Checksum checksum = new Checksum(ChecksumType.CRC32, 4);
     return ChunkInfo.newBuilder()

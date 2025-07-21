@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,37 +14,42 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.util.concurrent.TimeoutException;
+
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.RocksDBConfiguration;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 
 /**
  * Test RocksDB logging for Ozone Manager.
  */
-@Timeout(100)
 public class TestOzoneManagerRocksDBLogging {
   private MiniOzoneCluster cluster = null;
   private OzoneConfiguration conf;
   private RocksDBConfiguration dbConf;
 
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(100));
+
   private static GenericTestUtils.LogCapturer logCapturer =
       GenericTestUtils.LogCapturer.captureLogs(DBStoreBuilder.ROCKS_DB_LOGGER);
 
-  @BeforeEach
+  @Before
   public void init() throws Exception {
     conf = new OzoneConfiguration();
     dbConf = conf.getObject(RocksDBConfiguration.class);
@@ -56,7 +62,7 @@ public class TestOzoneManagerRocksDBLogging {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterEach
+  @After
   public void shutdown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -65,8 +71,12 @@ public class TestOzoneManagerRocksDBLogging {
 
   @Test
   public void testOMRocksDBLoggingEnabled() throws Exception {
-    Exception ex = assertThrows(TimeoutException.class, () -> waitForRocksDbLog());
-    assertThat(ex.getMessage()).contains("Timed out");
+    try {
+      waitForRocksDbLog();
+      Assert.fail("Unexpected RocksDB log: " + logCapturer.getOutput());
+    } catch (TimeoutException ex) {
+      Assert.assertTrue(ex.getMessage().contains("Timed out"));
+    }
 
     enableRocksDbLogging(true);
     cluster.restartOzoneManager();

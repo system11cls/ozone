@@ -1,35 +1,31 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.server.events;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.List;
-import java.util.Objects;
 import org.apache.hadoop.hdds.HddsIdFactory;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.lease.LeaseManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Test the basic functionality of event watcher.
@@ -83,7 +79,7 @@ public class TestEventWatcher {
     queue.fireEvent(WATCH_UNDER_REPLICATED,
         new UnderreplicatedEvent(id2, "C2"));
 
-    assertEquals(0,
+    Assertions.assertEquals(0,
         underReplicatedEvents.getReceivedEvents().size());
 
     Thread.sleep(1000);
@@ -91,16 +87,16 @@ public class TestEventWatcher {
     queue.fireEvent(REPLICATION_COMPLETED,
         new ReplicationCompletedEvent(id1, "C2", "D1"));
 
-    assertEquals(0,
+    Assertions.assertEquals(0,
         underReplicatedEvents.getReceivedEvents().size());
 
     Thread.sleep(1500);
 
     queue.processAll(1000L);
 
-    assertEquals(1,
+    Assertions.assertEquals(1,
         underReplicatedEvents.getReceivedEvents().size());
-    assertEquals(id2,
+    Assertions.assertEquals(id2,
         underReplicatedEvents.getReceivedEvents().get(0).id);
 
   }
@@ -136,14 +132,15 @@ public class TestEventWatcher {
     List<UnderreplicatedEvent> c1todo = replicationWatcher
         .getTimeoutEvents(e -> e.containerId.equalsIgnoreCase("C1"));
 
-    assertEquals(2, c1todo.size());
-    assertTrue(replicationWatcher.contains(event1));
+    Assertions.assertEquals(2, c1todo.size());
+    Assertions.assertTrue(replicationWatcher.contains(event1));
     Thread.sleep(1500L);
 
     c1todo = replicationWatcher
         .getTimeoutEvents(e -> e.containerId.equalsIgnoreCase("C1"));
-    assertEquals(0, c1todo.size());
-    assertFalse(replicationWatcher.contains(event1));
+    Assertions.assertEquals(0, c1todo.size());
+    Assertions.assertFalse(replicationWatcher.contains(event1));
+
   }
 
   @Test
@@ -198,19 +195,18 @@ public class TestEventWatcher {
     EventWatcherMetrics metrics = replicationWatcher.getMetrics();
 
     //3 events are received
-    assertEquals(3, metrics.getTrackedEvents().value());
+    Assertions.assertEquals(3, metrics.getTrackedEvents().value());
 
     //completed + timed out = all messages
-    assertEquals(metrics.getTrackedEvents().value(),
+    Assertions.assertEquals(metrics.getTrackedEvents().value(),
         metrics.getCompletedEvents().value() +
             metrics.getTimedOutEvents().value(),
         "number of timed out and completed messages should be the same as the"
             + " all messages");
 
     //_at least_ two are timed out.
-    assertThat(metrics.getTimedOutEvents().value())
-        .withFailMessage("At least two events should be timed out.")
-        .isGreaterThanOrEqualTo(2);
+    Assertions.assertTrue(metrics.getTimedOutEvents().value() >= 2,
+        "At least two events should be timed out.");
 
     DefaultMetricsSystem.shutdown();
   }

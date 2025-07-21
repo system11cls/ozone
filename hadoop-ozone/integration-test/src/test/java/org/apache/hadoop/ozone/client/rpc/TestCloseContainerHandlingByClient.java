@@ -1,35 +1,28 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.client.rpc;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -55,16 +48,30 @@ import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 
 /**
  * Tests Close Container Exception handling by Ozone Client.
  */
-@Timeout(300)
 public class TestCloseContainerHandlingByClient {
+
+  /**
+    * Set a timeout for each test.
+    */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
 
   private static MiniOzoneCluster cluster;
   private static OzoneConfiguration conf = new OzoneConfiguration();
@@ -83,12 +90,12 @@ public class TestCloseContainerHandlingByClient {
    *
    * @throws IOException
    */
-  @BeforeAll
+  @BeforeClass
   public static void init() throws Exception {
     chunkSize = (int) OzoneConsts.MB;
     blockSize = 4 * chunkSize;
 
-    OzoneClientConfig config = conf.getObject(OzoneClientConfig.class);
+    OzoneClientConfig config = new OzoneClientConfig();
     config.setChecksumType(ChecksumType.NONE);
     conf.setFromObject(config);
 
@@ -116,7 +123,7 @@ public class TestCloseContainerHandlingByClient {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterAll
+  @AfterClass
   public static void shutdown() {
     IOUtils.closeQuietly(client);
     if (cluster != null) {
@@ -134,7 +141,7 @@ public class TestCloseContainerHandlingByClient {
         .getBytes(UTF_8);
     key.write(data);
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     //get the name of a valid container
     OmKeyArgs keyArgs = new OmKeyArgs.Builder().setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -149,7 +156,7 @@ public class TestCloseContainerHandlingByClient {
     // read the key from OM again and match the length.The length will still
     // be the equal to the original data size.
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
-    assertEquals(2 * data.length, keyInfo.getDataSize());
+    Assert.assertEquals(2 * data.length, keyInfo.getDataSize());
 
     // Written the same data twice
     String dataString = new String(data, UTF_8);
@@ -167,7 +174,7 @@ public class TestCloseContainerHandlingByClient {
         .getBytes(UTF_8);
     key.write(data);
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     //get the name of a valid container
     OmKeyArgs keyArgs = new OmKeyArgs.Builder().setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -180,7 +187,7 @@ public class TestCloseContainerHandlingByClient {
     // read the key from OM again and match the length.The length will still
     // be the equal to the original data size.
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
-    assertEquals(data.length, keyInfo.getDataSize());
+    Assert.assertEquals(data.length, keyInfo.getDataSize());
     validateData(keyName, data);
   }
 
@@ -193,15 +200,15 @@ public class TestCloseContainerHandlingByClient {
     KeyOutputStream keyOutputStream =
         (KeyOutputStream) key.getOutputStream();
     // With the initial size provided, it should have preallocated 4 blocks
-    assertEquals(3, keyOutputStream.getStreamEntries().size());
+    Assert.assertEquals(3, keyOutputStream.getStreamEntries().size());
     // write data more than 1 block
     byte[] data =
         ContainerTestHelper.getFixedLengthString(keyString, (3 * blockSize))
             .getBytes(UTF_8);
-    assertEquals(data.length, 3 * blockSize);
+    Assert.assertEquals(data.length, 3 * blockSize);
     key.write(data);
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     //get the name of a valid container
     OmKeyArgs keyArgs = new OmKeyArgs.Builder().setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -225,10 +232,10 @@ public class TestCloseContainerHandlingByClient {
     // closeContainerException and remaining data in the chunkOutputStream
     // buffer will be copied into a different allocated block and will be
     // committed.
-    assertEquals(4, keyLocationInfos.size());
-    assertEquals(4 * blockSize, keyInfo.getDataSize());
+    Assert.assertEquals(4, keyLocationInfos.size());
+    Assert.assertEquals(4 * blockSize, keyInfo.getDataSize());
     for (OmKeyLocationInfo locationInfo : keyLocationInfos) {
-      assertEquals(blockSize, locationInfo.getLength());
+      Assert.assertEquals(blockSize, locationInfo.getLength());
     }
   }
 
@@ -240,9 +247,9 @@ public class TestCloseContainerHandlingByClient {
     KeyOutputStream keyOutputStream =
         (KeyOutputStream) key.getOutputStream();
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     // With the initial size provided, it should have pre allocated 2 blocks
-    assertEquals(2, keyOutputStream.getStreamEntries().size());
+    Assert.assertEquals(2, keyOutputStream.getStreamEntries().size());
     String dataString =
         ContainerTestHelper.getFixedLengthString(keyString, (2 * blockSize));
     byte[] data = dataString.getBytes(UTF_8);
@@ -282,7 +289,7 @@ public class TestCloseContainerHandlingByClient {
 
     String dataCommitted =
         dataString.concat(dataString2).concat(dataString3).concat(dataString4);
-    assertEquals(dataCommitted.getBytes(UTF_8).length,
+    Assert.assertEquals(dataCommitted.getBytes(UTF_8).length,
         keyInfo.getDataSize());
     validateData(keyName, dataCommitted.getBytes(UTF_8));
   }
@@ -296,16 +303,16 @@ public class TestCloseContainerHandlingByClient {
     KeyOutputStream keyOutputStream =
         (KeyOutputStream) key.getOutputStream();
     // With the initial size provided, it should have preallocated 4 blocks
-    assertEquals(4, keyOutputStream.getStreamEntries().size());
+    Assert.assertEquals(4, keyOutputStream.getStreamEntries().size());
     // write data 4 blocks and one more chunk
     byte[] writtenData =
         ContainerTestHelper.getFixedLengthString(keyString, keyLen)
             .getBytes(UTF_8);
     byte[] data = Arrays.copyOfRange(writtenData, 0, 3 * blockSize + chunkSize);
-    assertEquals(data.length, 3 * blockSize + chunkSize);
+    Assert.assertEquals(data.length, 3 * blockSize + chunkSize);
     key.write(data);
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     //get the name of a valid container
     OmKeyArgs keyArgs = new OmKeyArgs.Builder().setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -330,7 +337,7 @@ public class TestCloseContainerHandlingByClient {
     try (OzoneInputStream inputStream = bucket.readKey(keyName)) {
       inputStream.read(readData);
     }
-    assertArrayEquals(writtenData, readData);
+    Assert.assertArrayEquals(writtenData, readData);
 
     // Though we have written only block initially, the close will hit
     // closeContainerException and remaining data in the chunkOutputStream
@@ -340,7 +347,7 @@ public class TestCloseContainerHandlingByClient {
     for (OmKeyLocationInfo locationInfo : keyLocationInfos) {
       length += locationInfo.getLength();
     }
-    assertEquals(4 * blockSize, length);
+    Assert.assertEquals(4 * blockSize, length);
   }
 
   private void waitForContainerClose(OzoneOutputStream outputStream)
@@ -350,7 +357,7 @@ public class TestCloseContainerHandlingByClient {
   }
 
   private OzoneOutputStream createKey(String keyName, ReplicationType type,
-                                      long size) throws Exception {
+      long size) throws Exception {
     return TestHelper
         .createKey(keyName, type, size, objectStore, volumeName, bucketName);
   }
@@ -376,7 +383,7 @@ public class TestCloseContainerHandlingByClient {
         .setKeyName(keyName)
         .build();
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     waitForContainerClose(key);
     // Again Write the Data. This will throw an exception which will be handled
     // and new blocks will be allocated
@@ -388,7 +395,7 @@ public class TestCloseContainerHandlingByClient {
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
     String dataString = new String(data, UTF_8);
     dataString = dataString.concat(dataString);
-    assertEquals(2 * data.length, keyInfo.getDataSize());
+    Assert.assertEquals(2 * data.length, keyInfo.getDataSize());
     validateData(keyName, dataString.getBytes(UTF_8));
   }
 
@@ -402,7 +409,7 @@ public class TestCloseContainerHandlingByClient {
             .getBytes(UTF_8);
     key.write(data1);
 
-    assertInstanceOf(KeyOutputStream.class, key.getOutputStream());
+    Assert.assertTrue(key.getOutputStream() instanceof KeyOutputStream);
     //get the name of a valid container
     OmKeyArgs keyArgs = new OmKeyArgs.Builder().setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -420,7 +427,7 @@ public class TestCloseContainerHandlingByClient {
     // read the key from OM again and match the length.The length will still
     // be the equal to the original data size.
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
-    assertEquals((long) 5 * chunkSize, keyInfo.getDataSize());
+    Assert.assertEquals((long) 5 * chunkSize, keyInfo.getDataSize());
 
     // Written the same data twice
     String dataString = new String(data1, UTF_8);

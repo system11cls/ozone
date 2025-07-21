@@ -1,30 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.container.balancer;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.NavigableSet;
-import java.util.Set;
-import java.util.TreeSet;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
@@ -39,6 +30,12 @@ import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.NavigableSet;
+import java.util.Set;
+import java.util.TreeSet;
+
 /**
  * The selection criteria for selecting containers that will be moved and
  * selecting datanodes that containers will move to.
@@ -51,28 +48,23 @@ public class ContainerBalancerSelectionCriteria {
   private NodeManager nodeManager;
   private ReplicationManager replicationManager;
   private ContainerManager containerManager;
-  private Map<ContainerID, DatanodeDetails> containerToSourceMap;
+  private Set<ContainerID> selectedContainers;
   private Set<ContainerID> excludeContainers;
-  private Set<ContainerID> excludeContainersDueToFailure;
   private FindSourceStrategy findSourceStrategy;
-  private Map<DatanodeDetails, NavigableSet<ContainerID>> setMap;
 
   public ContainerBalancerSelectionCriteria(
       ContainerBalancerConfiguration balancerConfiguration,
       NodeManager nodeManager,
       ReplicationManager replicationManager,
       ContainerManager containerManager,
-      FindSourceStrategy findSourceStrategy,
-      Map<ContainerID, DatanodeDetails> containerToSourceMap) {
+      FindSourceStrategy findSourceStrategy) {
     this.balancerConfiguration = balancerConfiguration;
     this.nodeManager = nodeManager;
     this.replicationManager = replicationManager;
     this.containerManager = containerManager;
-    this.containerToSourceMap = containerToSourceMap;
-    excludeContainersDueToFailure = new HashSet<>();
+    selectedContainers = new HashSet<>();
     excludeContainers = balancerConfiguration.getExcludeContainers();
     this.findSourceStrategy = findSourceStrategy;
-    this.setMap = new HashMap<>();
   }
 
   /**
@@ -86,20 +78,42 @@ public class ContainerBalancerSelectionCriteria {
   }
 
   /**
-   * Get ContainerID Set for the Datanode, it will be returned as NavigableSet
-   * Since sorting will be time-consuming, the Set will be cached.
+   * Gets containers that are suitable for moving based on the following
+   * required criteria:
+   * 1. Container must not be undergoing replication.
+   * 2. Container must not already be selected for balancing.
+   * 3. Container size should be closer to 5GB.
+   * 4. Container must not be in the configured exclude containers list.
+   * 5. Container should be closed.
+   * 6. Container should not be an EC container
+   * //TODO Temporarily not considering EC containers as candidates
+   * @see
+   * <a href="https://issues.apache.org/jira/browse/HDDS-6940">HDDS-6940</a>
    *
-   * @param node source datanode
-   * @return cached Navigable ContainerID Set
+   * @param node DatanodeDetails for which to find candidate containers.
+   * @return NavigableSet of candidate containers that satisfy the criteria.
    */
-  public Set<ContainerID> getContainerIDSet(DatanodeDetails node) {
-    // Check if the node is registered at the beginning
-    if (!nodeManager.isNodeRegistered(node)) {
-      return Collections.emptySet();
+  public NavigableSet<ContainerID> getCandidateContainers(
+      DatanodeDetails node, long sizeMovedAlready) {
+    NavigableSet<ContainerID> containerIDSet =
+        new TreeSet<>(orderContainersByUsedBytes().reversed());
+    try {
+      containerIDSet.addAll(nodeManager.getContainers(node));
+    } catch (NodeNotFoundException e) {
+      LOG.warn("Could not find Datanode {} while selecting candidate " +
+          "containers for Container Balancer.", node.toString(), e);
+      return containerIDSet;
     }
-    Set<ContainerID> containers = setMap.computeIfAbsent(node,
-        this::getCandidateContainers);
-    return containers != null ? containers : Collections.emptySet();
+    if (excludeContainers != null) {
+      containerIDSet.removeAll(excludeContainers);
+    }
+    if (selectedContainers != null) {
+      containerIDSet.removeAll(selectedContainers);
+    }
+
+    containerIDSet.removeIf(
+        containerID -> shouldBeExcluded(containerID, node, sizeMovedAlready));
+    return containerIDSet;
   }
 
   /**
@@ -143,17 +157,18 @@ public class ContainerBalancerSelectionCriteria {
   }
 
   /**
-   * Gets containers that are suitable for moving based on the following
-   * required criteria:
-   * 1. Container must not be undergoing replication.
-   * 2. Container must not already be selected for balancing.
-   * 3. Container size should be closer to 5GB.
-   * 4. Container must not be in the configured exclude containers list.
-   * 5. Container should be closed.
-   * @param node DatanodeDetails for which to find candidate containers.
-   * @return true if the container should be excluded, else false
+   * Checks whether a Container has the ReplicationType
+   * {@link HddsProtos.ReplicationType#EC}.
+   * @param container container to check
+   * @return true if the ReplicationType is EC and "hdds.scm.replication
+   * .enable.legacy" is true, else false
    */
-  public boolean shouldBeExcluded(ContainerID containerID,
+  private boolean isECContainer(ContainerInfo container) {
+    return container.getReplicationType().equals(HddsProtos.ReplicationType.EC)
+        && replicationManager.getConfig().isLegacyEnabled();
+  }
+
+  private boolean shouldBeExcluded(ContainerID containerID,
       DatanodeDetails node, long sizeMovedAlready) {
     ContainerInfo container;
     try {
@@ -163,9 +178,7 @@ public class ContainerBalancerSelectionCriteria {
           "candidate container. Excluding it.", containerID);
       return true;
     }
-    return excludeContainers.contains(containerID) || excludeContainersDueToFailure.contains(containerID) ||
-        containerToSourceMap.containsKey(containerID) ||
-        !isContainerClosed(container, node) ||
+    return !isContainerClosed(container, node) || isECContainer(container) ||
         isContainerReplicatingOrDeleting(containerID) ||
         !findSourceStrategy.canSizeLeaveSource(node, container.getUsedBytes())
         || breaksMaxSizeToMoveLimit(container.containerID(),
@@ -227,29 +240,9 @@ public class ContainerBalancerSelectionCriteria {
     this.excludeContainers = excludeContainers;
   }
 
-  public void addToExcludeDueToFailContainers(ContainerID container) {
-    this.excludeContainersDueToFailure.add(container);
+  public void setSelectedContainers(
+      Set<ContainerID> selectedContainers) {
+    this.selectedContainers = selectedContainers;
   }
 
-
-  private NavigableSet<ContainerID> getCandidateContainers(DatanodeDetails node) {
-    NavigableSet<ContainerID> newSet =
-        new TreeSet<>(orderContainersByUsedBytes().reversed());
-    try {
-      Set<ContainerID> idSet = nodeManager.getContainers(node);
-      if (excludeContainers != null) {
-        idSet.removeAll(excludeContainers);
-      }
-      if (excludeContainersDueToFailure != null) {
-        idSet.removeAll(excludeContainersDueToFailure);
-      }
-      idSet.removeAll(containerToSourceMap.keySet());
-      newSet.addAll(idSet);
-      return newSet;
-    } catch (NodeNotFoundException e) {
-      LOG.warn("Could not find Datanode {} while selecting candidate " +
-              "containers for Container Balancer.", node, e);
-      return null;
-    }
-  }
 }

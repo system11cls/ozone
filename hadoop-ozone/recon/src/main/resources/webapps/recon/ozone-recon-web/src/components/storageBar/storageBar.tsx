@@ -18,20 +18,17 @@
 
 import React from 'react';
 import { Progress } from 'antd';
-import filesize from 'filesize';
 import Icon from '@ant-design/icons';
+import Tooltip from 'antd/lib/tooltip';
+import filesize from 'filesize';
 import { withRouter } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
-import Tooltip from 'antd/lib/tooltip';
 
 import { FilledIcon } from '@/utils/themeIcons';
 import { getCapacityPercent } from '@/utils/common';
 import './storageBar.less';
 
-const size = filesize.partial({
-  standard: 'iec',
-  round: 1
-});
+const size = filesize.partial({ standard: 'iec', round: 1 });
 
 interface IStorageBarProps extends RouteComponentProps<object> {
   total: number;
@@ -61,7 +58,7 @@ class StorageBar extends React.Component<IStorageBarProps> {
         <div><Icon component={FilledIcon} className='ozone-used-bg' /> Ozone Used ({size(used)})</div>
         <div><Icon component={FilledIcon} className='non-ozone-used-bg' /> Non Ozone Used ({size(nonOzoneUsed)})</div>
         <div><Icon component={FilledIcon} className='remaining-bg' /> Remaining ({size(remaining)})</div>
-        <div><Icon component={FilledIcon} className='committed-bg' /> Container Pre-allocated ({size(committed)})</div>
+        <div><Icon component={FilledIcon} className='committed-bg'/> Container Pre-allocated ({size(committed)})</div>
       </div>
     );
     const metaElement = showMeta ? <div>{size(used)} + {size(nonOzoneUsed)} / {size(total)}</div> : null;

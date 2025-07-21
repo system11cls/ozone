@@ -1,30 +1,39 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.s3.endpoint;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.CUSTOM_METADATA_HEADER_PREFIX;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientStub;
+import org.apache.hadoop.ozone.s3.exception.OS3Exception;
+import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Response;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -34,18 +43,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
-import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.client.OzoneClient;
-import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.endpoint.CompleteMultipartUploadRequest.Part;
-import org.apache.hadoop.ozone.s3.exception.OS3Exception;
-import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.ozone.s3.util.S3Consts.CUSTOM_METADATA_HEADER_PREFIX;
+import static org.apache.hadoop.ozone.s3.util.S3Consts.STORAGE_CLASS_HEADER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.when;
 
 /**
  * Class to test Multipart upload end to end.
@@ -53,22 +59,22 @@ import org.junit.jupiter.api.Test;
 
 public class TestMultipartUploadComplete {
 
-  private ObjectEndpoint rest;
-  private HttpHeaders headers = mock(HttpHeaders.class);
-  private OzoneClient client = new OzoneClientStub();
+  private static final ObjectEndpoint REST = new ObjectEndpoint();
+  private static final HttpHeaders HEADERS = Mockito.mock(HttpHeaders.class);
+  private static final OzoneClient CLIENT = new OzoneClientStub();
 
-  @BeforeEach
-  public void setUp() throws Exception {
+  @BeforeAll
+  public static void setUp() throws Exception {
 
-    client.getObjectStore().createS3Bucket(OzoneConsts.S3_BUCKET);
+    CLIENT.getObjectStore().createS3Bucket(OzoneConsts.S3_BUCKET);
 
-    when(headers.getHeaderString(STORAGE_CLASS_HEADER)).thenReturn(
+
+    when(HEADERS.getHeaderString(STORAGE_CLASS_HEADER)).thenReturn(
         "STANDARD");
 
-    rest = EndpointBuilder.newObjectEndpointBuilder()
-        .setHeaders(headers)
-        .setClient(client)
-        .build();
+    REST.setHeaders(HEADERS);
+    REST.setClient(CLIENT);
+    REST.setOzoneConfiguration(new OzoneConfiguration());
   }
 
   private String initiateMultipartUpload(String key) throws IOException,
@@ -85,9 +91,9 @@ public class TestMultipartUploadComplete {
           .add(entry.getValue());
     }
 
-    when(headers.getRequestHeaders()).thenReturn(metadataHeaders);
+    when(HEADERS.getRequestHeaders()).thenReturn(metadataHeaders);
 
-    Response response = rest.initializeMultipartUpload(OzoneConsts.S3_BUCKET,
+    Response response = REST.initializeMultipartUpload(OzoneConsts.S3_BUCKET,
         key);
     MultipartUploadInitiateResponse multipartUploadInitiateResponse =
         (MultipartUploadInitiateResponse) response.getEntity();
@@ -103,8 +109,8 @@ public class TestMultipartUploadComplete {
       content) throws IOException, OS3Exception {
     ByteArrayInputStream body =
         new ByteArrayInputStream(content.getBytes(UTF_8));
-    Response response = rest.put(OzoneConsts.S3_BUCKET, key, content.length(),
-        partNumber, uploadID, null, null, body);
+    Response response = REST.put(OzoneConsts.S3_BUCKET, key, content.length(),
+        partNumber, uploadID, body);
     assertEquals(200, response.getStatus());
     assertNotNull(response.getHeaderString(OzoneConsts.ETAG));
     Part part = new Part();
@@ -117,7 +123,7 @@ public class TestMultipartUploadComplete {
   private void completeMultipartUpload(String key,
       CompleteMultipartUploadRequest completeMultipartUploadRequest,
       String uploadID) throws IOException, OS3Exception {
-    Response response = rest.completeMultipartUpload(OzoneConsts.S3_BUCKET, key,
+    Response response = REST.completeMultipartUpload(OzoneConsts.S3_BUCKET, key,
         uploadID, completeMultipartUploadRequest);
 
     assertEquals(200, response.getStatus());
@@ -190,7 +196,7 @@ public class TestMultipartUploadComplete {
 
     completeMultipartUpload(key, completeMultipartUploadRequest, uploadID);
 
-    Response headResponse = rest.head(OzoneConsts.S3_BUCKET, key);
+    Response headResponse = REST.head(OzoneConsts.S3_BUCKET, key);
 
     assertEquals("custom-value1", headResponse.getHeaderString(CUSTOM_METADATA_HEADER_PREFIX + "custom-key1"));
     assertEquals("custom-value2", headResponse.getHeaderString(CUSTOM_METADATA_HEADER_PREFIX + "custom-key2"));
@@ -225,10 +231,13 @@ public class TestMultipartUploadComplete {
     CompleteMultipartUploadRequest completeMultipartUploadRequest = new
         CompleteMultipartUploadRequest();
     completeMultipartUploadRequest.setPartList(partsList);
-    OS3Exception ex =
-        assertThrows(OS3Exception.class,
-            () -> completeMultipartUpload(key, completeMultipartUploadRequest, uploadID));
-    assertEquals(S3ErrorTable.INVALID_PART_ORDER.getCode(), ex.getCode());
+    try {
+      completeMultipartUpload(key, completeMultipartUploadRequest, uploadID);
+      fail("testMultipartInvalidPartOrderError");
+    } catch (OS3Exception ex) {
+      assertEquals(S3ErrorTable.INVALID_PART_ORDER.getCode(), ex.getCode());
+    }
+
   }
 
   @Test
@@ -259,9 +268,12 @@ public class TestMultipartUploadComplete {
     CompleteMultipartUploadRequest completeMultipartUploadRequest = new
         CompleteMultipartUploadRequest();
     completeMultipartUploadRequest.setPartList(partsList);
-    OS3Exception ex =
-        assertThrows(OS3Exception.class,
-            () -> completeMultipartUpload(key, completeMultipartUploadRequest, uploadID));
-    assertEquals(ex.getCode(), S3ErrorTable.INVALID_PART.getCode());
+    try {
+      completeMultipartUpload(key, completeMultipartUploadRequest, uploadID);
+      fail("testMultipartInvalidPartError");
+    } catch (OS3Exception ex) {
+      assertEquals(ex.getCode(), S3ErrorTable.INVALID_PART.getCode());
+    }
+
   }
 }

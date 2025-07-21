@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,14 +18,6 @@
 
 package org.apache.hadoop.ozone.recon.common;
 
-import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import javax.ws.rs.core.Response;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.ha.SCMNodeDetails;
@@ -41,6 +34,15 @@ import org.apache.hadoop.ozone.recon.api.types.ResponseStatus;
 import org.apache.hadoop.ozone.recon.api.types.VolumeObjectDBInfo;
 import org.apache.hadoop.ozone.recon.recovery.ReconOMMetadataManager;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
+
+import javax.ws.rs.core.Response;
+
+import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.HashMap;
+
+import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * This is a utility class for common code for test cases.
@@ -60,14 +62,10 @@ public class CommonUtils {
       String identityString,
       IAccessAuthorizer.ACLType aclType,
       OzoneAcl.AclScope scope) {
-    return OmPrefixInfo.newBuilder()
-        .setName(path)
-        .setAcls(new ArrayList<>(Collections.singletonList(new OzoneAcl(
+    return new OmPrefixInfo(path,
+        Collections.singletonList(new OzoneAcl(
             identityType, identityString,
-            scope, aclType))))
-        .setObjectID(10)
-        .setUpdateID(100)
-        .build();
+            aclType, scope)), new HashMap<>(), 10, 100);
   }
 
   public void testNSSummaryBasicInfoRoot(
@@ -187,8 +185,8 @@ public class CommonUtils {
     NamespaceSummaryResponse invalidObj =
         (NamespaceSummaryResponse) invalidResponse.getEntity();
     assertEquals(ResponseStatus.PATH_NOT_FOUND, invalidObj.getStatus());
-    assertNull(invalidObj.getCountStats());
-    assertNull(invalidObj.getObjectDBInfo());
+    assertEquals(null, invalidObj.getCountStats());
+    assertEquals(null, invalidObj.getObjectDBInfo());
   }
 
   public void testNSSummaryBasicInfoKey(

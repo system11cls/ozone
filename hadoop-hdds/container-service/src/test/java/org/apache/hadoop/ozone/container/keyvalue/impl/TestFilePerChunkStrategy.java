@@ -1,29 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.keyvalue.impl;
 
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.COMMIT_STAGE;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.common.ChunkBuffer;
@@ -34,6 +28,14 @@ import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
 import org.junit.jupiter.api.Test;
+
+import java.io.File;
+
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.COMMIT_STAGE;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for FilePerChunkStrategy.
@@ -65,7 +67,7 @@ public class TestFilePerChunkStrategy extends CommonChunkManagerTestCases {
     long term = 0;
     long index = 0;
     File chunkFile = ContainerLayoutVersion.FILE_PER_CHUNK
-        .getChunkFile(container.getContainerData(), blockID, chunkInfo.getChunkName());
+        .getChunkFile(container.getContainerData(), blockID, chunkInfo);
     File tempChunkFile = new File(chunkFile.getParent(),
         chunkFile.getName() + OzoneConsts.CONTAINER_CHUNK_NAME_DELIMITER
             + OzoneConsts.CONTAINER_TEMPORARY_CHUNK_PREFIX
@@ -107,7 +109,7 @@ public class TestFilePerChunkStrategy extends CommonChunkManagerTestCases {
     ChunkInfo oldDatanodeChunkInfo = new ChunkInfo(chunkInfo.getChunkName(),
         offset, chunkInfo.getLen());
     File file = ContainerLayoutVersion.FILE_PER_CHUNK.getChunkFile(
-        container.getContainerData(), blockID, chunkInfo.getChunkName());
+        container.getContainerData(), blockID, chunkInfo);
     ChunkUtils.writeData(file,
         ChunkBuffer.wrap(getData()), offset, chunkInfo.getLen(),
         null, true);

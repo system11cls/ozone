@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,27 +18,7 @@
 
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static org.apache.commons.collections.CollectionUtils.intersection;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_PLACEMENT_IMPL_KEY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -53,20 +34,42 @@ import org.apache.hadoop.hdds.scm.container.ContainerReplica;
 import org.apache.hadoop.hdds.scm.container.MockNodeManager;
 import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRackScatter;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
 import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
 import org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.ozone.ClientVersion;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static org.apache.commons.collections.CollectionUtils.intersection;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_PLACEMENT_IMPL_KEY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test for {@link RatisPipelineProvider}.
+ * Test for RatisPipelineProvider.
  */
 public class TestRatisPipelineProvider {
 
@@ -76,7 +79,6 @@ public class TestRatisPipelineProvider {
   private MockNodeManager nodeManager;
   private RatisPipelineProvider provider;
   private PipelineStateManager stateManager;
-  @TempDir
   private File testDir;
   private DBStore dbStore;
 
@@ -86,12 +88,11 @@ public class TestRatisPipelineProvider {
 
   public void init(int maxPipelinePerNode, OzoneConfiguration conf)
       throws Exception {
-    init(maxPipelinePerNode, conf, testDir);
-  }
-
-  public void init(int maxPipelinePerNode, OzoneConfiguration conf, File dir) throws Exception {
-    conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, dir.getAbsolutePath());
-    dbStore = DBStoreBuilder.createDBStore(conf, SCMDBDefinition.get());
+    testDir = GenericTestUtils.getTestDir(
+        TestRatisPipelineProvider.class.getSimpleName() + UUID.randomUUID());
+    conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, testDir.getAbsolutePath());
+    dbStore = DBStoreBuilder.createDBStore(
+        conf, new SCMDBDefinition());
     nodeManager = new MockNodeManager(true, 10);
     nodeManager.setNumPipelinePerDatanode(maxPipelinePerNode);
     SCMHAManager scmhaManager = SCMHAManagerStub.getInstance(true);
@@ -112,6 +113,8 @@ public class TestRatisPipelineProvider {
     if (dbStore != null) {
       dbStore.close();
     }
+
+    FileUtil.fullyDelete(testDir);
   }
 
   private static void assertPipelineProperties(
@@ -120,7 +123,8 @@ public class TestRatisPipelineProvider {
       Pipeline.PipelineState expectedState) {
     assertEquals(expectedState, pipeline.getPipelineState());
     assertEquals(expectedReplicationType, pipeline.getType());
-    assertEquals(expectedFactor.getNumber(), pipeline.getReplicationConfig().getRequiredNodes());
+    assertEquals(expectedFactor.getNumber(),
+        pipeline.getReplicationConfig().getRequiredNodes());
     assertEquals(expectedFactor.getNumber(), pipeline.getNodes().size());
   }
 
@@ -143,8 +147,9 @@ public class TestRatisPipelineProvider {
     assertPipelineProperties(pipeline1, factor, REPLICATION_TYPE,
         Pipeline.PipelineState.ALLOCATED);
     // New pipeline should not overlap with the previous created pipeline
-    assertThat(intersection(pipeline.getNodes(), pipeline1.getNodes()).size())
-        .isLessThan(factor.getNumber());
+    assertTrue(
+        intersection(pipeline.getNodes(), pipeline1.getNodes())
+            .size() < factor.getNumber());
     if (pipeline.getReplicationConfig().getRequiredNodes() == 3) {
       assertNotEquals(pipeline.getNodeSet(), pipeline1.getNodeSet());
     }
@@ -233,8 +238,8 @@ public class TestRatisPipelineProvider {
         RatisReplicationConfig.getInstance(ReplicationFactor.THREE),
         replicas);
 
-    assertEquals(pipeline1.getNodeSet(), pipeline2.getNodeSet());
-    assertEquals(pipeline2.getNodeSet(), pipeline3.getNodeSet());
+    Assertions.assertEquals(pipeline1.getNodeSet(), pipeline2.getNodeSet());
+    Assertions.assertEquals(pipeline2.getNodeSet(), pipeline3.getNodeSet());
   }
 
   @Test
@@ -305,7 +310,7 @@ public class TestRatisPipelineProvider {
         excludedNodes, Collections.EMPTY_LIST);
 
     for (DatanodeDetails dn : pipeline1.getNodes()) {
-      assertThat(excludedNodes).doesNotContain(dn);
+      assertFalse(excludedNodes.contains(dn));
     }
   }
 
@@ -321,14 +326,14 @@ public class TestRatisPipelineProvider {
     init(0, conf);
     List<DatanodeDetails> excludedNodes = new ArrayList<>();
 
-    assertThrows(SCMException.class, () ->
+    Assertions.assertThrows(SCMException.class, () ->
         provider.create(RatisReplicationConfig
                 .getInstance(ReplicationFactor.THREE),
             excludedNodes, Collections.EMPTY_LIST));
   }
 
   @Test
-  public void testCreatePipelinesWhenNotEnoughSpace(@TempDir File tempDir) throws Exception {
+  public void testCreatePipelinesWhenNotEnoughSpace() throws Exception {
     String expectedErrorSubstring = "Unable to find enough" +
         " nodes that meet the space requirement";
 
@@ -341,23 +346,29 @@ public class TestRatisPipelineProvider {
       if (factor == ReplicationFactor.ZERO) {
         continue;
       }
-      SCMException ex =
-          assertThrows(SCMException.class, () -> provider.create(RatisReplicationConfig.getInstance(factor)),
-              "Expected SCMException for large container size with replication factor " + factor.toString());
-      assertThat(ex.getMessage()).contains(expectedErrorSubstring);
+      try {
+        provider.create(RatisReplicationConfig.getInstance(factor));
+        Assertions.fail("Expected SCMException for large container size with " +
+            "replication factor " + factor.toString());
+      } catch (SCMException ex) {
+        Assertions.assertTrue(ex.getMessage().contains(expectedErrorSubstring));
+      }
     }
 
     OzoneConfiguration largeMetadataConf = new OzoneConfiguration();
     largeMetadataConf.set(OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN, "300TB");
-    init(1, largeMetadataConf, tempDir);
+    init(1, largeMetadataConf);
     for (ReplicationFactor factor: ReplicationFactor.values()) {
       if (factor == ReplicationFactor.ZERO) {
         continue;
       }
-      SCMException ex =
-          assertThrows(SCMException.class, () -> provider.create(RatisReplicationConfig.getInstance(factor)),
-              "Expected SCMException for large metadata size with replication factor " + factor.toString());
-      assertThat(ex.getMessage()).contains(expectedErrorSubstring);
+      try {
+        provider.create(RatisReplicationConfig.getInstance(factor));
+        Assertions.fail("Expected SCMException for large metadata size with " +
+            "replication factor " + factor.toString());
+      } catch (SCMException ex) {
+        Assertions.assertTrue(ex.getMessage().contains(expectedErrorSubstring));
+      }
     }
   }
 

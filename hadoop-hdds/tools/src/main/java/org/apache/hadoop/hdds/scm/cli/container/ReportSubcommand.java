@@ -1,26 +1,22 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli.container;
 
-import java.io.IOException;
-import java.time.Instant;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.cli.ScmSubcommand;
@@ -29,6 +25,11 @@ import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ReplicationManagerReport;
 import org.apache.hadoop.hdds.server.JsonUtils;
 import picocli.CommandLine;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * This is the handler to process the container report command.
@@ -51,10 +52,6 @@ public class ReportSubcommand extends ScmSubcommand {
   @Override
   public void execute(ScmClient scmClient) throws IOException {
     ReplicationManagerReport report = scmClient.getReplicationManagerReport();
-    if (report.getReportTimeStamp() == 0) {
-      System.err.println("The Container Report is not available until Replication Manager completes" +
-          " its first run after startup or fail over. All values will be zero until that time.\n");
-    }
 
     if (json) {
       output(JsonUtils.toJsonStringWithDefaultPrettyPrinter(report));
@@ -71,11 +68,9 @@ public class ReportSubcommand extends ScmSubcommand {
   }
 
   private void outputHeader(long epochMs) {
-    if (epochMs == 0) {
-      epochMs = Instant.now().toEpochMilli();
-    }
     Instant reportTime = Instant.ofEpochSecond(epochMs / 1000);
     outputHeading("Container Summary Report generated at " + reportTime);
+
   }
 
   private void outputContainerStats(ReplicationManagerReport report) {
@@ -103,7 +98,7 @@ public class ReportSubcommand extends ScmSubcommand {
     for (ReplicationManagerReport.HealthState state
         : ReplicationManagerReport.HealthState.values()) {
       List<ContainerID> containers = report.getSample(state);
-      if (!containers.isEmpty()) {
+      if (containers.size() > 0) {
         output("First " + ReplicationManagerReport.SAMPLE_LIMIT + " " +
             state + " containers:");
         output(containers

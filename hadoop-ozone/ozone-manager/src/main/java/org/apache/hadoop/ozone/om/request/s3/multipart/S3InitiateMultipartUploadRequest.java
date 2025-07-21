@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,29 +18,17 @@
 
 package org.apache.hadoop.ozone.om.request.s3.multipart;
 
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
-
 import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Map;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
-import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.om.helpers.KeyValueUtil;
 import org.apache.hadoop.ozone.audit.OMAction;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneConfigUtil;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.KeyValueUtil;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
@@ -60,10 +49,22 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
-import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
+import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.util.Time;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Map;
+
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
 /**
  * Handles initiate multipart upload request.
@@ -81,7 +82,7 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
   @Override
   public OMRequest preExecute(OzoneManager ozoneManager) throws IOException {
     MultipartInfoInitiateRequest multipartInfoInitiateRequest =
-        super.preExecute(ozoneManager).getInitiateMultiPartUploadRequest();
+        getOmRequest().getInitiateMultiPartUploadRequest();
     Preconditions.checkNotNull(multipartInfoInitiateRequest);
 
     KeyArgs keyArgs = multipartInfoInitiateRequest.getKeyArgs();
@@ -98,19 +99,17 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
 
     generateRequiredEncryptionInfo(keyArgs, newKeyArgs, ozoneManager);
 
-    KeyArgs resolvedArgs = resolveBucketAndCheckKeyAcls(newKeyArgs.build(),
-        ozoneManager, ACLType.CREATE);
     return getOmRequest().toBuilder()
         .setUserInfo(getUserInfo())
         .setInitiateMultiPartUploadRequest(
-            multipartInfoInitiateRequest.toBuilder().setKeyArgs(resolvedArgs))
+            multipartInfoInitiateRequest.toBuilder().setKeyArgs(newKeyArgs))
         .build();
   }
 
   @Override
   @SuppressWarnings("methodlength")
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
-    final long transactionLogIndex = context.getIndex();
+  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
+      long transactionLogIndex) {
     MultipartInfoInitiateRequest multipartInfoInitiateRequest =
         getOmRequest().getInitiateMultiPartUploadRequest();
 
@@ -120,7 +119,6 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
     Preconditions.checkNotNull(keyArgs.getMultipartUploadID());
 
     Map<String, String> auditMap = buildKeyArgsAuditMap(keyArgs);
-    auditMap.put(OzoneConsts.UPLOAD_ID, keyArgs.getMultipartUploadID());
 
     String volumeName = keyArgs.getVolumeName();
     String bucketName = keyArgs.getBucketName();
@@ -142,6 +140,14 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
         getOmRequest());
     OMClientResponse omClientResponse = null;
     try {
+      keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
+      volumeName = keyArgs.getVolumeName();
+      bucketName = keyArgs.getBucketName();
+
+      // check Acl
+      checkKeyAcls(ozoneManager, volumeName, bucketName, keyName,
+          IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
+
       mergeOmLockDetails(
           omMetadataManager.getLock().acquireWriteLock(BUCKET_LOCK, volumeName,
               bucketName));
@@ -207,14 +213,12 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
           .setOmKeyLocationInfos(Collections.singletonList(
               new OmKeyLocationInfoGroup(0, new ArrayList<>(), true)))
           .setAcls(getAclsForKey(keyArgs, bucketInfo, pathInfo,
-              ozoneManager.getPrefixManager(), ozoneManager.getConfiguration()))
+              ozoneManager.getPrefixManager()))
           .setObjectID(objectID)
           .setUpdateID(transactionLogIndex)
           .setFileEncryptionInfo(keyArgs.hasFileEncryptionInfo() ?
               OMPBHelper.convert(keyArgs.getFileEncryptionInfo()) : null)
           .addAllMetadata(KeyValueUtil.getFromProtobuf(keyArgs.getMetadataList()))
-          .setOwnerName(keyArgs.getOwnerName())
-          .addAllTags(KeyValueUtil.getFromProtobuf(keyArgs.getTagsList()))
           .build();
 
       // Add to cache
@@ -262,7 +266,7 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
       Map<String, String> auditMap, String volumeName, String bucketName,
       String keyName, Exception exception, Result result) {
     // audit log
-    markForAudit(ozoneManager.getAuditLogger(), buildAuditMessage(
+    auditLog(ozoneManager.getAuditLogger(), buildAuditMessage(
         OMAction.INITIATE_MULTIPART_UPLOAD, auditMap,
         exception, getOmRequest().getUserInfo()));
 

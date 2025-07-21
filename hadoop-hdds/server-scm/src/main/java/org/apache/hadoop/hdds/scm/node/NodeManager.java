@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,27 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.node;
 
 import static org.apache.hadoop.ozone.container.upgrade.UpgradeUtils.defaultLayoutVersionProto;
 
-import jakarta.annotation.Nullable;
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.BiConsumer;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeMetric;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
@@ -48,6 +39,15 @@ import org.apache.hadoop.ozone.protocol.StorageContainerNodeProtocol;
 import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
 import org.apache.hadoop.ozone.protocol.commands.RegisteredCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+
+import javax.annotation.Nullable;
+import java.io.Closeable;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.Collection;
+import java.util.function.BiConsumer;
 
 /**
  * A node manager supports a simple interface for managing a datanode.
@@ -96,6 +96,8 @@ public interface NodeManager extends StorageContainerNodeProtocol,
    * @param type The type of the SCMCommand.
    * @param scmCommand A BiConsumer that takes a DatanodeDetails and a
    *                   SCMCommand object and performs the necessary actions.
+   * @return whatever the regular register command returns with default
+   * layout version passed in.
    */
   default void registerSendCommandNotify(SCMCommandProto.Type type,
       BiConsumer<DatanodeDetails, SCMCommand<?>> scmCommand) {
@@ -282,7 +284,7 @@ public interface NodeManager extends StorageContainerNodeProtocol,
    * @param dnId datanode uuid
    * @param command
    */
-  void addDatanodeCommand(UUID dnId, SCMCommand<?> command);
+  void addDatanodeCommand(UUID dnId, SCMCommand command);
 
 
   /**
@@ -368,7 +370,7 @@ public interface NodeManager extends StorageContainerNodeProtocol,
    * @return list of commands
    */
   // TODO: We can give better name to this method!
-  List<SCMCommand<?>> getCommandQueue(UUID dnID);
+  List<SCMCommand> getCommandQueue(UUID dnID);
 
   /**
    * Given datanode uuid, returns the DatanodeDetails for the node.
@@ -426,14 +428,4 @@ public interface NodeManager extends StorageContainerNodeProtocol,
   }
 
   default void forceNodesToHealthyReadOnly() { }
-
-  /**
-   * This API allows removal of only DECOMMISSIONED, IN_MAINTENANCE and DEAD nodes
-   * from NodeManager data structures and cleanup memory.
-   * @param datanodeDetails
-   * @throws NodeNotFoundException
-   */
-  default void removeNode(DatanodeDetails datanodeDetails) throws NodeNotFoundException, IOException {
-
-  }
 }

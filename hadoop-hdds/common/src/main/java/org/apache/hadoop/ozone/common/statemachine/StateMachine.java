@@ -1,26 +1,28 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.common.statemachine;
 
+import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableSet;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -31,16 +33,16 @@ import java.util.Set;
  * @param <EVENT> events allowed
  */
 public class StateMachine<STATE extends Enum<?>, EVENT extends Enum<?>> {
-  private final STATE initialState;
-  private final ImmutableSet<STATE> finalStates;
+  private STATE initialState;
+  private Set<STATE> finalStates;
 
   private final LoadingCache<EVENT, Map<STATE, STATE>> transitions =
       CacheBuilder.newBuilder().build(
-          CacheLoader.from(() -> new HashMap<>()));
+          CacheLoader.from((Supplier<Map<STATE, STATE>>) () -> new HashMap()));
 
   public StateMachine(STATE initState, Set<STATE> finalStates) {
     this.initialState = initState;
-    this.finalStates = finalStates == null ? ImmutableSet.of() : ImmutableSet.copyOf(finalStates);
+    this.finalStates = finalStates;
   }
 
   public STATE getInitialState() {

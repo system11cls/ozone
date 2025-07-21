@@ -27,15 +27,15 @@ ${TESTFILE}            testfile
 ${CORRUPT_DATANODE}    ozone_datanode_1.ozone_default
 
 *** Test Cases ***
-Test ozone debug checksums with corrupt block replica
-    ${directory} =                      Execute replicas verify checksums CLI tool
+Test ozone debug read-replicas with corrupt block replica
+    ${directory} =                      Execute read-replicas CLI tool
     Set Test Variable    ${DIR}         ${directory}
 
     ${count_files} =                    Count Files In Directory    ${directory}
     Should Be Equal As Integers         ${count_files}     7
 
     ${json} =                           Read Replicas Manifest
-    ${md5sum} =                         Execute     md5sum ${TEMP_DIR}/${TESTFILE} | awk '{print $1}'
+    ${md5sum} =                         Execute     md5sum testfile | awk '{print $1}'
 
     FOR    ${replica}    IN RANGE    3
         ${datanode} =    Set Variable    ${json}[blocks][0][replicas][${replica}][hostname]

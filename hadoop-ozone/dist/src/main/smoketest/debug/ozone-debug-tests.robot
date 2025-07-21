@@ -32,25 +32,20 @@ ${TESTFILE}         testfile
 Write keys
     Execute             ozone sh volume create o3://om/${VOLUME} --space-quota 100TB --namespace-quota 100
     Execute             ozone sh bucket create o3://om/${VOLUME}/${BUCKET} --space-quota 1TB
-    Execute             dd if=/dev/urandom of=${TEMP_DIR}/${TESTFILE} bs=100000 count=15
-    Execute             ozone sh key put o3://om/${VOLUME}/${BUCKET}/${TESTFILE} ${TEMP_DIR}/${TESTFILE}
+    Execute             dd if=/dev/urandom of=${TESTFILE} bs=100000 count=15
+    Execute             ozone sh key put o3://om/${VOLUME}/${BUCKET}/${TESTFILE} ${TESTFILE}
 
 *** Test Cases ***
 Test ozone debug read-replicas
-    ${directory} =                      Execute replicas verify checksums CLI tool
+    ${directory} =                      Execute read-replicas CLI tool
     Set Test Variable    ${DIR}         ${directory}
 
     ${count_files} =                    Count Files In Directory    ${directory}
     Should Be Equal As Integers         ${count_files}     7
 
     ${json} =                           Read Replicas Manifest
-    ${md5sum} =                         Execute     md5sum ${TEMP_DIR}/${TESTFILE} | awk '{print $1}'
+    ${md5sum} =                         Execute     md5sum ${TESTFILE} | awk '{print $1}'
 
     FOR    ${replica}    IN RANGE    3
         Verify Healthy Replica   ${json}    ${replica}    ${md5sum}
     END
-
-
-Test ozone debug version
-    ${output} =    Execute    ozone debug version
-                   Execute    echo '${output}' | jq -r '.' # validate JSON

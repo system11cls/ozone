@@ -1,42 +1,23 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.om.response;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.Iterators;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -52,9 +33,12 @@ import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.OzoneManager;
+import org.apache.hadoop.ozone.om.ResolvedBucket;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.lock.OzoneLockProvider;
+import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.file.OMFileCreateRequest;
 import org.apache.hadoop.ozone.om.request.key.OMKeyCreateRequest;
 import org.apache.hadoop.ozone.om.response.file.OMFileCreateResponse;
@@ -67,6 +51,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyLocation;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,6 +59,27 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.reflections.Reflections;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 
 /**
  * The test checks whether all {@link OMClientResponse} have defined the
@@ -117,6 +123,14 @@ public class TestCleanupTableInfo {
     OMMetadataManager metaMgr = createOMMetadataManagerSpy();
     when(om.getMetrics()).thenReturn(omMetrics);
     when(om.getMetadataManager()).thenReturn(metaMgr);
+    when(om.resolveBucketLink(any(KeyArgs.class), any(OMClientRequest.class)))
+        .thenAnswer(
+            invocationOnMock -> new ResolvedBucket(
+                TEST_VOLUME_NAME, TEST_BUCKET_NAME,
+                TEST_VOLUME_NAME, TEST_BUCKET_NAME,
+                "owner", BucketLayout.DEFAULT)
+        );
+    when(om.getAclsEnabled()).thenReturn(false);
     when(om.getAuditLogger()).thenReturn(mock(AuditLogger.class));
     when(om.getDefaultReplicationConfig()).thenReturn(ReplicationConfig
         .getDefault(new OzoneConfiguration()));
@@ -136,7 +150,7 @@ public class TestCleanupTableInfo {
     subTypes.remove(OMEchoRPCWriteResponse.class);
     subTypes.remove(DummyOMClientResponse.class);
     subTypes.forEach(aClass -> {
-      assertTrue(aClass.isAnnotationPresent(CleanupTableInfo.class),
+      Assertions.assertTrue(aClass.isAnnotationPresent(CleanupTableInfo.class),
           aClass + " does not have annotation of" +
               " CleanupTableInfo");
       CleanupTableInfo annotation =
@@ -144,7 +158,7 @@ public class TestCleanupTableInfo {
       String[] cleanupTables = annotation.cleanupTables();
       boolean cleanupAll = annotation.cleanupAll();
       if (cleanupTables.length >= 1) {
-        assertTrue(
+        Assertions.assertTrue(
             Arrays.stream(cleanupTables).allMatch(tables::contains)
         );
       } else {
@@ -263,7 +277,7 @@ public class TestCleanupTableInfo {
     OzoneConfiguration conf = new OzoneConfiguration();
     File newFolder = folder.toFile();
     if (!newFolder.exists()) {
-      assertTrue(newFolder.mkdirs());
+      Assertions.assertTrue(newFolder.mkdirs());
     }
     ServerUtils.setOzoneMetaDirPath(conf, newFolder.toString());
     return spy(new OmMetadataManagerImpl(conf, null));

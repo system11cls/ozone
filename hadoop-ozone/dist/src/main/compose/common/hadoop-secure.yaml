@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+version: "3.8"
 services:
   rm:
-    image: ${HADOOP_TEST_IMAGE}
+    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
     hostname: rm
-    dns_search: .
     volumes:
       - ../..:/opt/ozone
       - ../../libexec/transformation.py:/opt/transformation.py
@@ -35,9 +35,8 @@ services:
     profiles:
       - hadoop
   nm:
-    image: ${HADOOP_TEST_IMAGE}
+    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
     hostname: nm
-    dns_search: .
     volumes:
       - ../..:/opt/ozone
       - ../../libexec/transformation.py:/opt/transformation.py
@@ -54,10 +53,9 @@ services:
     profiles:
       - hadoop
   jhs:
-    image: ${HADOOP_TEST_IMAGE}
+    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
     container_name: jhs
     hostname: jhs
-    dns_search: .
     volumes:
       - ../..:/opt/ozone
       - ../_keytabs:/etc/security/keytabs

@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,21 +18,21 @@
 
 package org.apache.hadoop.ozone.om.protocolPB.grpc;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
-
 import io.grpc.Context;
 import io.grpc.Contexts;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test OM GRPC server interceptor to define client ip and hostname.
@@ -41,7 +42,7 @@ public class TestClientAddressServerInterceptor {
   @Test
   public void testClientAddressEntriesInHeaders() {
     try (MockedStatic<Contexts> contextsMockedStatic =
-             mockStatic(Contexts.class)) {
+             Mockito.mockStatic(Contexts.class)) {
       // given
       ServerInterceptor serverInterceptor =
           new ClientAddressServerInterceptor();
@@ -67,9 +68,9 @@ public class TestClientAddressServerInterceptor {
       );
       Context context = contextArgumentCaptor.getValue();
       context.attach();
-      assertEquals("host.example.com",
+      Assertions.assertEquals("host.example.com",
           GrpcClientConstants.CLIENT_HOSTNAME_CTX_KEY.get());
-      assertEquals("173.56.23.4",
+      Assertions.assertEquals("173.56.23.4",
           GrpcClientConstants.CLIENT_IP_ADDRESS_CTX_KEY.get());
     }
   }

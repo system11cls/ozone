@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,26 +18,15 @@
 
 package org.apache.hadoop.ozone.om;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS_WILDCARD;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.BUCKET_ALREADY_EXISTS;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PARTIAL_RENAME;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.VOLUME_ALREADY_EXISTS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.lang3.RandomStringUtils;
+import java.util.UUID;
+
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -46,10 +36,24 @@ import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.ozone.test.GenericTestUtils;
+
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS_WILDCARD;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.PARTIAL_RENAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test some client operations after cluster starts. And perform restart and
@@ -59,6 +63,9 @@ import org.junit.jupiter.api.Timeout;
 public class TestOzoneManagerRestart {
   private static MiniOzoneCluster cluster = null;
   private static OzoneConfiguration conf;
+  private static String clusterId;
+  private static String scmId;
+  private static String omId;
   private static OzoneClient client;
 
   /**
@@ -71,6 +78,9 @@ public class TestOzoneManagerRestart {
   @BeforeAll
   public static void init() throws Exception {
     conf = new OzoneConfiguration();
+    clusterId = UUID.randomUUID().toString();
+    scmId = UUID.randomUUID().toString();
+    omId = UUID.randomUUID().toString();
     conf.setBoolean(OZONE_ACL_ENABLED, true);
     conf.set(OZONE_ADMINISTRATORS, OZONE_ADMINISTRATORS_WILDCARD);
     conf.setInt(OZONE_SCM_RATIS_PIPELINE_LIMIT, 10);
@@ -78,6 +88,9 @@ public class TestOzoneManagerRestart {
     conf.set(OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT,
         BucketLayout.OBJECT_STORE.name());
     cluster =  MiniOzoneCluster.newBuilder(conf)
+        .setClusterId(clusterId)
+        .setScmId(scmId)
+        .setOmId(omId)
         .build();
     cluster.waitForClusterToBeReady();
     client = cluster.newClient();
@@ -103,18 +116,22 @@ public class TestOzoneManagerRestart {
     objectStore.createVolume(volumeName);
 
     OzoneVolume ozoneVolume = objectStore.getVolume(volumeName);
-    assertEquals(volumeName, ozoneVolume.getName());
+    assertTrue(ozoneVolume.getName().equals(volumeName));
 
     cluster.restartOzoneManager();
     cluster.restartStorageContainerManager(true);
 
     // After restart, try to create same volume again, it should fail.
-    OMException ome = assertThrows(OMException.class, () -> objectStore.createVolume(volumeName));
-    assertEquals(VOLUME_ALREADY_EXISTS, ome.getResult());
+    try {
+      objectStore.createVolume(volumeName);
+      fail("testRestartOM failed");
+    } catch (IOException ex) {
+      GenericTestUtils.assertExceptionContains("VOLUME_ALREADY_EXISTS", ex);
+    }
 
     // Get Volume.
     ozoneVolume = objectStore.getVolume(volumeName);
-    assertEquals(volumeName, ozoneVolume.getName());
+    assertTrue(ozoneVolume.getName().equals(volumeName));
 
   }
 
@@ -129,24 +146,28 @@ public class TestOzoneManagerRestart {
     objectStore.createVolume(volumeName);
 
     OzoneVolume ozoneVolume = objectStore.getVolume(volumeName);
-    assertEquals(volumeName, ozoneVolume.getName());
+    assertTrue(ozoneVolume.getName().equals(volumeName));
 
     ozoneVolume.createBucket(bucketName);
 
     OzoneBucket ozoneBucket = ozoneVolume.getBucket(bucketName);
-    assertEquals(bucketName, ozoneBucket.getName());
+    assertTrue(ozoneBucket.getName().equals(bucketName));
 
     cluster.restartOzoneManager();
     cluster.restartStorageContainerManager(true);
 
     // After restart, try to create same bucket again, it should fail.
-    // After restart, try to create same volume again, it should fail.
-    OMException ome = assertThrows(OMException.class, () -> ozoneVolume.createBucket(bucketName));
-    assertEquals(BUCKET_ALREADY_EXISTS, ome.getResult());
+    try {
+      ozoneVolume.createBucket(bucketName);
+      fail("testRestartOMWithBucketOperation failed");
+    } catch (IOException ex) {
+      GenericTestUtils.assertExceptionContains("BUCKET_ALREADY_EXISTS", ex);
+    }
 
     // Get bucket.
     ozoneBucket = ozoneVolume.getBucket(bucketName);
-    assertEquals(bucketName, ozoneBucket.getName());
+    assertTrue(ozoneBucket.getName().equals(bucketName));
+
   }
 
 
@@ -165,12 +186,12 @@ public class TestOzoneManagerRestart {
     objectStore.createVolume(volumeName);
 
     OzoneVolume ozoneVolume = objectStore.getVolume(volumeName);
-    assertEquals(volumeName, ozoneVolume.getName());
+    assertTrue(ozoneVolume.getName().equals(volumeName));
 
     ozoneVolume.createBucket(bucketName);
 
     OzoneBucket ozoneBucket = ozoneVolume.getBucket(bucketName);
-    assertEquals(bucketName, ozoneBucket.getName());
+    assertTrue(ozoneBucket.getName().equals(bucketName));
 
     String data = "random data";
     OzoneOutputStream ozoneOutputStream1 = ozoneBucket.createKey(key1,
@@ -206,8 +227,9 @@ public class TestOzoneManagerRestart {
 
     // Get newKey1.
     OzoneKey ozoneKey = ozoneBucket.getKey(newKey1);
-    assertEquals(newKey1, ozoneKey.getName());
-    assertEquals(ReplicationType.RATIS, ozoneKey.getReplicationType());
+    assertTrue(ozoneKey.getName().equals(newKey1));
+    assertTrue(ozoneKey.getReplicationType().equals(
+        ReplicationType.RATIS));
 
     // Get newKey2, it should not exist
     try {

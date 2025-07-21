@@ -1,36 +1,36 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.server.events;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Testing the basic functionality of the event queue.
@@ -67,7 +67,7 @@ public class TestEventQueue {
 
     queue.fireEvent(EVENT1, 11L);
     queue.processAll(1000);
-    assertEquals(11, result[0]);
+    Assertions.assertEquals(11, result[0]);
 
   }
 
@@ -105,20 +105,20 @@ public class TestEventQueue {
 
     // As it is fixed threadpool executor with 10 threads, all should be
     // scheduled.
-    assertEquals(11, eventExecutor.queuedEvents());
+    Assertions.assertEquals(11, eventExecutor.queuedEvents());
     Thread.currentThread().sleep(500);
 
     // As we don't see all 10 events scheduled.
-    assertThat(eventExecutor.scheduledEvents()).isGreaterThanOrEqualTo(1)
-        .isLessThanOrEqualTo(10);
+    Assertions.assertTrue(eventExecutor.scheduledEvents() >= 1 &&
+        eventExecutor.scheduledEvents() <= 10);
 
     queue.processAll(60000);
 
-    assertEquals(11, eventExecutor.scheduledEvents());
+    Assertions.assertEquals(11, eventExecutor.scheduledEvents());
 
-    assertEquals(166, eventTotal.intValue());
+    Assertions.assertEquals(166, eventTotal.intValue());
 
-    assertEquals(11, eventExecutor.successfulEvents());
+    Assertions.assertEquals(11, eventExecutor.successfulEvents());
     eventTotal.set(0);
     eventExecutor.close();
   }
@@ -147,8 +147,8 @@ public class TestEventQueue {
 
     queue.fireEvent(EVENT2, 23L);
     queue.processAll(1000);
-    assertEquals(23, result[0]);
-    assertEquals(23, result[1]);
+    Assertions.assertEquals(23, result[0]);
+    Assertions.assertEquals(23, result[1]);
 
   }
 }

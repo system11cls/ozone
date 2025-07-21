@@ -17,10 +17,22 @@
  */
 import React from 'react';
 import moment from 'moment';
-import { Row, Button, Menu, Input, Dropdown, DatePicker, Form, Result } from 'antd';
+import {
+  Row,
+  Button,
+  Input,
+  Dropdown,
+  Menu,
+  DatePicker,
+  Form,
+  Result
+} from 'antd';
+import {
+  DownOutlined,
+  LoadingOutlined,
+  UndoOutlined
+} from '@ant-design/icons';
 import { MenuProps } from 'antd/es/menu';
-import { DownOutlined, LoadingOutlined, UndoOutlined } from '@ant-design/icons';
-
 
 import { showDataFetchError } from '@/utils/common';
 import { AxiosGetHelper } from '@/utils/axiosRequestHelper';
@@ -49,7 +61,7 @@ interface IChildren {
 
 interface ITreeState {
   isLoading: boolean;
-  treeResponse: ITreeResponse[];
+  treeResponse: ITreeResponse | ITreeResponse[];
   inputRadio: number;
   inputPath: string;
   entityType: string;
@@ -303,7 +315,7 @@ export class Heatmap extends React.Component<Record<string, object>, ITreeState>
       });
     };
 
-    const handleMenuChange: MenuProps["onClick"] = (e) => {
+    const handleMenuChange: MenuProps["onClick"] = (e: any) => {
       if (CONSTANTS.ENTITY_TYPES.includes(e.key as string)) {
         minSize = Infinity;
         maxSize = 0;
@@ -312,25 +324,19 @@ export class Heatmap extends React.Component<Record<string, object>, ITreeState>
           date: prevState.date,
           inputPath: prevState.inputPath
         }), () => {
-          this.updateTreeMap(
-            this.state.inputPath,
-            this.state.entityType,
-            this.state.date as string);
+          this.updateTreeMap(this.state.inputPath, this.state.entityType, this.state.date);
         });
       }
     };
 
-    const handleCalendarChange: MenuProps["onClick"] = (e) => {
-      if (CONSTANTS.TIME_PERIODS.includes(e.key as string)) {
+    const handleCalendarChange: MenuProps["onClick"] = (e: any) => {
+      if (CONSTANTS.TIME_PERIODS.includes(e.key)) {
         this.setState((prevState, _newState) => ({
           date: e.key,
           inputPath: prevState.inputPath,
           entityType: prevState.entityType
         }), () => {
-          this.updateTreeMap(
-            this.state.inputPath,
-            this.state.entityType,
-            this.state.date as string);
+          this.updateTreeMap(this.state.inputPath, this.state.entityType, this.state.date);
         });
       }
     };
@@ -349,23 +355,23 @@ export class Heatmap extends React.Component<Record<string, object>, ITreeState>
         <Menu.Item key={CONSTANTS.TIME_PERIODS[2]}>
           90 Days
         </Menu.Item>
-        <Menu.SubMenu title='Custom Select Last 90 Days'>
+        <Menu.SubMenu title="Custom Select Last 90 Days">
           <Menu.Item key='heatmapDatePicker'>
             <DatePicker
               format="YYYY-MM-DD"
               onChange={handleDatePickerChange}
               onClick={(e) => { e.stopPropagation() }}
-              disabledDate={this.disabledDate} />
+              disabledDate={this.disabledDate}
+            />
           </Menu.Item>
         </Menu.SubMenu>
       </Menu>
-    )
+    );
 
     const entityTypeMenu = (
       <Menu
         defaultSelectedKeys={[this.state.entityType]}
-        onClick={handleMenuChange}
-        selectable={true}>
+        onClick={handleMenuChange}>
         <Menu.Item key={CONSTANTS.ENTITY_TYPES[2]}>
           Volume
         </Menu.Item>
@@ -376,96 +382,93 @@ export class Heatmap extends React.Component<Record<string, object>, ITreeState>
           Key
         </Menu.Item>
       </Menu>
-
-    )
-
-    const headerMenu = (
-      <Row>
-        <div className='go-back-button'>
-          <Button type='primary' onClick={e => this.resetInputpath(e, inputPath)}><UndoOutlined /></Button>
-        </div>
-        <div className='path-input-container'>
-          <h4 style={{ marginTop: '10px' }}>Path</h4>
-          <form className='input' autoComplete="off" id='input-form' onSubmit={this.handleSubmit}>
-            <Form.Item className='path-input-element' validateStatus={inputPathValid} help={helpMessage}>
-              <Input placeholder={CONSTANTS.ROOT_PATH} name="inputPath" value={inputPath} onChange={this.handleChange} />
-            </Form.Item>
-          </form>
-        </div>
-        <div className='entity-dropdown-button'>
-          <Dropdown
-            overlay={entityTypeMenu}
-            placement='bottomCenter'>
-            <Button>Entity Type:&nbsp;{this.state.entityType}<DownOutlined /></Button>
-          </Dropdown>
-        </div>
-        <div className='date-dropdown-button'>
-          <Dropdown
-            overlay={menuCalendar}
-            placement='bottomLeft'>
-            <Button>Last &nbsp;{date as number > 100 ? new Date(date as number * 1000).toLocaleString() : date}<DownOutlined /></Button>
-          </Dropdown>
-        </div>
-      </Row>
     );
 
     return (
       <>
-        {isLoading ? <span><LoadingOutlined /> Loading...</span> : (
-          <div className='heatmap-container'>
-            <div className='page-header'>
-              Tree Map for Entities
-            </div>
-            <div className='content-div'>
-              <div>
-                {!isHeatmapEnabled
-                  ? <Result
-                    status="error"
-                    title="Heatmap Not Available"
-                    subTitle="Please check if Heatmap is enabled or not and you have sufficient permissions" />
-                  : <>
-                    {treeEndpointFailed
-                      ? <Result
-                        status="error"
-                        title="Failed to fetch Heatmap" />
-                      :
-                      (Object.keys(treeResponse).length > 0 && (treeResponse.label !== null || treeResponse.path !== null)) ?
-                        <>
-                          <div className='heatmap-header-container'>
-                            {headerMenu}
-                            <div className='heatmap-legend-container'>
-                              <div className='heatmap-legend-item'>
-                                <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][0]}`, marginRight: "5px" }}> </div>
-                                <span>Less Accessed</span>
-                              </div>
-                              <div className='heatmap-legend-item'>
-                                <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][8]}`, marginRight: "5px" }}> </div>
-                                <span>Moderate Accessed</span>
-                              </div>
-                              <div className='heatmap-legend-item'>
-                                <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][20]}`, marginRight: "5px" }}> </div>
-                                <span>Most Accessed</span>
+        {isLoading
+          ? <span><LoadingOutlined /> Loading...</span>
+          : (
+            <div className='heatmap-container'>
+              <div className='page-header'>
+                Tree Map for Entities
+              </div>
+              <div className='content-div'>
+                <div>
+                  {!isHeatmapEnabled
+                    ? <Result
+                      status="error"
+                      title="Heatmap Not Available"
+                      subTitle="Please check if Heatmap is enabled or not and you have sufficient permissions" />
+                    : <>
+                      {treeEndpointFailed
+                        ? <Result
+                          status="error"
+                          title="Failed to fetch Heatmap" />
+                        :
+                        (Object.keys(treeResponse).length > 0 && (treeResponse.label !== null || treeResponse.path !== null)) ?
+                          <div>
+                            <div className='heatmap-header-container'>
+                              <Row>
+                                <div className='go-back-button'>
+                                  <Button type='primary' onClick={e => this.resetInputpath(e, inputPath)}>
+                                    <UndoOutlined />
+                                  </Button>
+                                </div>
+                                <div className='path-input-container'>
+                                  <h4 style={{ marginTop: '10px' }}>Path</h4>
+                                  <form className='input' autoComplete="off" id='input-form' onSubmit={this.handleSubmit}>
+                                    <Form.Item className='path-input-element' validateStatus={inputPathValid} help={helpMessage}>
+                                      <Input placeholder={CONSTANTS.ROOT_PATH} name="inputPath" value={inputPath} onChange={this.handleChange} />
+                                    </Form.Item>
+                                  </form>
+                                </div>
+                                <div className='entity-dropdown-button'>
+                                  <Dropdown
+                                    overlay={entityTypeMenu}
+                                    placement='bottomCenter'>
+                                    <Button>Entity Type:&nbsp;{this.state.entityType}<DownOutlined /></Button>
+                                  </Dropdown>
+                                </div>
+                                <div className='date-dropdown-button'>
+                                  <Dropdown
+                                    overlay={menuCalendar}
+                                    placement='bottomLeft'>
+                                    <Button>
+                                      Last &nbsp;{date as number > 100 ? new Date(date as number * 1000).toLocaleString() : date}
+                                      <DownOutlined />
+                                    </Button>
+                                  </Dropdown>
+                                </div>
+                              </Row>
+                              <div className='heatmap-legend-container'>
+                                <div className='heatmap-legend-item'>
+                                  <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][0]}`, marginRight: "5px" }}> </div>
+                                  <span>Less Accessed</span>
+                                </div>
+                                <div className='heatmap-legend-item'>
+                                  <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][8]}`, marginRight: "5px" }}> </div>
+                                  <span>Moderate Accessed</span>
+                                </div>
+                                <div className='heatmap-legend-item'>
+                                  <div style={{ width: "13px", height: "13px", backgroundColor: `${colourScheme["amberAlert"][20]}`, marginRight: "5px" }}> </div>
+                                  <span>Most Accessed</span>
+                                </div>
                               </div>
                             </div>
+                            <div id="heatmap-chart-container">
+                              <HeatMapConfiguration data={treeResponse} colorScheme={colourScheme["amberAlert"]} onClick={this.updateTreemapParent}></HeatMapConfiguration>
+                            </div>
                           </div>
-                          <div id="heatmap-chart-container">
-                            <HeatMapConfiguration data={treeResponse} colorScheme={colourScheme["amberAlert"]} onClick={this.updateTreemapParent}></HeatMapConfiguration>
+                          :
+                          <div className='heatmapinformation'><br />
+                            No Data Available. {' '}<br />
                           </div>
-                        </>
-                        :
-                        <>
-                          <div className='heatmap-header-container'>
-                            {headerMenu}
-                          </div>
-                          <div className='heatmapinformation'>
-                            No Data Available . {' '}<br />
-                          </div>
-                        </>
-                    }</>}
+                      }</>}
+                </div>
               </div>
             </div>
-          </div>
-        )
+          )
         }
       </>
     );

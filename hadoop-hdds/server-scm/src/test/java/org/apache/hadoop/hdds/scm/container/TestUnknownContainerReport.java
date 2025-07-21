@@ -1,58 +1,61 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.container;
 
 import static org.apache.hadoop.hdds.scm.HddsTestUtils.getContainer;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.UUID;
+
+import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
 import org.apache.hadoop.hdds.scm.ScmConfig;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
-import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
 import org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.pipeline.MockPipelineManager;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
-import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.ContainerReportFromDatanode;
+import org.apache.hadoop.hdds.scm.server
+    .SCMDatanodeHeartbeatDispatcher.ContainerReportFromDatanode;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
 import org.apache.hadoop.ozone.protocol.commands.CommandForDatanode;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 /**
  * Test container deletion behaviour of unknown containers
@@ -65,17 +68,20 @@ public class TestUnknownContainerReport {
   private ContainerStateManager containerStateManager;
   private EventPublisher publisher;
   private PipelineManager pipelineManager;
-  @TempDir
   private File testDir;
   private DBStore dbStore;
   private SCMHAManager scmhaManager;
 
   @BeforeEach
   public void setup() throws IOException {
-    final OzoneConfiguration conf = SCMTestUtils.getConf(testDir);
+    final OzoneConfiguration conf = SCMTestUtils.getConf();
     this.nodeManager = new MockNodeManager(true, 10);
-    this.containerManager = mock(ContainerManager.class);
-    dbStore = DBStoreBuilder.createDBStore(conf, SCMDBDefinition.get());
+    this.containerManager = Mockito.mock(ContainerManager.class);
+    testDir = GenericTestUtils.getTestDir(
+        TestUnknownContainerReport.class.getSimpleName() + UUID.randomUUID());
+    conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, testDir.getAbsolutePath());
+    dbStore = DBStoreBuilder.createDBStore(
+        conf, new SCMDBDefinition());
     scmhaManager = SCMHAManagerStub.getInstance(true);
     pipelineManager =
         new MockPipelineManager(dbStore, scmhaManager, nodeManager);
@@ -86,9 +92,9 @@ public class TestUnknownContainerReport {
         .setContainerStore(SCMDBDefinition.CONTAINERS.getTable(dbStore))
         .setSCMDBTransactionBuffer(scmhaManager.getDBTransactionBuffer())
         .build();
-    this.publisher = mock(EventPublisher.class);
+    this.publisher = Mockito.mock(EventPublisher.class);
 
-    when(containerManager.getContainer(any(ContainerID.class)))
+    Mockito.when(containerManager.getContainer(Mockito.any(ContainerID.class)))
         .thenThrow(new ContainerNotFoundException());
   }
 
@@ -98,6 +104,8 @@ public class TestUnknownContainerReport {
     if (dbStore != null) {
       dbStore.close();
     }
+
+    FileUtil.fullyDelete(testDir);
   }
 
   @Test
@@ -107,7 +115,8 @@ public class TestUnknownContainerReport {
 
     // By default, unknown containers won't be taken delete action by SCM
     verify(publisher, times(0)).fireEvent(
-        eq(SCMEvents.DATANODE_COMMAND), any(CommandForDatanode.class));
+        Mockito.eq(SCMEvents.DATANODE_COMMAND),
+        Mockito.any(CommandForDatanode.class));
   }
 
   @Test
@@ -119,7 +128,8 @@ public class TestUnknownContainerReport {
 
     sendContainerReport(conf);
     verify(publisher, times(1)).fireEvent(
-        eq(SCMEvents.DATANODE_COMMAND), any(CommandForDatanode.class));
+        Mockito.eq(SCMEvents.DATANODE_COMMAND),
+        Mockito.any(CommandForDatanode.class));
   }
 
   /**

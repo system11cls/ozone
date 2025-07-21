@@ -1,33 +1,20 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.container.placement.algorithms;
-
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -43,9 +31,9 @@ import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.MetadataStorageReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
 import org.apache.hadoop.hdds.scm.ContainerPlacementStatus;
-import org.apache.hadoop.hdds.scm.HddsTestUtils;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.HddsTestUtils;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.net.NetworkTopology;
@@ -56,8 +44,17 @@ import org.apache.hadoop.hdds.scm.node.DatanodeInfo;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.ozone.container.upgrade.UpgradeUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
+
+import static org.mockito.Mockito.when;
 
 /**
  * Test for scm container placement factory.
@@ -141,7 +138,7 @@ public class TestContainerPlacementFactory {
         new ArrayList<>(Arrays.asList(storage4)));
 
     // create mock node manager
-    nodeManager = mock(NodeManager.class);
+    nodeManager = Mockito.mock(NodeManager.class);
     when(nodeManager.getNodes(NodeStatus.inServiceHealthy()))
         .thenReturn(new ArrayList<>(datanodes));
     for (DatanodeInfo dn: dnInfos) {
@@ -156,12 +153,12 @@ public class TestContainerPlacementFactory {
     int nodeNum = 3;
     List<DatanodeDetails> datanodeDetails =
         policy.chooseDatanodes(null, null, nodeNum, 15, 15);
-    assertEquals(nodeNum, datanodeDetails.size());
-    assertTrue(cluster.isSameParent(datanodeDetails.get(0),
+    Assertions.assertEquals(nodeNum, datanodeDetails.size());
+    Assertions.assertTrue(cluster.isSameParent(datanodeDetails.get(0),
         datanodeDetails.get(1)));
-    assertFalse(cluster.isSameParent(datanodeDetails.get(0),
+    Assertions.assertFalse(cluster.isSameParent(datanodeDetails.get(0),
         datanodeDetails.get(2)));
-    assertFalse(cluster.isSameParent(datanodeDetails.get(1),
+    Assertions.assertFalse(cluster.isSameParent(datanodeDetails.get(1),
         datanodeDetails.get(2)));
   }
 
@@ -171,7 +168,7 @@ public class TestContainerPlacementFactory {
             SCMContainerPlacementRackAware.class.getName());
     PlacementPolicy policy = ContainerPlacementPolicyFactory
         .getPolicy(conf, null, null, true, null);
-    assertSame(SCMContainerPlacementRackAware.class,
+    Assertions.assertSame(SCMContainerPlacementRackAware.class,
             policy.getClass());
   }
 
@@ -179,7 +176,7 @@ public class TestContainerPlacementFactory {
   public void testECPolicy() throws IOException {
     PlacementPolicy policy = ContainerPlacementPolicyFactory
         .getECPolicy(conf, null, null, true, null);
-    assertSame(SCMContainerPlacementRackScatter.class,
+    Assertions.assertSame(SCMContainerPlacementRackScatter.class,
         policy.getClass());
   }
 
@@ -223,7 +220,7 @@ public class TestContainerPlacementFactory {
     conf.set(ScmConfigKeys.OZONE_SCM_CONTAINER_PLACEMENT_IMPL_KEY,
         DummyImpl.class.getName());
 
-    assertThrows(SCMException.class, () ->
+    Assertions.assertThrows(SCMException.class, () ->
         ContainerPlacementPolicyFactory.getPolicy(conf, null, null, true, null)
     );
   }
@@ -233,7 +230,7 @@ public class TestContainerPlacementFactory {
     // set a placement class not implemented
     conf.set(ScmConfigKeys.OZONE_SCM_CONTAINER_PLACEMENT_IMPL_KEY,
         "org.apache.hadoop.hdds.scm.container.placement.algorithm.HelloWorld");
-    assertThrows(RuntimeException.class, () ->
+    Assertions.assertThrows(RuntimeException.class, () ->
         ContainerPlacementPolicyFactory.getPolicy(conf, null, null, true, null)
     );
   }

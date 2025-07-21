@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,19 +18,19 @@
 
 package org.apache.hadoop.ozone.om.response.s3.multipart;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
 import java.io.IOException;
 import java.util.UUID;
+
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
-import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .PartKeyInfo;
+import org.apache.hadoop.util.Time;
 
 /**
  * Test multipart upload abort response.
@@ -68,10 +69,10 @@ public class TestS3MultipartUploadAbortResponse
     omMetadataManager.getStore().commitBatchOperation(batchOperation);
 
     // Make sure key is present in OpenKeyTable and MPU table before Abort.
-    assertNotNull(
+    Assertions.assertNotNull(
         omMetadataManager.getOpenKeyTable(getBucketLayout())
             .get(multipartOpenKey));
-    assertNotNull(
+    Assertions.assertNotNull(
         omMetadataManager.getMultipartInfoTable().get(multipartKey));
 
     S3MultipartUploadAbortResponse s3MultipartUploadAbortResponse =
@@ -85,13 +86,14 @@ public class TestS3MultipartUploadAbortResponse
     omMetadataManager.getStore().commitBatchOperation(batchOperation);
 
     // Key should be deleted from OpenKeyTable and MPU table after Abort.
-    assertNull(
+    Assertions.assertNull(
         omMetadataManager.getOpenKeyTable(getBucketLayout())
             .get(multipartOpenKey));
-    assertNull(omMetadataManager.getMultipartInfoTable().get(multipartKey));
+    Assertions.assertNull(
+        omMetadataManager.getMultipartInfoTable().get(multipartKey));
 
     // As no parts are created, so no entries should be there in delete table.
-    assertEquals(0, omMetadataManager.countRowsInTable(
+    Assertions.assertEquals(0, omMetadataManager.countRowsInTable(
         omMetadataManager.getDeletedTable()));
   }
 
@@ -156,13 +158,13 @@ public class TestS3MultipartUploadAbortResponse
 
     omMetadataManager.getStore().commitBatchOperation(batchOperation);
 
-    assertNull(
+    Assertions.assertNull(
         omMetadataManager.getOpenKeyTable(getBucketLayout()).get(multipartKey));
-    assertNull(
+    Assertions.assertNull(
         omMetadataManager.getMultipartInfoTable().get(multipartKey));
 
     // As 2 parts are created, so 2 entries should be there in delete table.
-    assertEquals(2, omMetadataManager.countRowsInTable(
+    Assertions.assertEquals(2, omMetadataManager.countRowsInTable(
         omMetadataManager.getDeletedTable()));
 
     String part1DeletedKeyName =
@@ -175,18 +177,18 @@ public class TestS3MultipartUploadAbortResponse
             omMultipartKeyInfo.getPartKeyInfo(2).getPartKeyInfo()
                 .getObjectID(), multipartKey);
 
-    assertNotNull(omMetadataManager.getDeletedTable().get(
+    Assertions.assertNotNull(omMetadataManager.getDeletedTable().get(
         part1DeletedKeyName));
-    assertNotNull(omMetadataManager.getDeletedTable().get(
+    Assertions.assertNotNull(omMetadataManager.getDeletedTable().get(
         part2DeletedKeyName));
 
     RepeatedOmKeyInfo ro =
         omMetadataManager.getDeletedTable().get(part1DeletedKeyName);
-    assertEquals(OmKeyInfo.getFromProtobuf(part1.getPartKeyInfo()),
+    Assertions.assertEquals(OmKeyInfo.getFromProtobuf(part1.getPartKeyInfo()),
         ro.getOmKeyInfoList().get(0));
 
     ro = omMetadataManager.getDeletedTable().get(part2DeletedKeyName);
-    assertEquals(OmKeyInfo.getFromProtobuf(part2.getPartKeyInfo()),
+    Assertions.assertEquals(OmKeyInfo.getFromProtobuf(part2.getPartKeyInfo()),
         ro.getOmKeyInfoList().get(0));
   }
 

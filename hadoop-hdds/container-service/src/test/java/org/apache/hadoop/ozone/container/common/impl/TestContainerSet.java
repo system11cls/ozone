@@ -1,33 +1,39 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common.impl;
 
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.hadoop.conf.StorageUnit;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
+import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
+import org.apache.hadoop.ozone.container.common.interfaces.Container;
+
+import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
+import org.apache.hadoop.ozone.container.keyvalue.ContainerLayoutTestInfo;
+import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
+import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
+import org.apache.ozone.test.GenericTestUtils;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -39,35 +45,36 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.LongStream;
-import org.apache.hadoop.conf.StorageUnit;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReportsProto;
-import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.ozone.container.common.interfaces.Container;
-import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
-import org.apache.hadoop.ozone.container.keyvalue.ContainerLayoutTestInfo;
-import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
-import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Class used to test ContainerSet operations.
  */
+@RunWith(Parameterized.class)
 public class TestContainerSet {
 
   private static final int FIRST_ID = 2;
 
-  private ContainerLayoutVersion layoutVersion;
+  private final ContainerLayoutVersion layout;
 
-  private void setLayoutVersion(ContainerLayoutVersion layoutVersion) {
-    this.layoutVersion = layoutVersion;
+  public TestContainerSet(ContainerLayoutVersion layout) {
+    this.layout = layout;
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testAddGetRemoveContainer(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
-    ContainerSet containerSet = newContainerSet();
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerLayoutTestInfo.containerLayoutParameters();
+  }
+
+  @Test
+  public void testAddGetRemoveContainer() throws StorageContainerException {
+    ContainerSet containerSet = new ContainerSet(1000);
     long containerId = 100L;
     ContainerProtos.ContainerDataProto.State state = ContainerProtos
         .ContainerDataProto.State.CLOSED;
@@ -83,9 +90,13 @@ public class TestContainerSet {
     //addContainer
     boolean result = containerSet.addContainer(keyValueContainer);
     assertTrue(result);
-    StorageContainerException exception = assertThrows(StorageContainerException.class,
-        () -> containerSet.addContainer(keyValueContainer));
-    assertThat(exception).hasMessage("Container already exists with container Id " + containerId);
+    try {
+      containerSet.addContainer(keyValueContainer);
+      fail("Adding same container ID twice should fail.");
+    } catch (StorageContainerException ex) {
+      GenericTestUtils.assertExceptionContains("Container already exists with" +
+          " container Id " + containerId, ex);
+    }
 
     //getContainer
     KeyValueContainer container = (KeyValueContainer) containerSet
@@ -101,10 +112,8 @@ public class TestContainerSet {
     assertFalse(containerSet.removeContainer(1000L));
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testIteratorsAndCount(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
+  @Test
+  public void testIteratorsAndCount() throws StorageContainerException {
 
     ContainerSet containerSet = createContainerSet();
 
@@ -147,16 +156,14 @@ public class TestContainerSet {
 
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testIteratorPerVolume(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
-    HddsVolume vol1 = mock(HddsVolume.class);
-    when(vol1.getStorageID()).thenReturn("uuid-1");
-    HddsVolume vol2 = mock(HddsVolume.class);
-    when(vol2.getStorageID()).thenReturn("uuid-2");
+  @Test
+  public void testIteratorPerVolume() throws StorageContainerException {
+    HddsVolume vol1 = Mockito.mock(HddsVolume.class);
+    Mockito.when(vol1.getStorageID()).thenReturn("uuid-1");
+    HddsVolume vol2 = Mockito.mock(HddsVolume.class);
+    Mockito.when(vol2.getStorageID()).thenReturn("uuid-2");
 
-    ContainerSet containerSet = newContainerSet();
+    ContainerSet containerSet = new ContainerSet(1000);
     for (int i = 0; i < 10; i++) {
       KeyValueContainerData kvData = new KeyValueContainerData(i,
           layout,
@@ -192,14 +199,12 @@ public class TestContainerSet {
     assertEquals(5, count2);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void iteratorIsOrderedByScanTime(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
-    HddsVolume vol = mock(HddsVolume.class);
-    when(vol.getStorageID()).thenReturn("uuid-1");
+  @Test
+  public void iteratorIsOrderedByScanTime() throws StorageContainerException {
+    HddsVolume vol = Mockito.mock(HddsVolume.class);
+    Mockito.when(vol.getStorageID()).thenReturn("uuid-1");
     Random random = new Random();
-    ContainerSet containerSet = newContainerSet();
+    ContainerSet containerSet = new ContainerSet(1000);
     int containerCount = 50;
     for (int i = 0; i < containerCount; i++) {
       KeyValueContainerData kvData = new KeyValueContainerData(i,
@@ -227,9 +232,9 @@ public class TestContainerSet {
       if (prevScanTime.isPresent()) {
         if (scanTime.isPresent()) {
           int result = scanTime.get().compareTo(prevScanTime.get());
-          assertThat(result).isGreaterThanOrEqualTo(0);
+          assertTrue(result >= 0);
           if (result == 0) {
-            assertThat(prevContainerID).isLessThan(data.getContainerID());
+            assertTrue(prevContainerID < data.getContainerID());
           }
         } else {
           fail("Containers not yet scanned should be sorted before " +
@@ -245,10 +250,8 @@ public class TestContainerSet {
     assertEquals(containerCount, containersToBeScanned);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testGetContainerReport(ContainerLayoutVersion layout)
-      throws IOException {
-    setLayoutVersion(layout);
+  @Test
+  public void testGetContainerReport() throws IOException {
 
     ContainerSet containerSet = createContainerSet();
 
@@ -258,10 +261,10 @@ public class TestContainerSet {
     assertEquals(10, containerReportsRequestProto.getReportsList().size());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testListContainer(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
+
+
+  @Test
+  public void testListContainer() throws StorageContainerException {
     ContainerSet containerSet = createContainerSet();
     int count = 5;
     int startId = FIRST_ID + 3;
@@ -272,10 +275,8 @@ public class TestContainerSet {
     assertContainerIds(startId, count, result);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testListContainerFromFirstKey(ContainerLayoutVersion layout)
-      throws StorageContainerException {
-    setLayoutVersion(layout);
+  @Test
+  public void testListContainerFromFirstKey() throws StorageContainerException {
     ContainerSet containerSet = createContainerSet();
     int count = 6;
     List<ContainerData> result = new ArrayList<>(count);
@@ -297,10 +298,10 @@ public class TestContainerSet {
   }
 
   private ContainerSet createContainerSet() throws StorageContainerException {
-    ContainerSet containerSet = newContainerSet();
+    ContainerSet containerSet = new ContainerSet(1000);
     for (int i = FIRST_ID; i < FIRST_ID + 10; i++) {
       KeyValueContainerData kvData = new KeyValueContainerData(i,
-          layoutVersion,
+          layout,
           (long) StorageUnit.GB.toBytes(5), UUID.randomUUID().toString(),
           UUID.randomUUID().toString());
       if (i % 2 == 0) {

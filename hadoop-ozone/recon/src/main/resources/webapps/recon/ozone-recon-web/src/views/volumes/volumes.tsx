@@ -19,8 +19,7 @@
 import React from 'react';
 import moment from 'moment';
 import { Table } from 'antd';
-import { ColumnProps } from 'antd/es/table';
-import { TablePaginationConfig } from 'antd/es/table';
+import { ColumnProps, TablePaginationConfig } from 'antd/es/table';
 import { Link } from 'react-router-dom';
 import { ActionMeta, ValueType } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
@@ -30,13 +29,12 @@ import QuotaBar from '@/components/quotaBar/quotaBar';
 import { AclPanel } from '@/components/aclDrawer/aclDrawer';
 import { MultiSelect, IOption } from '@/components/multiSelect/multiSelect';
 import AutoReloadPanel from '@/components/autoReloadPanel/autoReloadPanel';
-import { byteToSize, showDataFetchError } from '@/utils/common';
 import { ColumnSearch } from '@/utils/columnSearch';
 import { AutoReloadHelper } from '@/utils/autoReloadHelper';
 import { AxiosGetHelper } from "@/utils/axiosRequestHelper";
+import { byteToSize, showDataFetchError } from '@/utils/common';
 
 import './volumes.less';
-
 
 interface IVolumeResponse {
   volume: string;
@@ -166,10 +164,22 @@ const defaultColumns: IOption[] = COLUMNS.map(column => ({
 }));
 
 const LIMIT_OPTIONS: IOption[] = [
-  { label: "1000", value: "1000" },
-  { label: "5000", value: "5000" },
-  { label: "10000", value: "10000" },
-  { label: "20000", value: "20000" }
+  {
+    label: "1000",
+    value: "1000"
+  },
+  {
+    label: "5000",
+    value: "5000"
+  },
+  {
+    label: "10000",
+    value: "10000"
+  },
+  {
+    label: "20000",
+    value: "20000"
+  }
 ]
 
 const INITIAL_LIMIT_OPTION = LIMIT_OPTIONS[0]
@@ -205,6 +215,7 @@ export class Volumes extends React.Component<Record<string, object>, IVolumesSta
       isVisible: true,
       render: (_: any, record: IVolume) => {
         return (
+          // eslint-disable-next-line jsx-a11y/anchor-is-valid
           <a
             key='acl'
             onClick={() => this._handleAclLinkClick(record)}
@@ -283,8 +294,12 @@ export class Volumes extends React.Component<Record<string, object>, IVolumesSta
       selectedColumns: this._getSelectedColumns(prevState.selectedColumns),
       showPanel: false
     }));
-    const { request, controller } = AxiosGetHelper('/api/v1/volumes', cancelSignal,
-      "", { limit: this.state.selectedLimit.value });
+    const { request, controller } = AxiosGetHelper(
+      '/api/v1/volumes',
+      cancelSignal,
+      '',
+      { limit: this.state.selectedLimit.value }
+    );
     cancelSignal = controller;
     request.then(response => {
       const volumesResponse: IVolumesResponse = response.data;
@@ -412,7 +427,7 @@ export class Volumes extends React.Component<Record<string, object>, IVolumesSta
             loading={loading}
             pagination={paginationConfig}
             rowKey='volume'
-            scroll={{ x: true, scrollToFirstRowOnChange: true }}
+            scroll={{ x: 'max-content', scrollToFirstRowOnChange: true }}
             locale={{ filterTitle: '' }}
           />
         </div>

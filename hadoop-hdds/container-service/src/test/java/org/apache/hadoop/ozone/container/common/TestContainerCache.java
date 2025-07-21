@@ -1,38 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.common;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.FileSystemTestHelper;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
@@ -42,7 +27,19 @@ import org.apache.hadoop.ozone.container.common.utils.ReferenceCountedDB;
 import org.apache.hadoop.ozone.container.metadata.DatanodeStore;
 import org.apache.hadoop.ozone.container.metadata.DatanodeStoreSchemaTwoImpl;
 import org.apache.hadoop.ozone.container.upgrade.VersionedDatanodeFeatures;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test ContainerCache with evictions.
@@ -65,7 +62,7 @@ public class TestContainerCache {
   @Test
   public void testContainerCacheEviction() throws Exception {
     File root = new File(testRoot);
-    assertTrue(root.mkdirs());
+    root.mkdirs();
 
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.setInt(OzoneConfigKeys.OZONE_CONTAINER_CACHE_SIZE, 2);
@@ -121,8 +118,8 @@ public class TestContainerCache {
     assertEquals(1, db4.getReferenceCount());
 
     assertEquals(2, cache.size());
-    assertNotNull(cache.get(containerDir1.getPath()));
-    assertNull(cache.get(containerDir2.getPath()));
+    Assertions.assertNotNull(cache.get(containerDir1.getPath()));
+    Assertions.assertNull(cache.get(containerDir2.getPath()));
 
     // Now close both the references for container1
     db1.close();
@@ -134,21 +131,20 @@ public class TestContainerCache {
     ReferenceCountedDB db5 = cache.getDB(1, "RocksDB",
         containerDir1.getPath(),
         VersionedDatanodeFeatures.SchemaV2.chooseSchemaVersion(), conf);
-    assertThrows(IllegalArgumentException.class, () -> {
+    Assertions.assertThrows(IllegalArgumentException.class, () -> {
       assertEquals(1, db5.getReferenceCount());
       assertEquals(db1, db5);
       db5.close();
       db4.close();
       db5.close();
     });
-
-    FileUtils.deleteDirectory(root);
   }
 
   @Test
-  void testConcurrentDBGet() throws Exception {
+  public void testConcurrentDBGet() throws Exception {
     File root = new File(testRoot);
-    assertTrue(root.mkdirs());
+    root.mkdirs();
+    root.deleteOnExit();
 
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.setInt(OzoneConfigKeys.OZONE_CONTAINER_CACHE_SIZE, 2);
@@ -163,16 +159,20 @@ public class TestContainerCache {
         ReferenceCountedDB db1 = cache.getDB(1, "RocksDB",
             containerDir.getPath(),
             VersionedDatanodeFeatures.SchemaV2.chooseSchemaVersion(), conf);
-        assertNotNull(db1);
+        Assertions.assertNotNull(db1);
       } catch (IOException e) {
-        fail("Should get the DB instance");
+        Assertions.fail("Should get the DB instance");
       }
     };
     List<Future> futureList = new ArrayList<>();
     futureList.add(executorService.submit(task));
     futureList.add(executorService.submit(task));
     for (Future future: futureList) {
-      future.get();
+      try {
+        future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        Assertions.fail("Should get the DB instance");
+      }
     }
 
     ReferenceCountedDB db = cache.getDB(1, "RocksDB",
@@ -183,13 +183,12 @@ public class TestContainerCache {
     db.close();
     assertEquals(1, cache.size());
     db.cleanup();
-    FileUtils.deleteDirectory(root);
   }
 
   @Test
   public void testUnderlyingDBzIsClosed() throws Exception {
     File root = new File(testRoot);
-    assertTrue(root.mkdirs());
+    root.mkdirs();
 
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.setInt(OzoneConfigKeys.OZONE_CONTAINER_CACHE_SIZE, 2);
@@ -214,13 +213,12 @@ public class TestContainerCache {
     ReferenceCountedDB db4 = cache.getDB(100, "RocksDB",
         containerDir1.getPath(),
         VersionedDatanodeFeatures.SchemaV2.chooseSchemaVersion(), conf);
-    assertNotEquals(db3, db2);
+    Assertions.assertNotEquals(db3, db2);
     assertEquals(db4, db3);
     db1.close();
     db2.close();
     db3.close();
     db4.close();
     cache.clear();
-    FileUtils.deleteDirectory(root);
   }
 }

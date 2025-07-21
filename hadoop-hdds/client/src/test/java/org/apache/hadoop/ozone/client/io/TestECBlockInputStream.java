@@ -1,37 +1,22 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.client.io;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.EOFException;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -48,8 +33,21 @@ import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
 import org.apache.hadoop.security.token.Token;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.EOFException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for ECBlockInputStream.
@@ -79,7 +77,7 @@ public class TestECBlockInputStream {
     try (ECBlockInputStream ecb = new ECBlockInputStream(repConfig,
         keyInfo, null, null, new TestBlockInputStreamFactory(),
         clientConfig)) {
-      assertTrue(ecb.hasSufficientLocations());
+      Assertions.assertTrue(ecb.hasSufficientLocations());
     }
 
     // EC-3-2, very large block, so all 3 data locations are needed
@@ -87,7 +85,7 @@ public class TestECBlockInputStream {
     try (ECBlockInputStream ecb = new ECBlockInputStream(repConfig,
         keyInfo, null, null, new TestBlockInputStreamFactory(),
         clientConfig)) {
-      assertTrue(ecb.hasSufficientLocations());
+      Assertions.assertTrue(ecb.hasSufficientLocations());
     }
 
     Map<DatanodeDetails, Integer> dnMap = new HashMap<>();
@@ -98,7 +96,7 @@ public class TestECBlockInputStream {
     try (ECBlockInputStream ecb = new ECBlockInputStream(repConfig,
         keyInfo, null, null, new TestBlockInputStreamFactory(),
         clientConfig)) {
-      assertTrue(ecb.hasSufficientLocations());
+      Assertions.assertTrue(ecb.hasSufficientLocations());
     }
 
     // EC-3-2, 5MB blocks, only 2 locations passed so we do not have sufficient
@@ -109,7 +107,7 @@ public class TestECBlockInputStream {
     try (ECBlockInputStream ecb = new ECBlockInputStream(repConfig,
         keyInfo, null, null, new TestBlockInputStreamFactory(),
         clientConfig)) {
-      assertFalse(ecb.hasSufficientLocations());
+      Assertions.assertFalse(ecb.hasSufficientLocations());
     }
 
     // EC-3-2, 5MB blocks, only 1 data and 2 parity locations present. For now
@@ -122,7 +120,7 @@ public class TestECBlockInputStream {
     try (ECBlockInputStream ecb = new ECBlockInputStream(repConfig,
         keyInfo, null, null, new TestBlockInputStreamFactory(),
         clientConfig)) {
-      assertFalse(ecb.hasSufficientLocations());
+      Assertions.assertFalse(ecb.hasSufficientLocations());
     }
   }
 
@@ -142,7 +140,7 @@ public class TestECBlockInputStream {
       // We expect only 1 block stream and it should have a length passed of
       // ONEMB - 100.
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(ONEMB - 100, streams.get(0).getLength());
+      Assertions.assertEquals(ONEMB - 100, streams.get(0).getLength());
     }
   }
 
@@ -160,8 +158,8 @@ public class TestECBlockInputStream {
         clientConfig)) {
       ecb.read(buf);
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(ONEMB, streams.get(0).getLength());
-      assertEquals(100, streams.get(1).getLength());
+      Assertions.assertEquals(ONEMB, streams.get(0).getLength());
+      Assertions.assertEquals(100, streams.get(1).getLength());
     }
   }
 
@@ -179,9 +177,9 @@ public class TestECBlockInputStream {
         clientConfig)) {
       ecb.read(buf);
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(ONEMB, streams.get(0).getLength());
-      assertEquals(ONEMB, streams.get(1).getLength());
-      assertEquals(100, streams.get(2).getLength());
+      Assertions.assertEquals(ONEMB, streams.get(0).getLength());
+      Assertions.assertEquals(ONEMB, streams.get(1).getLength());
+      Assertions.assertEquals(100, streams.get(2).getLength());
     }
   }
 
@@ -199,9 +197,9 @@ public class TestECBlockInputStream {
         clientConfig)) {
       ecb.read(buf);
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(4 * ONEMB, streams.get(0).getLength());
-      assertEquals(3 * ONEMB + 100, streams.get(1).getLength());
-      assertEquals(3 * ONEMB, streams.get(2).getLength());
+      Assertions.assertEquals(4 * ONEMB, streams.get(0).getLength());
+      Assertions.assertEquals(3 * ONEMB + 100, streams.get(1).getLength());
+      Assertions.assertEquals(3 * ONEMB, streams.get(2).getLength());
     }
   }
 
@@ -219,7 +217,7 @@ public class TestECBlockInputStream {
         clientConfig)) {
       ecb.read(buf);
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(ONEMB, streams.get(0).getLength());
+      Assertions.assertEquals(ONEMB, streams.get(0).getLength());
     }
   }
 
@@ -237,9 +235,9 @@ public class TestECBlockInputStream {
         clientConfig)) {
       ecb.read(buf);
       List<TestBlockInputStream> streams = streamFactory.getBlockStreams();
-      assertEquals(3 * ONEMB, streams.get(0).getLength());
-      assertEquals(3 * ONEMB, streams.get(1).getLength());
-      assertEquals(3 * ONEMB, streams.get(2).getLength());
+      Assertions.assertEquals(3 * ONEMB, streams.get(0).getLength());
+      Assertions.assertEquals(3 * ONEMB, streams.get(1).getLength());
+      Assertions.assertEquals(3 * ONEMB, streams.get(2).getLength());
     }
   }
 
@@ -256,12 +254,12 @@ public class TestECBlockInputStream {
       ByteBuffer buf = ByteBuffer.allocate(100);
 
       int read = ecb.read(buf);
-      assertEquals(100, read);
+      Assertions.assertEquals(100, read);
       validateBufferContents(buf, 0, 100, (byte) 0);
-      assertEquals(100, ecb.getPos());
+      Assertions.assertEquals(100, ecb.getPos());
     }
     for (TestBlockInputStream s : streamFactory.getBlockStreams()) {
-      assertTrue(s.isClosed());
+      Assertions.assertTrue(s.isClosed());
     }
   }
 
@@ -282,12 +280,12 @@ public class TestECBlockInputStream {
       ByteBuffer buf = ByteBuffer.allocate(100);
 
       int read = ecb.read(buf);
-      assertEquals(100, read);
+      Assertions.assertEquals(100, read);
       validateBufferContents(buf, 0, 100, (byte) 0);
-      assertEquals(100, ecb.getPos());
+      Assertions.assertEquals(100, ecb.getPos());
     }
     for (TestBlockInputStream s : streamFactory.getBlockStreams()) {
-      assertTrue(s.isClosed());
+      Assertions.assertTrue(s.isClosed());
     }
   }
 
@@ -304,9 +302,9 @@ public class TestECBlockInputStream {
       ByteBuffer buf = ByteBuffer.allocate(100);
 
       int read = ecb.read(buf);
-      assertEquals(50, read);
+      Assertions.assertEquals(50, read);
       read = ecb.read(buf);
-      assertEquals(read, -1);
+      Assertions.assertEquals(read, -1);
     }
   }
 
@@ -327,7 +325,7 @@ public class TestECBlockInputStream {
       // so 350
       ByteBuffer buf = ByteBuffer.allocate(350);
       int read = ecb.read(buf);
-      assertEquals(350, read);
+      Assertions.assertEquals(350, read);
 
       validateBufferContents(buf, 0, 100, (byte) 0);
       validateBufferContents(buf, 100, 200, (byte) 1);
@@ -336,7 +334,7 @@ public class TestECBlockInputStream {
 
       buf.clear();
       read = ecb.read(buf);
-      assertEquals(350, read);
+      Assertions.assertEquals(350, read);
 
       validateBufferContents(buf, 0, 50, (byte) 0);
       validateBufferContents(buf, 50, 150, (byte) 1);
@@ -345,7 +343,7 @@ public class TestECBlockInputStream {
 
     }
     for (TestBlockInputStream s : streamFactory.getBlockStreams()) {
-      assertTrue(s.isClosed());
+      Assertions.assertTrue(s.isClosed());
     }
   }
 
@@ -392,8 +390,8 @@ public class TestECBlockInputStream {
         keyInfo, null, null, streamFactory,
         clientConfig)) {
       ecb.seek(0);
-      assertEquals(0, ecb.getPos());
-      assertEquals(0, ecb.getRemaining());
+      Assertions.assertEquals(0, ecb.getPos());
+      Assertions.assertEquals(0, ecb.getRemaining());
     }
   }
 
@@ -409,23 +407,23 @@ public class TestECBlockInputStream {
         keyInfo, null, null, streamFactory,
         clientConfig)) {
       ecb.seek(ONEMB - 1);
-      assertEquals(ONEMB - 1, ecb.getPos());
-      assertEquals(ONEMB * 4 + 1, ecb.getRemaining());
+      Assertions.assertEquals(ONEMB - 1, ecb.getPos());
+      Assertions.assertEquals(ONEMB * 4 + 1, ecb.getRemaining());
       // First read should read the last byte of the first chunk
-      assertEquals(0, ecb.read());
-      assertEquals(ONEMB,
+      Assertions.assertEquals(0, ecb.read());
+      Assertions.assertEquals(ONEMB,
           streamFactory.getBlockStreams().get(0).position);
       // Second read should be the first byte of the second chunk.
-      assertEquals(1, ecb.read());
+      Assertions.assertEquals(1, ecb.read());
 
       // Seek to the end of the file minus one byte
       ecb.seek(ONEMB * 5 - 1);
-      assertEquals(1, ecb.read());
-      assertEquals(ONEMB * 2,
+      Assertions.assertEquals(1, ecb.read());
+      Assertions.assertEquals(ONEMB * 2,
           streamFactory.getBlockStreams().get(1).position);
       // Second read should be EOF as there is no data left
-      assertEquals(-1, ecb.read());
-      assertEquals(0, ecb.getRemaining());
+      Assertions.assertEquals(-1, ecb.read());
+      Assertions.assertEquals(0, ecb.getRemaining());
     }
   }
 
@@ -444,14 +442,14 @@ public class TestECBlockInputStream {
       // factory
       ByteBuffer buf = ByteBuffer.allocate(3 * ONEMB);
       int read = ecb.read(buf);
-      assertEquals(3 * ONEMB, read);
+      Assertions.assertEquals(3 * ONEMB, read);
       // Now make replication index 2 error on the next read
       streamFactory.getBlockStreams().get(1).setThrowException(true);
       buf.clear();
       BadDataLocationException e =
           assertThrows(BadDataLocationException.class, () -> ecb.read(buf));
-      assertEquals(1, e.getFailedLocations().size());
-      assertEquals(2,
+      Assertions.assertEquals(1, e.getFailedLocations().size());
+      Assertions.assertEquals(2,
           keyInfo.getPipeline().getReplicaIndex(e.getFailedLocations().get(0)));
     }
   }
@@ -478,13 +476,13 @@ public class TestECBlockInputStream {
       // factory
       ByteBuffer buf = ByteBuffer.allocate(3 * ONEMB);
       int read = ecb.read(buf);
-      assertEquals(3 * ONEMB, read);
+      Assertions.assertEquals(3 * ONEMB, read);
       // Now make replication index 1 error on the next read but as there is a
       // spare it should read from it with no errors
       streamFactory.getBlockStreams().get(0).setThrowException(true);
       buf.clear();
       read = ecb.read(buf);
-      assertEquals(3 * ONEMB, read);
+      Assertions.assertEquals(3 * ONEMB, read);
 
       // Now make the spare one error on the next read, and we should get an
       // error with two failed locations. As each stream is created, a new
@@ -499,11 +497,11 @@ public class TestECBlockInputStream {
           assertThrows(BadDataLocationException.class, () -> ecb.read(buf));
       List<DatanodeDetails> failed = e.getFailedLocations();
       // Expect 2 different DNs reported as failure
-      assertEquals(2, failed.size());
-      assertNotEquals(failed.get(0), failed.get(1));
+      Assertions.assertEquals(2, failed.size());
+      Assertions.assertNotEquals(failed.get(0), failed.get(1));
       // Both failures should map to index = 1.
       for (DatanodeDetails dn : failed) {
-        assertEquals(1, datanodes.get(dn));
+        Assertions.assertEquals(1, datanodes.get(dn));
       }
     }
   }
@@ -547,17 +545,17 @@ public class TestECBlockInputStream {
               .getPipeline();
       // Check the pipeline is built with the correct Datanode
       // with right replicaIndex.
-      assertEquals(HddsProtos.ReplicationType.STAND_ALONE,
+      Assertions.assertEquals(HddsProtos.ReplicationType.STAND_ALONE,
           pipeline.getReplicationConfig().getReplicationType());
-      assertEquals(1, pipeline.getNodes().size());
-      assertEquals(3, dnMap.get(pipeline.getNodes().get(0)));
+      Assertions.assertEquals(1, pipeline.getNodes().size());
+      Assertions.assertEquals(3, dnMap.get(pipeline.getNodes().get(0)));
     }
   }
 
   private void validateBufferContents(ByteBuffer buf, int from, int to,
       byte val) {
     for (int i = from; i < to; i++) {
-      assertEquals(val, buf.get(i));
+      Assertions.assertEquals(val, buf.get(i));
     }
   }
 
@@ -570,7 +568,6 @@ public class TestECBlockInputStream {
       return blockStreams;
     }
 
-    @Override
     public synchronized BlockExtendedInputStream create(
         ReplicationConfig repConfig, BlockLocationInfo blockInfo,
         Pipeline pipeline, Token<OzoneBlockTokenIdentifier> token,

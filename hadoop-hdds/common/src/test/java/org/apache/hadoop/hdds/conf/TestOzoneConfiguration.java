@@ -1,65 +1,46 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.conf;
-
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_HANDLER_COUNT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_HANDLER_COUNT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_HANDLER_COUNT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HANDLER_COUNT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HANDLER_COUNT_KEY;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdds.utils.LegacyHadoopConfigurationSource;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Test class for OzoneConfiguration.
  */
 public class TestOzoneConfiguration {
-
-  private static final Logger LOG = LoggerFactory.getLogger(
-      TestOzoneConfiguration.class);
 
   private OzoneConfiguration conf;
 
@@ -84,7 +65,7 @@ public class TestOzoneConfiguration {
       throws Exception {
     File coreDefault = new File(tempDir, "core-default-test.xml");
     File coreSite = new File(tempDir, "core-site-test.xml");
-    OutputStream coreDefaultStream = Files.newOutputStream(coreDefault.toPath());
+    FileOutputStream coreDefaultStream = new FileOutputStream(coreDefault);
     try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
         coreDefaultStream, StandardCharsets.UTF_8))) {
       startConfig(out);
@@ -99,11 +80,11 @@ public class TestOzoneConfiguration {
 
       Path fileResource = new Path(coreDefault.getAbsolutePath());
       conf.addResource(fileResource);
-      assertEquals("XYZ", conf.getAllPropertiesByTag("MYCUSTOMTAG")
+      Assertions.assertEquals("XYZ", conf.getAllPropertiesByTag("MYCUSTOMTAG")
           .getProperty("dfs.random.key"));
     }
 
-    OutputStream coreSiteStream = Files.newOutputStream(coreSite.toPath());
+    FileOutputStream coreSiteStream = new FileOutputStream(coreSite);
     try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
         coreSiteStream, StandardCharsets.UTF_8))) {
       startConfig(out);
@@ -117,11 +98,11 @@ public class TestOzoneConfiguration {
     }
 
     // Test if values are getting overridden even without tags being present
-    assertEquals("3", conf.getAllPropertiesByTag("HDFS")
+    Assertions.assertEquals("3", conf.getAllPropertiesByTag("HDFS")
         .getProperty("dfs.replication"));
-    assertEquals("ABC", conf.getAllPropertiesByTag("MYCUSTOMTAG")
+    Assertions.assertEquals("ABC", conf.getAllPropertiesByTag("MYCUSTOMTAG")
         .getProperty("dfs.random.key"));
-    assertEquals("true", conf.getAllPropertiesByTag("YARN")
+    Assertions.assertEquals("true", conf.getAllPropertiesByTag("YARN")
         .getProperty("dfs.cblock.trace.io"));
   }
 
@@ -141,75 +122,14 @@ public class TestOzoneConfiguration {
     SimpleConfiguration configuration =
         ozoneConfig.getObject(SimpleConfiguration.class);
 
-    assertEquals("host", configuration.getBindHost());
-    assertEquals("address", configuration.getClientAddress());
-    assertTrue(configuration.isEnabled());
-    assertEquals(5555, configuration.getPort());
-    assertEquals(600, configuration.getWaitTime());
-    assertSame(Integer.class, configuration.getMyClass());
-    assertEquals(10.5, configuration.getThreshold());
-    assertEquals(Duration.ofSeconds(3), configuration.getDuration());
-  }
-
-  @Test
-  public void testRestrictedComplianceModeWithOzoneConf() {
-    Configuration config = new Configuration();
-    config.set("ozone.security.crypto.compliance.mode", "restricted");
-    OzoneConfiguration ozoneConfig = new OzoneConfiguration(config);
-
-    // Set it to an allowed config value
-    ozoneConfig.set("hdds.x509.signature.algorithm", "SHA512withDCA");
-    ozoneConfig.set("hdds.x509.signature.algorithm.restricted.whitelist", "SHA512withRSA,SHA512withDCA");
-
-    assertEquals("restricted", ozoneConfig.get("ozone.security.crypto.compliance.mode"));
-    assertEquals("SHA512withRSA,SHA512withDCA", ozoneConfig.get("hdds.x509.signature.algorithm.restricted.whitelist"));
-    assertEquals("SHA512withDCA", ozoneConfig.get("hdds.x509.signature.algorithm"));
-
-    // Set it to a disallowed config value
-    ozoneConfig.set("hdds.x509.signature.algorithm", "SHA256withRSA");
-
-    assertThrows(ConfigurationException.class, () -> ozoneConfig.get("hdds.x509.signature.algorithm"));
-
-    // Check it with a Hadoop Configuration
-    Configuration hadoopConfig =
-        LegacyHadoopConfigurationSource.asHadoopConfiguration(ozoneConfig);
-    assertThrows(ConfigurationException.class, () -> hadoopConfig.get("hdds.x509.signature.algorithm"));
-  }
-
-  @Test
-  public void testRestrictedComplianceModeWithLegacyHadoopConf() {
-    Configuration config = new Configuration();
-    config.addResource("ozone-default.xml");
-    config.set("ozone.security.crypto.compliance.mode", "restricted");
-    LegacyHadoopConfigurationSource legacyHadoopConf = new LegacyHadoopConfigurationSource(config);
-
-    // Set it to an allowed config value
-    legacyHadoopConf.set("hdds.x509.signature.algorithm", "SHA512withDCA");
-    legacyHadoopConf.set("hdds.x509.signature.algorithm.restricted.whitelist", "SHA512withRSA,SHA512withDCA");
-
-    assertEquals("restricted", legacyHadoopConf.get("ozone.security.crypto.compliance.mode"));
-    assertEquals("SHA512withRSA,SHA512withDCA",
-        legacyHadoopConf.get("hdds.x509.signature.algorithm.restricted.whitelist"));
-    assertEquals("SHA512withDCA", legacyHadoopConf.get("hdds.x509.signature.algorithm"));
-
-    // Set it to a disallowed config value
-    legacyHadoopConf.set("hdds.x509.signature.algorithm", "SHA256withRSA");
-
-    assertThrows(ConfigurationException.class, () -> legacyHadoopConf.get("hdds.x509.signature.algorithm"));
-
-    // Check it with a Hadoop Configuration
-    Configuration legacyConf = LegacyHadoopConfigurationSource.asHadoopConfiguration(legacyHadoopConf);
-    assertThrows(ConfigurationException.class, () -> legacyConf.get("hdds.x509.signature.algorithm"));
-  }
-
-  @Test
-  public void testUnrestrictedComplianceMode() {
-    OzoneConfiguration ozoneConfig = new OzoneConfiguration();
-    ozoneConfig.set("hdds.x509.signature.algorithm", "SHA256");
-    ozoneConfig.set("hdds.x509.signature.algorithm.unrestricted.whitelist", "SHA512withRSA");
-
-    assertEquals(ozoneConfig.get("hdds.x509.signature.algorithm"), "SHA256");
-    assertEquals(ozoneConfig.get("ozone.security.crypto.compliance.mode"), "unrestricted");
+    Assertions.assertEquals("host", configuration.getBindHost());
+    Assertions.assertEquals("address", configuration.getClientAddress());
+    Assertions.assertTrue(configuration.isEnabled());
+    Assertions.assertEquals(5555, configuration.getPort());
+    Assertions.assertEquals(600, configuration.getWaitTime());
+    Assertions.assertSame(Integer.class, configuration.getMyClass());
+    Assertions.assertEquals(10.5, configuration.getThreshold());
+    Assertions.assertEquals(Duration.ofSeconds(3), configuration.getDuration());
   }
 
   @Test
@@ -219,11 +139,11 @@ public class TestOzoneConfiguration {
     SimpleConfiguration configuration =
         ozoneConfiguration.getObject(SimpleConfiguration.class);
 
-    assertTrue(configuration.isEnabled());
-    assertEquals(9878, configuration.getPort());
-    assertSame(Object.class, configuration.getMyClass());
-    assertEquals(10, configuration.getThreshold());
-    assertEquals(Duration.ofHours(1), configuration.getDuration());
+    Assertions.assertTrue(configuration.isEnabled());
+    Assertions.assertEquals(9878, configuration.getPort());
+    Assertions.assertSame(Object.class, configuration.getMyClass());
+    Assertions.assertEquals(10, configuration.getThreshold());
+    Assertions.assertEquals(Duration.ofHours(1), configuration.getDuration());
   }
 
   @Test
@@ -245,17 +165,21 @@ public class TestOzoneConfiguration {
     subject.setFromObject(object);
 
     // THEN
-    assertEquals(object.getBindHost(), subject.get("test.scm.client.bind.host"));
-    assertEquals(object.getClientAddress(), subject.get("test.scm.client.address"));
-    assertEquals(object.isEnabled(), subject.getBoolean("test.scm.client.enabled", false));
-    assertEquals(object.getPort(), subject.getInt("test.scm.client.port", 0));
-    assertEquals(TimeUnit.SECONDS.toMinutes(object.getWaitTime()),
+    Assertions.assertEquals(object.getBindHost(),
+        subject.get("test.scm.client.bind.host"));
+    Assertions.assertEquals(object.getClientAddress(),
+        subject.get("test.scm.client.address"));
+    Assertions.assertEquals(object.isEnabled(),
+        subject.getBoolean("test.scm.client.enabled", false));
+    Assertions.assertEquals(object.getPort(),
+        subject.getInt("test.scm.client.port", 0));
+    Assertions.assertEquals(TimeUnit.SECONDS.toMinutes(object.getWaitTime()),
         subject.getTimeDuration("test.scm.client.wait", 0, TimeUnit.MINUTES));
-    assertSame(this.getClass(),
+    Assertions.assertSame(this.getClass(),
         subject.getClass("test.scm.client.class", null));
-    assertEquals(object.getThreshold(),
+    Assertions.assertEquals(object.getThreshold(),
         subject.getDouble("test.scm.client.threshold", 20.5));
-    assertEquals(object.getDuration().toMillis(),
+    Assertions.assertEquals(object.getDuration().toMillis(),
         subject.getTimeDuration("test.scm.client.duration", 0,
             TimeUnit.MILLISECONDS));
   }
@@ -270,13 +194,18 @@ public class TestOzoneConfiguration {
     subject.setFromObject(object);
 
     // THEN
-    assertEquals("0.0.0.0", subject.get("test.scm.client.bind.host"));
-    assertEquals("localhost", subject.get("test.scm.client.address"));
-    assertTrue(subject.getBoolean("test.scm.client.enabled", false));
-    assertEquals(9878, subject.getInt("test.scm.client.port", 123));
-    assertEquals(TimeUnit.MINUTES.toSeconds(30),
+    Assertions.assertEquals("0.0.0.0",
+        subject.get("test.scm.client.bind.host"));
+    Assertions.assertEquals("localhost",
+        subject.get("test.scm.client.address"));
+    Assertions.assertTrue(
+        subject.getBoolean("test.scm.client.enabled", false));
+    Assertions.assertEquals(9878,
+        subject.getInt("test.scm.client.port", 123));
+    Assertions.assertEquals(TimeUnit.MINUTES.toSeconds(30),
         subject.getTimeDuration("test.scm.client.wait", 555, TimeUnit.SECONDS));
-    assertEquals(10, subject.getDouble("test.scm.client.threshold", 20.5));
+    Assertions.assertEquals(10,
+        subject.getDouble("test.scm.client.threshold", 20.5));
   }
 
   @Test
@@ -287,7 +216,7 @@ public class TestOzoneConfiguration {
     Configuration configuration = new Configuration(true);
 
     File ozoneSite = new File(tempDir, "ozone-site.xml");
-    OutputStream ozoneSiteStream = Files.newOutputStream(ozoneSite.toPath());
+    FileOutputStream ozoneSiteStream = new FileOutputStream(ozoneSite);
     try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
         ozoneSiteStream, StandardCharsets.UTF_8))) {
       startConfig(out);
@@ -300,10 +229,10 @@ public class TestOzoneConfiguration {
     OzoneConfiguration ozoneConfiguration =
         new OzoneConfiguration(configuration);
     // ozoneConfig value matches input config value for the corresponding key
-    assertEquals(val, ozoneConfiguration.get(key));
-    assertEquals(val, configuration.get(key));
+    Assertions.assertEquals(val, ozoneConfiguration.get(key));
+    Assertions.assertEquals(val, configuration.get(key));
 
-    assertNotEquals(val, new OzoneConfiguration().get(key));
+    Assertions.assertNotEquals(val, new OzoneConfiguration().get(key));
   }
 
   @Test
@@ -316,36 +245,18 @@ public class TestOzoneConfiguration {
     subject.setFromObject(object);
 
     // THEN
-    assertEquals("0.0.0.0", subject.get("test.scm.client.bind.host"));
-    assertEquals("localhost", subject.get("test.scm.client.address"));
-    assertFalse(subject.getBoolean("test.scm.client.enabled", false));
-    assertEquals(0, subject.getInt("test.scm.client.port", 123));
-    assertEquals(0, subject.getTimeDuration("test.scm.client.wait", 555, TimeUnit.SECONDS));
-    assertEquals(0, subject.getDouble("test.scm.client.threshold", 20.5));
-  }
-
-  private static Stream<Arguments> getIntBackwardCompatibilityScenarios() {
-    return Stream.of(
-        Arguments.of(OZONE_SCM_CLIENT_HANDLER_COUNT_KEY, 10, true,
-            OZONE_SCM_HANDLER_COUNT_KEY, 10, OZONE_SCM_HANDLER_COUNT_DEFAULT),
-        Arguments.of(OZONE_SCM_BLOCK_HANDLER_COUNT_KEY, -1, false,
-            OZONE_SCM_HANDLER_COUNT_KEY, OZONE_SCM_HANDLER_COUNT_DEFAULT,
-                OZONE_SCM_HANDLER_COUNT_DEFAULT),
-        Arguments.of(OZONE_SCM_DATANODE_HANDLER_COUNT_KEY, 105, true,
-            OZONE_SCM_HANDLER_COUNT_KEY, 105, OZONE_SCM_HANDLER_COUNT_DEFAULT)
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource("getIntBackwardCompatibilityScenarios")
-  public void testGetIntBackwardCompatibility(String name, int newVal,
-      boolean isGen, String fallbackName, int targetVal, int defaultVal) {
-    OzoneConfiguration ozoneConfig = new OzoneConfiguration();
-    if (isGen) {
-      ozoneConfig.setInt(name, newVal);
-    }
-    int value = ozoneConfig.getInt(name, fallbackName, defaultVal, LOG::info);
-    assertEquals(value, targetVal);
+    Assertions.assertEquals("0.0.0.0",
+        subject.get("test.scm.client.bind.host"));
+    Assertions.assertEquals("localhost",
+        subject.get("test.scm.client.address"));
+    Assertions.assertFalse(
+        subject.getBoolean("test.scm.client.enabled", false));
+    Assertions.assertEquals(0,
+        subject.getInt("test.scm.client.port", 123));
+    Assertions.assertEquals(0,
+        subject.getTimeDuration("test.scm.client.wait", 555, TimeUnit.SECONDS));
+    Assertions.assertEquals(0,
+        subject.getDouble("test.scm.client.threshold", 20.5));
   }
 
   @Test
@@ -353,7 +264,7 @@ public class TestOzoneConfiguration {
     OzoneConfiguration ozoneConfiguration = new OzoneConfiguration();
     ozoneConfiguration.setInt("test.scm.client.port", -3);
 
-    assertThrows(NumberFormatException.class,
+    Assertions.assertThrows(NumberFormatException.class,
         () -> ozoneConfiguration.getObject(SimpleConfiguration.class));
   }
 
@@ -361,14 +272,14 @@ public class TestOzoneConfiguration {
   @EnumSource
   void tagIsRecognized(ConfigTag tag) {
     OzoneConfiguration subject = new OzoneConfiguration();
-    assertTrue(subject.isPropertyTag(tag.name()),
+    Assertions.assertTrue(subject.isPropertyTag(tag.name()),
         () -> tag + " should be recognized as config tag");
   }
 
   @Test
   void unknownTag() {
     OzoneConfiguration subject = new OzoneConfiguration();
-    assertFalse(subject.isPropertyTag("not-a-tag"));
+    Assertions.assertFalse(subject.isPropertyTag("not-a-tag"));
   }
 
   private void appendProperty(BufferedWriter out, String name, String val)

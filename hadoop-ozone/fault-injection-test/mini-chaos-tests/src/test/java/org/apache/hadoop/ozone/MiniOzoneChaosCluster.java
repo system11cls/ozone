@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.commons.lang3.RandomUtils;
+
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -43,6 +44,8 @@ import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.ozone.test.GenericTestUtils;
+
+import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +63,7 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
 
   private final FailureManager failureManager;
 
-  private static final int WAIT_FOR_CLUSTER_TO_BE_READY_TIMEOUT = 120000; // 2 min
+  private final int waitForClusterToBeReadyTimeout = 120000; // 2 min
 
   private final Set<OzoneManager> failedOmSet;
   private final Set<StorageContainerManager> failedScmSet;
@@ -72,7 +75,6 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
     OZONE_MANAGER,
     STORAGE_CONTAINER_MANAGER;
 
-    @Override
     public String toString() {
       switch (this) {
       case DATANODE:
@@ -156,7 +158,7 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
         }
       }
       return true;
-    }, 1000, WAIT_FOR_CLUSTER_TO_BE_READY_TIMEOUT);
+    }, 1000, waitForClusterToBeReadyTimeout);
   }
 
   /**
@@ -230,7 +232,7 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
     protected void initializeConfiguration() throws IOException {
       super.initializeConfiguration();
 
-      OzoneClientConfig clientConfig = conf.getObject(OzoneClientConfig.class);
+      OzoneClientConfig clientConfig = new OzoneClientConfig();
       clientConfig.setStreamBufferFlushSize(8 * 1024 * 1024);
       clientConfig.setStreamBufferMaxSize(16 * 1024 * 1024);
       clientConfig.setStreamBufferSize(4 * 1024);
@@ -279,13 +281,26 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
           OZONE_OM_RATIS_SNAPSHOT_AUTO_TRIGGER_THRESHOLD_KEY, 100);
     }
 
+    /**
+     * Sets the number of data volumes per datanode.
+     *
+     * @param val number of volumes per datanode.
+     *
+     * @return MiniOzoneCluster.Builder
+     */
+    @Override
+    public Builder setNumDataVolumes(int val) {
+      numDataVolumes = val;
+      return this;
+    }
+
     @Override
     public MiniOzoneChaosCluster build() throws IOException {
       DefaultMetricsSystem.setMiniClusterMode(true);
       DatanodeStoreCache.setMiniClusterMode();
 
       initializeConfiguration();
-      if (numberOfOzoneManagers() > 1) {
+      if (numOfOMs > 1) {
         initOMRatisConf();
       }
 
@@ -298,7 +313,8 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
         throw new IOException("Unable to build MiniOzoneCluster. ", ex);
       }
 
-      final List<HddsDatanodeService> hddsDatanodes = createHddsDatanodes();
+      final List<HddsDatanodeService> hddsDatanodes = createHddsDatanodes(
+          scmService.getActiveServices(), null);
 
       MiniOzoneChaosCluster cluster =
           new MiniOzoneChaosCluster(conf, omService, scmService, hddsDatanodes,
@@ -307,7 +323,6 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
       if (startDataNodes) {
         cluster.startHddsDatanodes();
       }
-      prepareForNextBuild();
       return cluster;
     }
   }
@@ -408,13 +423,11 @@ public class MiniOzoneChaosCluster extends MiniOzoneHAClusterImpl {
     return scms;
   }
 
-  @Override
   public void shutdownStorageContainerManager(StorageContainerManager scm) {
     super.shutdownStorageContainerManager(scm);
     failedScmSet.add(scm);
   }
 
-  @Override
   public StorageContainerManager restartStorageContainerManager(
       StorageContainerManager scm, boolean waitForScm)
       throws IOException, TimeoutException, InterruptedException,

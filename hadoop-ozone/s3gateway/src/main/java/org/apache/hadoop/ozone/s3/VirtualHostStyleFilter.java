@@ -1,28 +1,22 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.s3;
 
-import static org.apache.hadoop.ozone.s3.S3GatewayConfigKeys.OZONE_S3G_DOMAIN_NAME;
-
-import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
-import java.net.URI;
-import java.util.Arrays;
 import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
@@ -32,10 +26,19 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.ext.Provider;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.Arrays;
+
+
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.fs.InvalidRequestException;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.ozone.s3.S3GatewayConfigKeys.OZONE_S3G_DOMAIN_NAME;
 
 /**
  * Filter used to convert virtual host style pattern to path style pattern.
@@ -60,6 +63,13 @@ public class VirtualHostStyleFilter implements ContainerRequestFilter {
   @Override
   public void filter(ContainerRequestContext requestContext) throws
       IOException {
+    // Skip this filter if the uri is hitting S3Secret generation or
+    // revocation endpoint.
+    if (requestContext.getUriInfo().getRequestUri().getPath()
+        .startsWith("/secret")) {
+      return;
+    }
+
     domains = conf.getTrimmedStrings(OZONE_S3G_DOMAIN_NAME);
 
     if (domains.length == 0) {

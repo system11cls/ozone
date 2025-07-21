@@ -1,71 +1,124 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ADDRESS_KEY;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.UUID;
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneVolume;
-import org.apache.ozone.test.NonHATests;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.raftlog.RaftLog;
+import java.util.LinkedList;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.URI;
+
+import static org.apache.ozone.test.GenericTestUtils.getTempPath;
 
 /**
  * Test for HadoopNestedDirGenerator.
  */
-public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCase {
+
+public class TestHadoopNestedDirGenerator {
+
+  private String path;
+  private OzoneConfiguration conf = null;
+  private MiniOzoneCluster cluster = null;
   private ObjectStore store = null;
   private static final Logger LOG =
           LoggerFactory.getLogger(TestHadoopNestedDirGenerator.class);
   private OzoneClient client;
 
-  @AfterEach
-  void shutdown() {
-    IOUtils.closeQuietly(client);
+  @Before
+    public void setup() {
+    path = getTempPath(TestHadoopNestedDirGenerator.class.getSimpleName());
+    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    File baseDir = new File(path);
+    baseDir.mkdirs();
   }
 
-  @BeforeEach
-  void init() throws Exception {
-    client = cluster().newClient();
+    /**
+     * Shutdown MiniDFSCluster.
+     */
+
+  private void shutdown() throws IOException {
+    IOUtils.closeQuietly(client);
+    if (cluster != null) {
+      cluster.shutdown();
+      FileUtils.deleteDirectory(new File(path));
+    }
+  }
+
+    /**
+     * Create a MiniDFSCluster for testing.
+     *
+     * @throws IOException
+     */
+
+  private void startCluster() throws Exception {
+    conf = new OzoneConfiguration();
+    conf.set(OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT,
+        OMConfigKeys.OZONE_BUCKET_LAYOUT_FILE_SYSTEM_OPTIMIZED);
+    cluster = MiniOzoneCluster.newBuilder(conf).setNumDatanodes(5).build();
+    cluster.waitForClusterToBeReady();
+    cluster.waitTobeOutOfSafeMode();
+    client = OzoneClientFactory.getRpcClient(conf);
     store = client.getObjectStore();
   }
 
   @Test
-  public void testNestedDirTreeGeneration() throws Exception {
-    verifyDirTree("vol-" + UUID.randomUUID(), "bucket1", 1, 1);
-    verifyDirTree("vol-" + UUID.randomUUID(), "bucket1", 1, 5);
-    verifyDirTree("vol-" + UUID.randomUUID(), "bucket1", 2, 0);
-    verifyDirTree("vol-" + UUID.randomUUID(), "bucket1", 3, 2);
-    verifyDirTree("vol-" + UUID.randomUUID(), "bucket1", 5, 4);
+    public void testNestedDirTreeGeneration() throws Exception {
+    try {
+      startCluster();
+      FileOutputStream out = FileUtils.openOutputStream(new File(path,
+              "conf"));
+      cluster.getConf().writeXml(out);
+      out.getFD().sync();
+      out.close();
+      verifyDirTree("vol1",
+              "bucket1", 1, 1);
+      verifyDirTree("vol2",
+              "bucket1", 1, 5);
+      verifyDirTree("vol3",
+              "bucket1", 2, 0);
+      verifyDirTree("vol4",
+              "bucket1", 3, 2);
+      verifyDirTree("vol5",
+              "bucket1", 5, 4);
+    } finally {
+      shutdown();
+    }
   }
 
   private void verifyDirTree(String volumeName, String bucketName,
@@ -75,27 +128,22 @@ public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCas
     OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName);
     String rootPath = "o3fs://" + bucketName + "." + volumeName;
-    String om = cluster().getConf().get(OZONE_OM_ADDRESS_KEY);
-    new Freon().getCmd().execute(
-        "-D", OZONE_OM_ADDRESS_KEY + "=" + om,
-        "ddsg",
-        "-d", String.valueOf(actualDepth),
-        "-s", String.valueOf(span),
-        "-n", "1",
-        "-r", rootPath
-    );
+    String confPath = new File(path, "conf").getAbsolutePath();
+    new Freon().execute(new String[]{"-conf", confPath, "ddsg", "-d",
+        actualDepth + "", "-s", span + "", "-n", "1", "-r", rootPath});
     // verify the directory structure
-    try (FileSystem fileSystem = FileSystem.get(URI.create(rootPath), cluster().getConf())) {
-      Path rootDir = new Path(rootPath.concat("/"));
-      // verify root path details
-      FileStatus[] fileStatuses = fileSystem.listStatus(rootDir);
-      Path p = null;
-      for (FileStatus fileStatus : fileStatuses) {
-        // verify the num of peer directories and span directories
-        p = depthBFS(fileSystem, fileStatuses, span, actualDepth);
-        int actualSpan = spanCheck(fileSystem, span, p);
-        assertEquals(span, actualSpan, "Mismatch span in a path");
-      }
+    FileSystem fileSystem = FileSystem.get(URI.create(rootPath),
+            conf);
+    Path rootDir = new Path(rootPath.concat("/"));
+    // verify root path details
+    FileStatus[] fileStatuses = fileSystem.listStatus(rootDir);
+    Path p = null;
+    for (FileStatus fileStatus : fileStatuses) {
+      // verify the num of peer directories and span directories
+      p = depthBFS(fileSystem, fileStatuses, span, actualDepth);
+      int actualSpan = spanCheck(fileSystem, span, p);
+      Assert.assertEquals("Mismatch span in a path",
+              span, actualSpan);
     }
   }
 
@@ -120,12 +168,14 @@ public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCas
     LinkedList<FileStatus> queue = new LinkedList<FileStatus>();
     FileStatus f1 = fileStatuses[0];
     queue.add(f1);
-    while (!queue.isEmpty()) {
+    while (queue.size() != 0) {
       FileStatus f = queue.poll();
       FileStatus[] temp = fs.listStatus(f.getPath());
       if (temp.length > 0) {
         ++depth;
-        Collections.addAll(queue, temp);
+        for (int i = 0; i < temp.length; i++) {
+          queue.add(temp[i]);
+        }
       }
       if (span == 0) {
         p = f.getPath();
@@ -133,7 +183,8 @@ public abstract class TestHadoopNestedDirGenerator implements NonHATests.TestCas
         p = f.getPath().getParent();
       }
     }
-    assertEquals(depth, actualDepth, "Mismatch depth in a path");
+    Assert.assertEquals("Mismatch depth in a path",
+            depth, actualDepth);
     return p;
   }
 

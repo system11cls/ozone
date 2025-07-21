@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,30 +18,37 @@
 
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.container.TestHelper;
+import org.apache.ozone.test.UnhealthyTest;
 import org.apache.ozone.test.tag.Unhealthy;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 import picocli.CommandLine;
 
 /**
  * Tests Freon with Datanode restarts without waiting for pipeline to close.
  */
-@Timeout(value = 300, unit = TimeUnit.SECONDS)
 public class TestFreonWithDatanodeFastRestart {
+
+  /**
+    * Set a timeout for each test.
+    */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
+
   private static MiniOzoneCluster cluster;
   private static OzoneConfiguration conf;
 
@@ -50,11 +58,12 @@ public class TestFreonWithDatanodeFastRestart {
    * Ozone is made active by setting OZONE_ENABLED = true
    *
    */
-  @BeforeAll
+  @BeforeClass
   public static void init() throws Exception {
     conf = new OzoneConfiguration();
-    conf.setTimeDuration(OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL, 1000, TimeUnit.MILLISECONDS);
     cluster = MiniOzoneCluster.newBuilder(conf)
+      .setHbProcessorInterval(1000)
+      .setHbInterval(1000)
       .setNumDatanodes(3)
       .build();
     cluster.waitForClusterToBeReady();
@@ -63,7 +72,7 @@ public class TestFreonWithDatanodeFastRestart {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterAll
+  @AfterClass
   public static void shutdown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -71,7 +80,7 @@ public class TestFreonWithDatanodeFastRestart {
   }
 
   @Test
-  @Unhealthy("HDDS-1160")
+  @Category(UnhealthyTest.class) @Unhealthy("HDDS-1160")
   public void testRestart() throws Exception {
     startFreon();
     StateMachine sm = getStateMachine();
@@ -85,14 +94,15 @@ public class TestFreonWithDatanodeFastRestart {
     String expectedSnapFile =
         storage.getSnapshotFile(termIndexBeforeRestart.getTerm(),
             termIndexBeforeRestart.getIndex()).getAbsolutePath();
-    assertEquals(expectedSnapFile, snapshotInfo.getFile().getPath().toString());
-    assertEquals(termInSnapshot, termIndexBeforeRestart);
+    Assert.assertEquals(expectedSnapFile,
+        snapshotInfo.getFile().getPath().toString());
+    Assert.assertEquals(termInSnapshot, termIndexBeforeRestart);
 
     // After restart the term index might have progressed to apply pending
     // transactions.
     TermIndex termIndexAfterRestart = sm.getLastAppliedTermIndex();
-    assertThat(termIndexAfterRestart.getIndex())
-        .isGreaterThanOrEqualTo(termIndexBeforeRestart.getIndex());
+    Assert.assertTrue(termIndexAfterRestart.getIndex() >=
+        termIndexBeforeRestart.getIndex());
     // TODO: fix me
     // Give some time for the datanode to register again with SCM.
     // If we try to use the pipeline before the datanode registers with SCM
@@ -117,10 +127,10 @@ public class TestFreonWithDatanodeFastRestart {
         "--validate-writes"
     );
 
-    assertEquals(1, randomKeyGenerator.getNumberOfVolumesCreated());
-    assertEquals(1, randomKeyGenerator.getNumberOfBucketsCreated());
-    assertEquals(1, randomKeyGenerator.getNumberOfKeysAdded());
-    assertEquals(0, randomKeyGenerator.getUnsuccessfulValidationCount());
+    Assert.assertEquals(1, randomKeyGenerator.getNumberOfVolumesCreated());
+    Assert.assertEquals(1, randomKeyGenerator.getNumberOfBucketsCreated());
+    Assert.assertEquals(1, randomKeyGenerator.getNumberOfKeysAdded());
+    Assert.assertEquals(0, randomKeyGenerator.getUnsuccessfulValidationCount());
   }
 
   private StateMachine getStateMachine() throws Exception {

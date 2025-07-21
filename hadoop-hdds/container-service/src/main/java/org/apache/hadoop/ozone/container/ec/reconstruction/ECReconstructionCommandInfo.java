@@ -1,35 +1,35 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.ec.reconstruction;
 
-import static java.util.Collections.unmodifiableSortedMap;
-import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.reconstructECContainersCommand;
-
-import com.google.protobuf.ByteString;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.stream.IntStream;
-import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex;
+
+import java.util.Arrays;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.stream.IntStream;
+
+import static java.util.Collections.unmodifiableSortedMap;
+import static java.util.stream.Collectors.toMap;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type.reconstructECContainersCommand;
 
 /**
  * This class is to keep the required EC reconstruction info.
@@ -39,14 +39,16 @@ public class ECReconstructionCommandInfo {
   private final SortedMap<Integer, DatanodeDetails> targetNodeMap;
   private final long containerID;
   private final ECReplicationConfig ecReplicationConfig;
-  private final ByteString missingContainerIndexes;
+  private final byte[] missingContainerIndexes;
   private final long deadlineMsSinceEpoch;
   private final long term;
 
   public ECReconstructionCommandInfo(ReconstructECContainersCommand cmd) {
     this.containerID = cmd.getContainerID();
     this.ecReplicationConfig = cmd.getEcReplicationConfig();
-    this.missingContainerIndexes = cmd.getMissingContainerIndexes();
+    this.missingContainerIndexes =
+        Arrays.copyOf(cmd.getMissingContainerIndexes(),
+            cmd.getMissingContainerIndexes().length);
     this.deadlineMsSinceEpoch = cmd.getDeadline();
     this.term = cmd.getTerm();
 
@@ -58,7 +60,7 @@ public class ECReconstructionCommandInfo {
     targetNodeMap = IntStream.range(0, cmd.getTargetDatanodes().size())
         .boxed()
         .collect(toMap(
-            i -> (int) missingContainerIndexes.byteAt(i),
+            i -> (int) missingContainerIndexes[i],
             i -> cmd.getTargetDatanodes().get(i),
             (v1, v2) -> v1, TreeMap::new));
   }
@@ -88,7 +90,7 @@ public class ECReconstructionCommandInfo {
     return reconstructECContainersCommand
         + ": containerID=" + containerID
         + ", replication=" + ecReplicationConfig.getReplication()
-        + ", missingIndexes=" + StringUtils.bytes2String(missingContainerIndexes.asReadOnlyByteBuffer())
+        + ", missingIndexes=" + Arrays.toString(missingContainerIndexes)
         + ", sources=" + sourceNodeMap
         + ", targets=" + targetNodeMap;
   }

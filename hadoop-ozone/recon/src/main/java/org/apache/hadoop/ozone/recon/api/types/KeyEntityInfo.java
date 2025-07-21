@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,10 +18,10 @@
 
 package org.apache.hadoop.ozone.recon.api.types;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.Instant;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+
+import java.time.Instant;
 
 /**
  * POJO object wrapper for metadata of a given key/file.
@@ -37,7 +38,6 @@ public class KeyEntityInfo {
   private String path;
 
   @JsonProperty("inStateSince")
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   private long inStateSince;
 
   @JsonProperty("size")
@@ -49,27 +49,13 @@ public class KeyEntityInfo {
   @JsonProperty("replicationInfo")
   private ReplicationConfig replicationConfig;
 
-  /** key creation time. */
-  @JsonProperty("creationTime")
-  private long creationTime;
-
-  /** key modification time. */
-  @JsonProperty("modificationTime")
-  private long modificationTime;
-
-  /** Indicate if the path is a key for Web UI. */
-  @JsonProperty("isKey")
-  private boolean isKey;
-
   public KeyEntityInfo() {
     key = "";
     path = "";
+    inStateSince = Instant.now().toEpochMilli();
     size = 0L;
     replicatedSize = 0L;
     replicationConfig = null;
-    creationTime = Instant.now().toEpochMilli();
-    modificationTime = Instant.now().toEpochMilli();
-    isKey = true;
   }
 
   public String getKey() {
@@ -119,29 +105,5 @@ public class KeyEntityInfo {
   public void setReplicationConfig(
       ReplicationConfig replicationConfig) {
     this.replicationConfig = replicationConfig;
-  }
-
-  public long getCreationTime() {
-    return creationTime;
-  }
-
-  public void setCreationTime(long creationTime) {
-    this.creationTime = creationTime;
-  }
-
-  public long getModificationTime() {
-    return modificationTime;
-  }
-
-  public void setModificationTime(long modificationTime) {
-    this.modificationTime = modificationTime;
-  }
-
-  public boolean isKey() {
-    return isKey;
-  }
-
-  public void setIsKey(boolean isKey) {
-    this.isKey = isKey;
   }
 }

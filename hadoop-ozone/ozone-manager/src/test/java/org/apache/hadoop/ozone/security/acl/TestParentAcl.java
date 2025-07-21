@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +17,47 @@
  */
 
 package org.apache.hadoop.ozone.security.acl;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.server.OzoneAdmins;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.om.BucketManager;
+import org.apache.hadoop.ozone.om.KeyManager;
+import org.apache.hadoop.ozone.om.OMMetadataManager;
+import org.apache.hadoop.ozone.om.OmTestManagers;
+import org.apache.hadoop.ozone.om.PrefixManager;
+import org.apache.hadoop.ozone.om.VolumeManager;
+import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
+import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
+import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
+import org.apache.hadoop.ozone.om.helpers.OzoneAclUtil;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
+import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
+import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ozone.test.UnhealthyTest;
+import org.apache.ozone.test.tag.Unhealthy;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.experimental.categories.Category;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
@@ -36,39 +78,6 @@ import static org.apache.hadoop.ozone.security.acl.OzoneObj.ResourceType.BUCKET;
 import static org.apache.hadoop.ozone.security.acl.OzoneObj.ResourceType.KEY;
 import static org.apache.hadoop.ozone.security.acl.OzoneObj.ResourceType.VOLUME;
 import static org.apache.hadoop.ozone.security.acl.OzoneObj.StoreType.OZONE;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import org.apache.commons.lang3.RandomUtils;
-import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.server.OzoneAdmins;
-import org.apache.hadoop.ozone.OzoneAcl;
-import org.apache.hadoop.ozone.om.BucketManager;
-import org.apache.hadoop.ozone.om.KeyManager;
-import org.apache.hadoop.ozone.om.OMMetadataManager;
-import org.apache.hadoop.ozone.om.OmTestManagers;
-import org.apache.hadoop.ozone.om.PrefixManager;
-import org.apache.hadoop.ozone.om.VolumeManager;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
-import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
-import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
-import org.apache.hadoop.ozone.om.helpers.OzoneAclUtil;
-import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
-import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
-import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.ozone.test.tag.Unhealthy;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test parent acl requirements when accessing children with native authorizer.
@@ -84,14 +93,14 @@ public class TestParentAcl {
   private static UserGroupInformation adminUgi;
   private static UserGroupInformation testUgi, testUgi1;
   private static OzoneManagerProtocol writeClient;
-  @TempDir
   private static File testDir;
 
   @BeforeAll
-  static void setup() throws Exception {
+  public static void setup() throws IOException, AuthenticationException {
     ozConfig = new OzoneConfiguration();
     ozConfig.set(OZONE_ACL_AUTHORIZER_CLASS,
         OZONE_ACL_AUTHORIZER_CLASS_NATIVE);
+    testDir = GenericTestUtils.getRandomizedTestDir();
     ozConfig.set(OZONE_METADATA_DIRS, testDir.toString());
     ozConfig.set(OZONE_ADMINISTRATORS, "om");
 
@@ -114,8 +123,13 @@ public class TestParentAcl {
         new String[]{"test1"});
   }
 
+  @AfterAll
+  public static void cleanup() throws IOException {
+    FileUtils.deleteDirectory(testDir);
+  }
+
   @Test
-  @Unhealthy("HDDS-6335")
+  @Category(UnhealthyTest.class) @Unhealthy("HDDS-6335")
   public void testKeyAcl()
       throws IOException {
     OzoneObj keyObj;
@@ -221,80 +235,127 @@ public class TestParentAcl {
         .setAclRights(childAclType).build();
 
     OzoneAcl childAcl = new OzoneAcl(USER,
-        testUgi1.getUserName(), ACCESS, childAclType);
+        testUgi1.getUserName(), childAclType, ACCESS);
 
     OzoneAcl parentAcl = new OzoneAcl(USER,
-        testUgi1.getUserName(), ACCESS, parentAclType);
+        testUgi1.getUserName(), parentAclType, ACCESS);
 
-    assertFalse(nativeAuthorizer.checkAccess(child, requestContext));
+    Assertions.assertFalse(nativeAuthorizer.checkAccess(child, requestContext));
     if (child.getResourceType() == BUCKET) {
       // add the bucket acl
       addBucketAcl(child.getVolumeName(), child.getBucketName(), childAcl);
-      assertFalse(nativeAuthorizer.checkAccess(
+      Assertions.assertFalse(nativeAuthorizer.checkAccess(
           child, requestContext));
 
       // add the volume acl (parent), now bucket access is allowed.
       addVolumeAcl(child.getVolumeName(), parentAcl);
-      assertTrue(nativeAuthorizer.checkAccess(
+      Assertions.assertTrue(nativeAuthorizer.checkAccess(
           child, requestContext));
 
     } else if (child.getResourceType() == KEY) {
       // add key acl is not enough
       addKeyAcl(child.getVolumeName(), child.getBucketName(),
           child.getKeyName(), childAcl);
-      assertFalse(nativeAuthorizer.checkAccess(
+      Assertions.assertFalse(nativeAuthorizer.checkAccess(
           child, requestContext));
 
       // add the bucket acl is not enough (parent)
       addBucketAcl(child.getVolumeName(), child.getBucketName(), parentAcl);
-      assertFalse(nativeAuthorizer.checkAccess(
+      Assertions.assertFalse(nativeAuthorizer.checkAccess(
           child, requestContext));
 
       // add the volume acl (grand-parent), now key access is allowed.
       OzoneAcl parentVolumeAcl = new OzoneAcl(USER,
-          testUgi1.getUserName(), ACCESS, READ);
+          testUgi1.getUserName(), READ, ACCESS);
       addVolumeAcl(child.getVolumeName(), parentVolumeAcl);
-      assertTrue(nativeAuthorizer.checkAccess(
+      Assertions.assertTrue(nativeAuthorizer.checkAccess(
           child, requestContext));
     }
   }
 
   private void addVolumeAcl(String vol, OzoneAcl ozoneAcl) throws IOException {
-    OzoneNativeAclTestUtil.addVolumeAcl(metadataManager, vol, ozoneAcl);
+    String volumeKey = metadataManager.getVolumeKey(vol);
+    OmVolumeArgs omVolumeArgs =
+        metadataManager.getVolumeTable().get(volumeKey);
+
+    omVolumeArgs.addAcl(ozoneAcl);
+
+    metadataManager.getVolumeTable().addCacheEntry(new CacheKey<>(volumeKey),
+        CacheValue.get(1L, omVolumeArgs));
   }
 
   private List<OzoneAcl> getVolumeAcls(String vol) throws IOException {
-    return OzoneNativeAclTestUtil.getVolumeAcls(metadataManager, vol);
+    String volumeKey = metadataManager.getVolumeKey(vol);
+    OmVolumeArgs omVolumeArgs =
+        metadataManager.getVolumeTable().get(volumeKey);
+
+    return omVolumeArgs.getAcls();
   }
 
   private void setVolumeAcl(String vol, List<OzoneAcl> ozoneAcls)
       throws IOException {
-    OzoneNativeAclTestUtil.setVolumeAcl(metadataManager, vol, ozoneAcls);
+    String volumeKey = metadataManager.getVolumeKey(vol);
+    OmVolumeArgs omVolumeArgs = metadataManager.getVolumeTable().get(volumeKey);
+
+    omVolumeArgs.setAcls(ozoneAcls);
+
+    metadataManager.getVolumeTable().addCacheEntry(new CacheKey<>(volumeKey),
+        CacheValue.get(1L, omVolumeArgs));
   }
 
   private void addKeyAcl(String vol, String buck, String key,
       OzoneAcl ozoneAcl) throws IOException {
-    OzoneNativeAclTestUtil.addKeyAcl(metadataManager, vol, buck, getBucketLayout(), key, ozoneAcl);
+    String objKey = metadataManager.getOzoneKey(vol, buck, key);
+    OmKeyInfo omKeyInfo =
+        metadataManager.getKeyTable(getBucketLayout()).get(objKey);
+
+    omKeyInfo.addAcl(ozoneAcl);
+
+    metadataManager.getKeyTable(getBucketLayout())
+        .addCacheEntry(new CacheKey<>(objKey),
+            CacheValue.get(1L, omKeyInfo));
   }
 
   private void setKeyAcl(String vol, String buck, String key,
                          List<OzoneAcl> ozoneAcls) throws IOException {
-    OzoneNativeAclTestUtil.setKeyAcl(metadataManager, vol, buck, getBucketLayout(), key, ozoneAcls);
+    String objKey = metadataManager.getOzoneKey(vol, buck, key);
+    OmKeyInfo omKeyInfo =
+        metadataManager.getKeyTable(getBucketLayout()).get(objKey);
+    omKeyInfo.setAcls(ozoneAcls);
+
+    metadataManager.getKeyTable(getBucketLayout())
+        .addCacheEntry(new CacheKey<>(objKey),
+            CacheValue.get(1L, omKeyInfo));
   }
 
   private void addBucketAcl(String vol, String buck, OzoneAcl ozoneAcl)
       throws IOException {
-    OzoneNativeAclTestUtil.addBucketAcl(metadataManager, vol, buck, ozoneAcl);
+    String bucketKey = metadataManager.getBucketKey(vol, buck);
+    OmBucketInfo omBucketInfo = metadataManager.getBucketTable().get(bucketKey);
+
+    omBucketInfo.addAcl(ozoneAcl);
+
+    metadataManager.getBucketTable().addCacheEntry(new CacheKey<>(bucketKey),
+        CacheValue.get(1L, omBucketInfo));
   }
 
   private List<OzoneAcl> getBucketAcls(String vol, String buck)
       throws IOException {
-    return OzoneNativeAclTestUtil.getBucketAcls(metadataManager, vol, buck);
+    String bucketKey = metadataManager.getBucketKey(vol, buck);
+    OmBucketInfo omBucketInfo = metadataManager.getBucketTable().get(bucketKey);
+
+    return omBucketInfo.getAcls();
   }
 
   private void setBucketAcl(String vol, String buck,
       List<OzoneAcl> ozoneAcls) throws IOException {
-    OzoneNativeAclTestUtil.setBucketAcl(metadataManager, vol, buck, ozoneAcls);
+    String bucketKey = metadataManager.getBucketKey(vol, buck);
+    OmBucketInfo omBucketInfo = metadataManager.getBucketTable().get(bucketKey);
+
+    omBucketInfo.setAcls(ozoneAcls);
+
+    metadataManager.getBucketTable().addCacheEntry(new CacheKey<>(bucketKey),
+        CacheValue.get(1L, omBucketInfo));
   }
 
   private static OzoneObjInfo createVolume(String volumeName)
@@ -337,8 +398,8 @@ public class TestParentAcl {
             HddsProtos.ReplicationFactor.ONE))
         .setDataSize(0)
         // here we give test ugi full access
-        .setAcls(OzoneAclUtil.getAclList(testUgi, ALL, ALL))
-        .setOwnerName(UserGroupInformation.getCurrentUser().getShortUserName())
+        .setAcls(OzoneAclUtil.getAclList(testUgi.getUserName(),
+            testUgi.getGroupNames(), ALL, ALL))
         .build();
 
 

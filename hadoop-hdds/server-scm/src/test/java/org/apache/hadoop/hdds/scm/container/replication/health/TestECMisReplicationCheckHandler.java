@@ -1,42 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.hdds.scm.container.replication.health;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerHealthResult.HealthState.MIS_REPLICATED;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.ADD;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
@@ -55,6 +36,25 @@ import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerHealthResult.HealthState.MIS_REPLICATED;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.ADD;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 
 /**
  * Unit tests for {@link ECMisReplicationCheckHandler}.
@@ -69,8 +69,9 @@ public class TestECMisReplicationCheckHandler {
 
   @BeforeEach
   public void setup() {
-    placementPolicy = mock(PlacementPolicy.class);
-    when(placementPolicy.validateContainerPlacement(anyList(), anyInt()))
+    placementPolicy = Mockito.mock(PlacementPolicy.class);
+    Mockito.when(placementPolicy.validateContainerPlacement(
+            anyList(), anyInt()))
         .thenReturn(new ContainerPlacementStatusDefault(5, 5, 5));
     handler = new ECMisReplicationCheckHandler(placementPolicy);
     repConfig = new ECReplicationConfig(3, 2);
@@ -125,7 +126,9 @@ public class TestECMisReplicationCheckHandler {
     ContainerInfo container = createContainerInfo(repConfig);
 
     // Placement policy is always violated
-    when(placementPolicy.validateContainerPlacement(any(), anyInt()
+    Mockito.when(placementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation ->
         new ContainerPlacementStatusDefault(4, 5, 9));
 
@@ -160,7 +163,9 @@ public class TestECMisReplicationCheckHandler {
   public void shouldReturnFalseForMisReplicatedContainerFixedByPending() {
     ContainerInfo container = createContainerInfo(repConfig);
 
-    when(placementPolicy.validateContainerPlacement(any(), anyInt()
+    Mockito.when(placementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation -> {
       List<DatanodeDetails> dns = invocation.getArgument(0);
       // If the number of DNs is 5 or less make it be mis-replicated
@@ -209,7 +214,9 @@ public class TestECMisReplicationCheckHandler {
   public void testMisReplicationWithUnhealthyReplica() {
     ContainerInfo container = createContainerInfo(repConfig);
 
-    when(placementPolicy.validateContainerPlacement(any(), anyInt()
+    Mockito.when(placementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation -> {
       List<DatanodeDetails> dns = invocation.getArgument(0);
       // If the number of DNs is 6 or more make it mis-replicated

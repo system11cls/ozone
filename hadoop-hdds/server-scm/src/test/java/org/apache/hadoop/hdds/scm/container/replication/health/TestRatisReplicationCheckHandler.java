@@ -1,47 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p/>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.container.replication.health;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.ADD;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
-import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
@@ -72,6 +46,29 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.ADD;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerInfo;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createContainerReplica;
+import static org.apache.hadoop.hdds.scm.container.replication.ReplicationTestUtil.createReplicas;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the RatisReplicationCheckHandler class.
@@ -89,15 +86,15 @@ public class TestRatisReplicationCheckHandler {
 
   @BeforeEach
   public void setup() throws IOException, NodeNotFoundException {
-    containerPlacementPolicy = mock(PlacementPolicy.class);
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    containerPlacementPolicy = Mockito.mock(PlacementPolicy.class);
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation ->
         new ContainerPlacementStatusDefault(2, 2, 3));
 
-    replicationManager = mock(ReplicationManager.class);
-    when(replicationManager.getNodeStatus(any()))
+    replicationManager = Mockito.mock(ReplicationManager.class);
+    Mockito.when(replicationManager.getNodeStatus(Mockito.any()))
         .thenReturn(NodeStatus.inServiceHealthy());
     healthCheck = new RatisReplicationCheckHandler(containerPlacementPolicy,
         replicationManager);
@@ -741,9 +738,9 @@ public class TestRatisReplicationCheckHandler {
    */
   @Test
   public void testOverReplicatedWithMisReplication() {
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation ->
         new ContainerPlacementStatusDefault(1, 2, 3));
 
@@ -779,9 +776,9 @@ public class TestRatisReplicationCheckHandler {
 
   @Test
   public void testUnderReplicatedWithMisReplication() {
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation ->
         new ContainerPlacementStatusDefault(1, 2, 3));
 
@@ -808,9 +805,9 @@ public class TestRatisReplicationCheckHandler {
 
   @Test
   public void testUnderReplicatedWithMisReplicationFixedByPending() {
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation -> {
       List<DatanodeDetails> dns = invocation.getArgument(0);
       // If the number of DNs is 3 or less make it be mis-replicated
@@ -852,9 +849,9 @@ public class TestRatisReplicationCheckHandler {
 
   @Test
   public void testMisReplicated() {
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation ->
         new ContainerPlacementStatusDefault(1, 2, 3));
 
@@ -879,9 +876,9 @@ public class TestRatisReplicationCheckHandler {
 
   @Test
   public void testMisReplicatedFixedByPending() {
-    when(containerPlacementPolicy.validateContainerPlacement(
-        any(),
-        anyInt()
+    Mockito.when(containerPlacementPolicy.validateContainerPlacement(
+        Mockito.any(),
+        Mockito.anyInt()
     )).thenAnswer(invocation -> {
       List<DatanodeDetails> dns = invocation.getArgument(0);
       // If the number of DNs is 3 or less make it be mis-replicated

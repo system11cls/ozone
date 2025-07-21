@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,15 +18,6 @@
 
 package org.apache.hadoop.ozone.om.request.file;
 
-import static org.apache.hadoop.hdds.scm.net.NetConstants.PATH_SEPARATOR_STR;
-import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.BUCKET_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.VOLUME_NOT_FOUND;
-
-import com.google.common.base.Strings;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +27,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import com.google.common.base.Strings;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
@@ -50,15 +44,26 @@ import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+
+import static org.apache.hadoop.hdds.scm.net.NetConstants.PATH_SEPARATOR_STR;
+import static org.apache.hadoop.ozone.om.OzoneManagerUtils.getBucketLayout;
+
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.BUCKET_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.VOLUME_NOT_FOUND;
 
 /**
  * Base class for file requests.
@@ -203,7 +208,7 @@ public final class OMFileRequest {
       String fileName = elements.next().toString();
       fullKeyPath.append(OzoneConsts.OM_KEY_PREFIX);
       fullKeyPath.append(fileName);
-      if (!missing.isEmpty()) {
+      if (missing.size() > 0) {
         // Add all the sub-dirs to the missing list except the leaf element.
         // For example, /vol1/buck1/a/b/c/d/e/f/file1.txt.
         // Assume /vol1/buck1/a/b/c exists, then add d, e, f into missing list.
@@ -468,17 +473,15 @@ public final class OMFileRequest {
    */
   public static void addOpenFileTableCacheEntry(
           OMMetadataManager omMetadataManager, String dbOpenFileName,
-          @Nullable OmKeyInfo omFileInfo, String fileName, String keyName, long trxnLogIndex) {
+          @Nullable OmKeyInfo omFileInfo, String fileName, long trxnLogIndex) {
 
     final Table<String, OmKeyInfo> table = omMetadataManager.getOpenKeyTable(
         BucketLayout.FILE_SYSTEM_OPTIMIZED);
     if (omFileInfo != null) {
+      // New key format for the openFileTable.
       // For example, the user given key path is '/a/b/c/d/e/file1', then in DB
-      // keyName field stores full path, which is '/a/b/c/d/e/file1'.
-      // This is required as in some cases like hsync, Keys inside openKeyTable is used for auto commit after expiry.
-      // (Full key path is required in commit key request)
-      omFileInfo.setKeyName(keyName);
-      // fileName will contain only the leaf(file1) which is actual file name.
+      // keyName field stores only the leaf node name, which is 'file1'.
+      omFileInfo.setKeyName(fileName);
       omFileInfo.setFileName(fileName);
       table.addCacheEntry(dbOpenFileName, omFileInfo, trxnLogIndex);
     } else {
@@ -688,7 +691,7 @@ public final class OMFileRequest {
 
       if (omDirInfo != null) {
         lastKnownParentId = omDirInfo.getObjectID();
-      } else if (!elements.hasNext() &&
+      } else if (!elements.hasNext() && 
           (!keyName.endsWith(PATH_SEPARATOR_STR))) {
         // If the requested keyName contains "/" at the end then we need to
         // just check the directory table.
@@ -729,7 +732,7 @@ public final class OMFileRequest {
    * @param keyName    user given key name
    * @return OmKeyInfo object
    */
-  @Nonnull
+  @NotNull
   public static OmKeyInfo getOmKeyInfo(String volumeName, String bucketName,
       OmDirectoryInfo dirInfo, String keyName) {
 
@@ -749,7 +752,6 @@ public final class OMFileRequest {
             .getInstance(HddsProtos.ReplicationFactor.ONE))
         .setOmKeyLocationInfos(Collections.singletonList(
             new OmKeyLocationInfoGroup(0, new ArrayList<>())))
-        .setOwnerName(dirInfo.getOwner())
         .build();
   }
 
@@ -760,7 +762,7 @@ public final class OMFileRequest {
    * @param fileName   file name
    * @return absolute path
    */
-  @Nonnull
+  @NotNull
   public static String getAbsolutePath(String prefixName, String fileName) {
     if (Strings.isNullOrEmpty(prefixName)) {
       return fileName;
@@ -902,7 +904,9 @@ public final class OMFileRequest {
             omKeyInfo.getObjectID(), "");
     try (TableIterator<String, ? extends
         Table.KeyValue<String, OmDirectoryInfo>>
-            iterator = dirTable.iterator(seekDirInDB)) {
+            iterator = dirTable.iterator()) {
+
+      iterator.seek(seekDirInDB);
 
       if (iterator.hasNext()) {
         Table.KeyValue<String, OmDirectoryInfo> entry = iterator.next();
@@ -946,7 +950,9 @@ public final class OMFileRequest {
     String seekFileInDB = metaMgr.getOzonePathKey(volumeId, bucketId,
             omKeyInfo.getObjectID(), "");
     try (TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>>
-            iterator = fileTable.iterator(seekFileInDB)) {
+            iterator = fileTable.iterator()) {
+
+      iterator.seek(seekFileInDB);
 
       if (iterator.hasNext()) {
         Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
@@ -967,16 +973,19 @@ public final class OMFileRequest {
    *
    * @param volumeId       volume id
    * @param bucketId       bucket id
+   * @param pathComponents fie path elements
    * @param keyName        user given key name
    * @param omMetadataManager   om metadata manager
    * @return lastKnownParentID
    * @throws IOException DB failure or parent not exists in DirectoryTable
    */
   public static long getParentID(long volumeId, long bucketId,
+                                 Iterator<Path> pathComponents,
                                  String keyName,
                                  OMMetadataManager omMetadataManager)
       throws IOException {
-    return getParentID(volumeId, bucketId, keyName,
+
+    return getParentID(volumeId, bucketId, pathComponents, keyName,
             omMetadataManager, null);
   }
 
@@ -984,17 +993,18 @@ public final class OMFileRequest {
    * Get parent id for the user given path.
    *
    * @param bucketId       bucket id
+   * @param pathComponents fie path elements
    * @param keyName        user given key name
    * @param omMetadataManager   om metadata manager
    * @return lastKnownParentID
    * @throws IOException DB failure or parent not exists in DirectoryTable
    */
-  public static long getParentID(long volumeId, long bucketId, String keyName,
+  public static long getParentID(long volumeId, long bucketId,
+      Iterator<Path> pathComponents, String keyName,
       OMMetadataManager omMetadataManager, String errMsg)
       throws IOException {
 
     long lastKnownParentId = bucketId;
-    Iterator<Path> pathComponents = Paths.get(keyName).iterator();
 
     // If no sub-dirs then bucketID is the root/parent.
     if (!pathComponents.hasNext()) {
@@ -1042,7 +1052,7 @@ public final class OMFileRequest {
    * @param volumeName        - volume name.
    * @param bucketName        - bucket name.
    * @param keyName           - key name.
-   * @return {@code long}
+   * @return
    * @throws IOException
    */
   public static long getParentId(OMMetadataManager omMetadataManager,
@@ -1054,8 +1064,9 @@ public final class OMFileRequest {
     final long volumeId = omMetadataManager.getVolumeId(volumeName);
     final long bucketId = omMetadataManager.getBucketId(volumeName,
             bucketName);
+    Iterator<Path> pathComponents = Paths.get(keyName).iterator();
     return OMFileRequest.getParentID(volumeId, bucketId,
-            keyName, omMetadataManager);
+            pathComponents, keyName, omMetadataManager);
   }
 
   /**

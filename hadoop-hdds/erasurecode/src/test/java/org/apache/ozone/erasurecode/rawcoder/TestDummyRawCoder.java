@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,16 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ozone.erasurecode.rawcoder;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import org.apache.ozone.erasurecode.ECChunk;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.apache.ozone.erasurecode.ECChunk;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Test dummy raw coder.
@@ -66,7 +66,7 @@ public class TestDummyRawCoder extends TestRawCoderBase {
     try {
       encode(dataChunks, parityChunks);
     } catch (IOException e) {
-      fail("Unexpected IOException: " + e.getMessage());
+      Assertions.fail("Unexpected IOException: " + e.getMessage());
     }
     compareAndVerify(parityChunks, getEmptyChunks(parityChunks.length));
 
@@ -81,7 +81,7 @@ public class TestDummyRawCoder extends TestRawCoderBase {
       decode(inputChunks, getErasedIndexesForDecoding(),
           recoveredChunks);
     } catch (IOException e) {
-      fail("Unexpected IOException: " + e.getMessage());
+      Assertions.fail("Unexpected IOException: " + e.getMessage());
     }
     compareAndVerify(recoveredChunks, getEmptyChunks(recoveredChunks.length));
   }

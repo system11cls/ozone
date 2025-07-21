@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,28 +18,8 @@
 
 package org.apache.hadoop.hdds.scm.server;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
-import static org.apache.hadoop.hdds.protocol.MockDatanodeDetails.randomDatanodeDetails;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_LEVEL;
-import static org.apache.hadoop.ozone.OzoneConsts.MB;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-
 import com.google.common.collect.ImmutableMap;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.HddsConfigKeys;
+import org.apache.hadoop.hdds.DFSConfigKeysLegacy;
 import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -53,23 +34,43 @@ import org.apache.hadoop.hdds.scm.block.DeletedBlockLogImpl;
 import org.apache.hadoop.hdds.scm.block.SCMBlockDeletingService;
 import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
-import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
+import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.net.NodeImpl;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
-import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdds.utils.ProtocolMessageMetrics;
+import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocolServerSideTranslatorPB;
 import org.apache.hadoop.net.StaticMapping;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
+
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.platform.commons.util.Preconditions;
+import org.mockito.Mockito;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
+import static org.apache.hadoop.hdds.protocol.MockDatanodeDetails.randomDatanodeDetails;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_LEVEL;
+import static org.apache.hadoop.ozone.OzoneConsts.MB;
 
 /**
  * Test class for @{@link SCMBlockProtocolServer}.
@@ -92,7 +93,7 @@ public class TestSCMBlockProtocolServer {
     private final List<DatanodeDetails> datanodes;
 
     BlockManagerStub(List<DatanodeDetails> datanodes) {
-      assertNotNull(datanodes, "Datanodes cannot be null");
+      Preconditions.notNull(datanodes, "Datanodes cannot be null");
       this.datanodes = datanodes;
     }
 
@@ -132,7 +133,7 @@ public class TestSCMBlockProtocolServer {
 
     @Override
     public DeletedBlockLog getDeletedBlockLog() {
-      return mock(DeletedBlockLogImpl.class);
+      return Mockito.mock(DeletedBlockLogImpl.class);
     }
 
     @Override
@@ -185,7 +186,8 @@ public class TestSCMBlockProtocolServer {
     nodeManager = scm.getScmNodeManager();
     datanodes.forEach(dn -> nodeManager.register(dn, null, null));
     server = scm.getBlockProtocolServer();
-    service = new ScmBlockLocationProtocolServerSideTranslatorPB(server, scm, mock(ProtocolMessageMetrics.class));
+    service = new ScmBlockLocationProtocolServerSideTranslatorPB(server, scm,
+        Mockito.mock(ProtocolMessageMetrics.class));
   }
 
   @AfterEach
@@ -200,12 +202,13 @@ public class TestSCMBlockProtocolServer {
   void sortDatanodesRelativeToDatanode() {
     List<String> nodes = getNetworkNames();
     for (DatanodeDetails dn : nodeManager.getAllNodes()) {
-      assertEquals(ROOT_LEVEL + 2, dn.getLevel());
+      Assertions.assertEquals(ROOT_LEVEL + 2, dn.getLevel());
 
       List<DatanodeDetails> sorted =
           server.sortDatanodes(nodes, nodeAddress(dn));
 
-      assertEquals(dn, sorted.get(0), "Source node should be sorted very first");
+      Assertions.assertEquals(dn, sorted.get(0),
+          "Source node should be sorted very first");
 
       assertRackOrder(dn.getNetworkLocation(), sorted);
     }
@@ -225,12 +228,12 @@ public class TestSCMBlockProtocolServer {
     int size = list.size();
 
     for (int i = 0; i < size / 2; i++) {
-      assertEquals(rack, list.get(i).getNetworkLocation(),
+      Assertions.assertEquals(rack, list.get(i).getNetworkLocation(),
           "Nodes in the same rack should be sorted first");
     }
 
     for (int i = size / 2; i < size; i++) {
-      assertNotEquals(rack, list.get(i).getNetworkLocation(),
+      Assertions.assertNotEquals(rack, list.get(i).getNetworkLocation(),
           "Nodes in the other rack should be sorted last");
     }
   }
@@ -247,7 +250,7 @@ public class TestSCMBlockProtocolServer {
     System.out.println("client = " + client);
     datanodeDetails.stream().forEach(
         node -> System.out.println(node.toString()));
-    assertEquals(NODE_COUNT, datanodeDetails.size());
+    Assertions.assertTrue(datanodeDetails.size() == NODE_COUNT);
 
     // illegal client 1
     client += "X";
@@ -255,14 +258,14 @@ public class TestSCMBlockProtocolServer {
     System.out.println("client = " + client);
     datanodeDetails.stream().forEach(
         node -> System.out.println(node.toString()));
-    assertEquals(NODE_COUNT, datanodeDetails.size());
+    Assertions.assertTrue(datanodeDetails.size() == NODE_COUNT);
     // illegal client 2
     client = "/default-rack";
     datanodeDetails = server.sortDatanodes(nodes, client);
     System.out.println("client = " + client);
     datanodeDetails.stream().forEach(
         node -> System.out.println(node.toString()));
-    assertEquals(NODE_COUNT, datanodeDetails.size());
+    Assertions.assertTrue(datanodeDetails.size() == NODE_COUNT);
 
     // unknown node to sort
     nodes.add(UUID.randomUUID().toString());
@@ -275,7 +278,7 @@ public class TestSCMBlockProtocolServer {
             .build();
     ScmBlockLocationProtocolProtos.SortDatanodesResponseProto resp =
         service.sortDatanodes(request, ClientVersion.CURRENT_VERSION);
-    assertEquals(NODE_COUNT, resp.getNodeList().size());
+    Assertions.assertTrue(resp.getNodeList().size() == NODE_COUNT);
     System.out.println("client = " + client);
     resp.getNodeList().stream().forEach(
         node -> System.out.println(node.getNetworkName()));
@@ -292,7 +295,7 @@ public class TestSCMBlockProtocolServer {
         .build();
     resp = service.sortDatanodes(request, ClientVersion.CURRENT_VERSION);
     System.out.println("client = " + client);
-    assertEquals(0, resp.getNodeList().size());
+    Assertions.assertTrue(resp.getNodeList().size() == 0);
     resp.getNodeList().stream().forEach(
         node -> System.out.println(node.getNetworkName()));
   }
@@ -309,12 +312,12 @@ public class TestSCMBlockProtocolServer {
     List<AllocatedBlock> allocatedBlocks = server.allocateBlock(
         blockSize, numOfBlocks, replicationConfig, "o",
         new ExcludeList(), clientAddress);
-    assertEquals(numOfBlocks, allocatedBlocks.size());
+    Assertions.assertEquals(numOfBlocks, allocatedBlocks.size());
     for (AllocatedBlock allocatedBlock: allocatedBlocks) {
       List<DatanodeDetails> nodesInOrder =
           allocatedBlock.getPipeline().getNodesInOrder();
       if (nodesInOrder.contains(clientDatanode)) {
-        assertEquals(clientDatanode, nodesInOrder.get(0),
+        Assertions.assertEquals(clientDatanode, nodesInOrder.get(0),
             "Source node should be sorted very first");
       }
       String clientLocation = clientDatanode.getNetworkLocation();
@@ -330,7 +333,7 @@ public class TestSCMBlockProtocolServer {
           }
         } else {
           if (nodeLocation.equals(clientLocation)) {
-            fail("Node in the same rack as client " +
+            Assertions.fail("Node in the same rack as client " +
                 "should not be sorted after nodes under different rack");
           }
         }
@@ -346,8 +349,8 @@ public class TestSCMBlockProtocolServer {
 
   private String nodeAddress(DatanodeDetails dn) {
     boolean useHostname = config.getBoolean(
-        HddsConfigKeys.HDDS_DATANODE_USE_DN_HOSTNAME,
-        HddsConfigKeys.HDDS_DATANODE_USE_DN_HOSTNAME_DEFAULT);
+        DFSConfigKeysLegacy.DFS_DATANODE_USE_DN_HOSTNAME,
+        DFSConfigKeysLegacy.DFS_DATANODE_USE_DN_HOSTNAME_DEFAULT);
     return useHostname ? dn.getHostName() : dn.getIpAddress();
   }
 }

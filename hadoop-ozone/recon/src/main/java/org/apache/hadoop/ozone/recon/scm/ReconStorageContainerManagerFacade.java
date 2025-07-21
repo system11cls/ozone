@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +17,88 @@
  */
 
 package org.apache.hadoop.ozone.recon.scm;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.time.Clock;
+import java.time.ZoneId;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.inject.Singleton;
+import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.scm.PlacementPolicy;
+import org.apache.hadoop.hdds.scm.ScmUtils;
+import org.apache.hadoop.hdds.scm.block.BlockManager;
+import org.apache.hadoop.hdds.scm.container.CloseContainerEventHandler;
+import org.apache.hadoop.hdds.scm.container.ContainerActionsHandler;
+import org.apache.hadoop.hdds.scm.container.ContainerInfo;
+import org.apache.hadoop.hdds.scm.container.ContainerManager;
+import org.apache.hadoop.hdds.scm.container.ContainerReportHandler;
+import org.apache.hadoop.hdds.scm.container.IncrementalContainerReportHandler;
+import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
+import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaPendingOps;
+import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
+import org.apache.hadoop.hdds.scm.container.balancer.ContainerBalancer;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms.ContainerPlacementPolicyFactory;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementMetrics;
+import org.apache.hadoop.hdds.scm.events.SCMEvents;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
+import org.apache.hadoop.hdds.scm.ha.SCMContext;
+import org.apache.hadoop.hdds.scm.ha.SCMNodeDetails;
+import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
+import org.apache.hadoop.hdds.scm.ha.SequenceIdGenerator;
+import org.apache.hadoop.hdds.scm.metadata.SCMDBTransactionBufferImpl;
+import org.apache.hadoop.hdds.scm.net.NetworkTopology;
+import org.apache.hadoop.hdds.scm.net.NetworkTopologyImpl;
+import org.apache.hadoop.hdds.scm.node.DeadNodeHandler;
+import org.apache.hadoop.hdds.scm.node.NodeManager;
+import org.apache.hadoop.hdds.scm.node.NodeReportHandler;
+import org.apache.hadoop.hdds.scm.node.StaleNodeHandler;
+import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineActionHandler;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
+import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
+import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
+import org.apache.hadoop.hdds.server.events.EventQueue;
+import org.apache.hadoop.hdds.server.events.FixedThreadPoolWithAffinityExecutor;
+import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
+import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
+import org.apache.hadoop.hdds.utils.db.DBColumnFamilyDefinition;
+import org.apache.hadoop.hdds.utils.db.DBStore;
+import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
+import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
+import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.apache.hadoop.ozone.recon.ReconServerConfigKeys;
+import org.apache.hadoop.ozone.recon.ReconUtils;
+import org.apache.hadoop.ozone.recon.fsck.ContainerHealthTask;
+import org.apache.hadoop.ozone.recon.fsck.ReconSafeModeMgrTask;
+import org.apache.hadoop.ozone.recon.persistence.ContainerHealthSchemaManager;
+import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
+import org.apache.hadoop.ozone.recon.spi.StorageContainerServiceProvider;
+import org.apache.hadoop.ozone.recon.tasks.ContainerSizeCountTask;
+import org.apache.hadoop.ozone.recon.tasks.ReconTaskConfig;
+import com.google.inject.Inject;
 
 import static org.apache.hadoop.hdds.recon.ReconConfigKeys.RECON_SCM_CONFIG_PREFIX;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_EVENT_REPORT_EXEC_WAIT_THRESHOLD_DEFAULT;
@@ -36,95 +119,14 @@ import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_SC
 import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_SCM_SNAPSHOT_TASK_INTERVAL_DEFAULT;
 import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_SCM_SNAPSHOT_TASK_INTERVAL_DELAY;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.time.Clock;
-import java.time.ZoneId;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.sql.DataSource;
-import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.fs.CommonConfigurationKeys;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.scm.PlacementPolicy;
-import org.apache.hadoop.hdds.scm.ScmUtils;
-import org.apache.hadoop.hdds.scm.block.BlockManager;
-import org.apache.hadoop.hdds.scm.container.CloseContainerEventHandler;
-import org.apache.hadoop.hdds.scm.container.ContainerActionsHandler;
-import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.container.ContainerManager;
-import org.apache.hadoop.hdds.scm.container.ContainerReportHandler;
-import org.apache.hadoop.hdds.scm.container.IncrementalContainerReportHandler;
-import org.apache.hadoop.hdds.scm.container.balancer.ContainerBalancer;
-import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.ContainerPlacementPolicyFactory;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementMetrics;
-import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaPendingOps;
-import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
-import org.apache.hadoop.hdds.scm.events.SCMEvents;
-import org.apache.hadoop.hdds.scm.ha.SCMContext;
-import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
-import org.apache.hadoop.hdds.scm.ha.SCMHAManagerStub;
-import org.apache.hadoop.hdds.scm.ha.SCMNodeDetails;
-import org.apache.hadoop.hdds.scm.ha.SequenceIdGenerator;
-import org.apache.hadoop.hdds.scm.metadata.SCMDBTransactionBufferImpl;
-import org.apache.hadoop.hdds.scm.net.NetworkTopology;
-import org.apache.hadoop.hdds.scm.net.NetworkTopologyImpl;
-import org.apache.hadoop.hdds.scm.node.DeadNodeHandler;
-import org.apache.hadoop.hdds.scm.node.NodeManager;
-import org.apache.hadoop.hdds.scm.node.NodeReportHandler;
-import org.apache.hadoop.hdds.scm.node.StaleNodeHandler;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineActionHandler;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
-import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.ContainerReport;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.ContainerReportFromDatanode;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.IncrementalContainerReportFromDatanode;
-import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
-import org.apache.hadoop.hdds.server.events.EventQueue;
-import org.apache.hadoop.hdds.server.events.FixedThreadPoolWithAffinityExecutor;
-import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
-import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
-import org.apache.hadoop.hdds.utils.db.DBColumnFamilyDefinition;
-import org.apache.hadoop.hdds.utils.db.DBStore;
-import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
-import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.apache.hadoop.ozone.recon.ReconContext;
-import org.apache.hadoop.ozone.recon.ReconServerConfigKeys;
-import org.apache.hadoop.ozone.recon.ReconUtils;
-import org.apache.hadoop.ozone.recon.fsck.ContainerHealthTask;
-import org.apache.hadoop.ozone.recon.fsck.ReconSafeModeMgrTask;
-import org.apache.hadoop.ozone.recon.persistence.ContainerHealthSchemaManager;
-import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
-import org.apache.hadoop.ozone.recon.spi.StorageContainerServiceProvider;
-import org.apache.hadoop.ozone.recon.tasks.ContainerSizeCountTask;
-import org.apache.hadoop.ozone.recon.tasks.ReconTaskConfig;
-import org.apache.hadoop.ozone.recon.tasks.updater.ReconTaskStatusUpdaterManager;
-import org.apache.ozone.recon.schema.UtilizationSchemaDefinition;
-import org.apache.ozone.recon.schema.generated.tables.daos.ContainerCountBySizeDao;
+
 import org.apache.ratis.util.ExitUtils;
+import org.hadoop.ozone.recon.schema.UtilizationSchemaDefinition;
+import org.hadoop.ozone.recon.schema.tables.daos.ContainerCountBySizeDao;
+import org.hadoop.ozone.recon.schema.tables.daos.ReconTaskStatusDao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,15 +147,10 @@ public class ReconStorageContainerManagerFacade
   private final ReconDatanodeProtocolServer datanodeProtocolServer;
   private final EventQueue eventQueue;
   private final SCMContext scmContext;
-  // This will hold the recon related information like health status and errors in initialization of modules if any,
-  // which can later be used for alerts integration or displaying some meaningful info to user on Recon UI.
-  private final ReconContext reconContext;
   private final SCMStorageConfig scmStorageConfig;
   private final SCMNodeDetails reconNodeDetails;
   private final SCMHAManager scmhaManager;
   private final SequenceIdGenerator sequenceIdGen;
-  private final ContainerHealthTask containerHealthTask;
-  private final DataSource dataSource;
 
   private DBStore dbStore;
   private ReconNodeManager nodeManager;
@@ -178,22 +175,18 @@ public class ReconStorageContainerManagerFacade
   @Inject
   @SuppressWarnings({"checkstyle:ParameterNumber", "checkstyle:MethodLength"})
   public ReconStorageContainerManagerFacade(OzoneConfiguration conf,
-                                            StorageContainerServiceProvider scmServiceProvider,
-                                            ContainerCountBySizeDao containerCountBySizeDao,
-                                            UtilizationSchemaDefinition utilizationSchemaDefinition,
-                                            ContainerHealthSchemaManager containerHealthSchemaManager,
-                                            ReconContainerMetadataManager reconContainerMetadataManager,
-                                            ReconUtils reconUtils,
-                                            ReconSafeModeManager safeModeManager,
-                                            ReconContext reconContext,
-                                            DataSource dataSource,
-                                            ReconTaskStatusUpdaterManager taskStatusUpdaterManager)
-      throws IOException {
+      StorageContainerServiceProvider scmServiceProvider,
+      ReconTaskStatusDao reconTaskStatusDao,
+      ContainerCountBySizeDao containerCountBySizeDao,
+      UtilizationSchemaDefinition utilizationSchemaDefinition,
+      ContainerHealthSchemaManager containerHealthSchemaManager,
+      ReconContainerMetadataManager reconContainerMetadataManager,
+      ReconUtils reconUtils,
+      ReconSafeModeManager safeModeManager) throws IOException {
     reconNodeDetails = reconUtils.getReconNodeDetails(conf);
     this.threadNamePrefix = reconNodeDetails.threadNamePrefix();
     this.eventQueue = new EventQueue(threadNamePrefix);
     eventQueue.setSilent(true);
-    this.reconContext = reconContext;
     this.scmContext = new SCMContext.Builder()
         .setIsPreCheckComplete(true)
         .setSCM(this)
@@ -218,7 +211,8 @@ public class ReconStorageContainerManagerFacade
 
     this.scmStorageConfig = new ReconStorageConfig(conf, reconUtils);
     this.clusterMap = new NetworkTopologyImpl(conf);
-    this.dbStore = DBStoreBuilder.createDBStore(ozoneConfiguration, ReconSCMDBDefinition.get());
+    this.dbStore = DBStoreBuilder
+        .createDBStore(ozoneConfiguration, new ReconSCMDBDefinition());
 
     this.scmLayoutVersionManager =
         new HDDSLayoutVersionManager(scmStorageConfig.getLayoutVersion());
@@ -226,11 +220,10 @@ public class ReconStorageContainerManagerFacade
         true, new SCMDBTransactionBufferImpl());
     this.sequenceIdGen = new SequenceIdGenerator(
         conf, scmhaManager, ReconSCMDBDefinition.SEQUENCE_ID.getTable(dbStore));
-    reconContext.setClusterId(scmStorageConfig.getClusterID());
     this.nodeManager =
         new ReconNodeManager(conf, scmStorageConfig, eventQueue, clusterMap,
             ReconSCMDBDefinition.NODES.getTable(dbStore),
-            this.scmLayoutVersionManager, reconContext);
+            this.scmLayoutVersionManager);
     placementMetrics = SCMContainerPlacementMetrics.create();
     this.containerPlacementPolicy =
         ContainerPlacementPolicyFactory.getPolicy(conf, nodeManager,
@@ -263,26 +256,34 @@ public class ReconStorageContainerManagerFacade
             pipelineManager, scmContext, conf, scmServiceProvider);
 
     PipelineActionHandler pipelineActionHandler =
-        new PipelineActionHandler(pipelineManager, scmContext);
+        new PipelineActionHandler(pipelineManager, scmContext, conf);
 
     ReconTaskConfig reconTaskConfig = conf.getObject(ReconTaskConfig.class);
-    PipelineSyncTask pipelineSyncTask = new PipelineSyncTask(pipelineManager, nodeManager,
-        scmServiceProvider, reconTaskConfig, taskStatusUpdaterManager);
+    PipelineSyncTask pipelineSyncTask = new PipelineSyncTask(
+        pipelineManager,
+        nodeManager,
+        scmServiceProvider,
+        reconTaskStatusDao,
+        reconTaskConfig);
+    ContainerHealthTask containerHealthTask = new ContainerHealthTask(
+        containerManager, scmServiceProvider, reconTaskStatusDao,
+        containerHealthSchemaManager, containerPlacementPolicy, reconTaskConfig,
+        reconContainerMetadataManager);
 
-    containerHealthTask = new ContainerHealthTask(containerManager, scmServiceProvider,
-        containerHealthSchemaManager, containerPlacementPolicy,
-        reconTaskConfig, reconContainerMetadataManager, conf, taskStatusUpdaterManager);
-
-    this.containerSizeCountTask = new ContainerSizeCountTask(containerManager,
-        reconTaskConfig, containerCountBySizeDao, utilizationSchemaDefinition, taskStatusUpdaterManager);
-
-    this.dataSource = dataSource;
+    this.containerSizeCountTask = new ContainerSizeCountTask(
+        containerManager,
+        scmServiceProvider,
+        reconTaskStatusDao,
+        reconTaskConfig,
+        containerCountBySizeDao,
+        utilizationSchemaDefinition);
 
     StaleNodeHandler staleNodeHandler =
-        new ReconStaleNodeHandler(nodeManager, pipelineManager, pipelineSyncTask);
+        new ReconStaleNodeHandler(nodeManager, pipelineManager, conf,
+            pipelineSyncTask);
     DeadNodeHandler deadNodeHandler = new ReconDeadNodeHandler(nodeManager,
         pipelineManager, containerManager, scmServiceProvider,
-        containerHealthTask, pipelineSyncTask);
+        containerHealthTask, pipelineSyncTask, containerSizeCountTask);
 
     ContainerReportHandler containerReportHandler =
         new ReconContainerReportHandler(nodeManager, containerManager);
@@ -552,7 +553,7 @@ public class ReconStorageContainerManagerFacade
                 getListOfContainers(startContainerId,
                     Long.valueOf(containerCountPerCall).intValue(),
                     HddsProtos.LifeCycleState.CLOSED);
-            if (null != listOfContainers && !listOfContainers.isEmpty()) {
+            if (null != listOfContainers && listOfContainers.size() > 0) {
               LOG.info("Got list of containers from SCM : " +
                   listOfContainers.size());
               listOfContainers.forEach(containerInfo -> {
@@ -618,7 +619,8 @@ public class ReconStorageContainerManagerFacade
 
   private void initializeNewRdbStore(File dbFile) throws IOException {
     try {
-      final DBStore newStore = createDBAndAddSCMTablesAndCodecs(dbFile, ReconSCMDBDefinition.get());
+      DBStore newStore = createDBAndAddSCMTablesAndCodecs(
+          dbFile, new ReconSCMDBDefinition());
       Table<UUID, DatanodeDetails> nodeTable =
           ReconSCMDBDefinition.NODES.getTable(dbStore);
       Table<UUID, DatanodeDetails> newNodeTable =
@@ -732,22 +734,8 @@ public class ReconStorageContainerManagerFacade
   public ContainerSizeCountTask getContainerSizeCountTask() {
     return containerSizeCountTask;
   }
-
-  @VisibleForTesting
-  public ContainerHealthTask getContainerHealthTask() {
-    return containerHealthTask;
-  }
-
   @VisibleForTesting
   public ContainerCountBySizeDao getContainerCountBySizeDao() {
     return containerCountBySizeDao;
-  }
-
-  public ReconContext getReconContext() {
-    return reconContext;
-  }
-
-  public DataSource getDataSource() {
-    return dataSource;
   }
 }

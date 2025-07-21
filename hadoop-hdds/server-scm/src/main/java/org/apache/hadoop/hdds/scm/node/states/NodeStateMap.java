@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,22 +18,22 @@
 
 package org.apache.hadoop.hdds.scm.node.states;
 
-import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
+
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.node.DatanodeInfo;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
@@ -42,26 +43,27 @@ import org.apache.hadoop.hdds.scm.node.NodeStatus;
  * NodeStateManager to maintain the state. If anyone wants to change the
  * state of a node they should call NodeStateManager, do not directly use
  * this class.
- * <p>
- * Concurrency consideration:
- *   - thread-safe
  */
 public class NodeStateMap {
   /**
    * Node id to node info map.
    */
-  private final Map<DatanodeID, DatanodeInfo> nodeMap = new HashMap<>();
+  private final ConcurrentHashMap<UUID, DatanodeInfo> nodeMap;
   /**
    * Node to set of containers on the node.
    */
-  private final Map<DatanodeID, Set<ContainerID>> nodeToContainer = new HashMap<>();
+  private final ConcurrentHashMap<UUID, Set<ContainerID>> nodeToContainer;
 
-  private final ReadWriteLock lock = new ReentrantReadWriteLock();
+  private final ReadWriteLock lock;
 
   /**
    * Creates a new instance of NodeStateMap with no nodes.
    */
-  public NodeStateMap() { }
+  public NodeStateMap() {
+    lock = new ReentrantReadWriteLock();
+    nodeMap = new ConcurrentHashMap<>();
+    nodeToContainer = new ConcurrentHashMap<>();
+  }
 
   /**
    * Adds a node to NodeStateMap.
@@ -78,26 +80,13 @@ public class NodeStateMap {
       throws NodeAlreadyExistsException {
     lock.writeLock().lock();
     try {
-      final DatanodeID id = datanodeDetails.getID();
+      UUID id = datanodeDetails.getUuid();
       if (nodeMap.containsKey(id)) {
         throw new NodeAlreadyExistsException("Node UUID: " + id);
       }
       nodeMap.put(id, new DatanodeInfo(datanodeDetails, nodeStatus,
           layoutInfo));
       nodeToContainer.put(id, new HashSet<>());
-    } finally {
-      lock.writeLock().unlock();
-    }
-  }
-
-  /**
-   * Removes a node from NodeStateMap.
-   */
-  public void removeNode(DatanodeID datanodeID) {
-    lock.writeLock().lock();
-    try {
-      nodeMap.remove(datanodeID);
-      nodeToContainer.remove(datanodeID);
     } finally {
       lock.writeLock().unlock();
     }
@@ -117,9 +106,9 @@ public class NodeStateMap {
           throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      final DatanodeID id = datanodeDetails.getID();
+      UUID id = datanodeDetails.getUuid();
       if (!nodeMap.containsKey(id)) {
-        throw new NodeNotFoundException(id);
+        throw new NodeNotFoundException("Node UUID: " + id);
       }
       nodeMap.put(id, new DatanodeInfo(datanodeDetails, nodeStatus,
               layoutInfo));
@@ -136,11 +125,11 @@ public class NodeStateMap {
    *
    * @throws NodeNotFoundException if the node is not present
    */
-  public NodeStatus updateNodeHealthState(DatanodeID nodeId, NodeState newHealth)
+  public NodeStatus updateNodeHealthState(UUID nodeId, NodeState newHealth)
       throws NodeNotFoundException {
-    lock.writeLock().lock();
     try {
-      DatanodeInfo dn = getNodeInfoUnsafe(nodeId);
+      lock.writeLock().lock();
+      DatanodeInfo dn = getNodeInfo(nodeId);
       NodeStatus oldStatus = dn.getNodeStatus();
       NodeStatus newStatus = new NodeStatus(
           oldStatus.getOperationalState(), newHealth);
@@ -159,12 +148,12 @@ public class NodeStateMap {
    *
    * @throws NodeNotFoundException if the node is not present
    */
-  public NodeStatus updateNodeOperationalState(DatanodeID nodeId,
+  public NodeStatus updateNodeOperationalState(UUID nodeId,
       NodeOperationalState newOpState, long opStateExpiryEpochSeconds)
       throws NodeNotFoundException {
-    lock.writeLock().lock();
     try {
-      DatanodeInfo dn = getNodeInfoUnsafe(nodeId);
+      lock.writeLock().lock();
+      DatanodeInfo dn = getNodeInfo(nodeId);
       NodeStatus oldStatus = dn.getNodeStatus();
       NodeStatus newStatus = new NodeStatus(
           newOpState, oldStatus.getHealth(), opStateExpiryEpochSeconds);
@@ -176,22 +165,52 @@ public class NodeStateMap {
   }
 
   /**
-   * @return the info for the given node id.
+   * Returns DatanodeInfo for the given node id.
+   *
+   * @param uuid Node Id
+   *
+   * @return DatanodeInfo of the node
+   *
    * @throws NodeNotFoundException if the node is not present
    */
-  public DatanodeInfo getNodeInfo(DatanodeID datanodeID) throws NodeNotFoundException {
+  public DatanodeInfo getNodeInfo(UUID uuid) throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getNodeInfoUnsafe(datanodeID);
+      checkIfNodeExist(uuid);
+      return nodeMap.get(uuid);
     } finally {
       lock.readLock().unlock();
     }
   }
 
-  public int getNodeCount() {
-    lock.readLock().lock();
+  /**
+   * Returns the list of node ids which match the desired operational state
+   * and health. Passing a null for either value is equivalent to a wild card.
+   *
+   * Therefore, passing opState = null, health=stale will return all stale nodes
+   * regardless of their operational state.
+   *
+   * @param opState
+   * @param health
+   * @return The list of nodes matching the given states
+   */
+  public List<UUID> getNodes(NodeOperationalState opState, NodeState health) {
+    ArrayList<UUID> nodes = new ArrayList<>();
+    for (DatanodeInfo dn : filterNodes(opState, health)) {
+      nodes.add(dn.getUuid());
+    }
+    return nodes;
+  }
+
+  /**
+   * Returns the list of all the node ids.
+   *
+   * @return list of all the node ids
+   */
+  public List<UUID> getAllNodes() {
     try {
-      return nodeMap.size();
+      lock.readLock().lock();
+      return new ArrayList<>(nodeMap.keySet());
     } finally {
       lock.readLock().unlock();
     }
@@ -254,10 +273,13 @@ public class NodeStateMap {
    * Therefore, passing opState=null, health=stale will count all stale nodes
    * regardless of their operational state.
    *
+   * @param opState
+   * @param health
+   *
    * @return Number of nodes in the specified state
    */
   public int getNodeCount(NodeOperationalState opState, NodeState health) {
-    return filterNodes(opState, health).size();
+    return getNodes(opState, health).size();
   }
 
   /**
@@ -277,16 +299,21 @@ public class NodeStateMap {
   /**
    * Returns the current state of the node.
    *
-   * @param datanodeID node id
+   * @param uuid node id
    *
    * @return NodeState
    *
    * @throws NodeNotFoundException if the node is not found
    */
-  public NodeStatus getNodeStatus(DatanodeID datanodeID) throws NodeNotFoundException {
+  public NodeStatus getNodeStatus(UUID uuid) throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return getNodeInfoUnsafe(datanodeID).getNodeStatus();
+      DatanodeInfo dn = nodeMap.get(uuid);
+      if (dn == null) {
+        throw new NodeNotFoundException("Node not found in node map." +
+            " UUID: " + uuid);
+      }
+      return dn.getNodeStatus();
     } finally {
       lock.readLock().unlock();
     }
@@ -294,54 +321,52 @@ public class NodeStateMap {
 
   /**
    * Adds the given container to the specified datanode.
+   *
+   * @param uuid - datanode uuid
+   * @param containerId - containerID
    * @throws NodeNotFoundException - if datanode is not known. For new datanode
    *                        use addDatanodeInContainerMap call.
    */
-  public void addContainer(final DatanodeID datanodeID,
+  public void addContainer(final UUID uuid,
                            final ContainerID containerId)
       throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      getExisting(datanodeID).add(containerId);
+      checkIfNodeExist(uuid);
+      nodeToContainer.get(uuid).add(containerId);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
-  public void setContainers(DatanodeID id, Set<ContainerID> containers)
+  public void setContainers(UUID uuid, Set<ContainerID> containers)
       throws NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      getExisting(id);
-      nodeToContainer.put(id, containers);
+      checkIfNodeExist(uuid);
+      nodeToContainer.put(uuid, containers);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
-  public Set<ContainerID> getContainers(DatanodeID id)
+  public Set<ContainerID> getContainers(UUID uuid)
       throws NodeNotFoundException {
     lock.readLock().lock();
     try {
-      return new HashSet<>(getExisting(id));
+      checkIfNodeExist(uuid);
+      return new HashSet<>(nodeToContainer.get(uuid));
     } finally {
       lock.readLock().unlock();
     }
   }
 
-  public int getContainerCount(DatanodeID datanodeID) throws NodeNotFoundException {
-    lock.readLock().lock();
-    try {
-      return getExisting(datanodeID).size();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  public void removeContainer(DatanodeID datanodeID, ContainerID containerID) throws NodeNotFoundException {
+  public void removeContainer(UUID uuid, ContainerID containerID) throws
+      NodeNotFoundException {
     lock.writeLock().lock();
     try {
-      getExisting(datanodeID).remove(containerID);
+      checkIfNodeExist(uuid);
+      nodeToContainer.get(uuid).remove(containerID);
     } finally {
       lock.writeLock().unlock();
     }
@@ -369,15 +394,15 @@ public class NodeStateMap {
   }
 
   /**
-   * @return the container set mapping to the given id.
+   * Throws NodeNotFoundException if the Node for given id doesn't exist.
+   *
+   * @param uuid Node UUID
    * @throws NodeNotFoundException If the node is missing.
    */
-  private Set<ContainerID> getExisting(DatanodeID id) throws NodeNotFoundException {
-    final Set<ContainerID> containers = nodeToContainer.get(id);
-    if (containers == null) {
-      throw new NodeNotFoundException(id);
+  private void checkIfNodeExist(UUID uuid) throws NodeNotFoundException {
+    if (!nodeToContainer.containsKey(uuid)) {
+      throw new NodeNotFoundException("Node UUID: " + uuid);
     }
-    return containers;
   }
 
   /**
@@ -388,7 +413,7 @@ public class NodeStateMap {
    * @param health
    * @return List of DatanodeInfo objects matching the passed state
    */
-  private List<DatanodeInfo> filterNodes(
+  public List<DatanodeInfo> filterNodes(
       NodeOperationalState opState, NodeState health) {
     if (opState != null && health != null) {
       return filterNodes(matching(new NodeStatus(opState, health)));
@@ -418,14 +443,6 @@ public class NodeStateMap {
       lock.readLock().unlock();
     }
     return result;
-  }
-
-  private @Nonnull DatanodeInfo getNodeInfoUnsafe(@Nonnull DatanodeID id) throws NodeNotFoundException {
-    final DatanodeInfo info = nodeMap.get(id);
-    if (info == null) {
-      throw new NodeNotFoundException(id);
-    }
-    return info;
   }
 
   private static Predicate<DatanodeInfo> matching(NodeStatus status) {

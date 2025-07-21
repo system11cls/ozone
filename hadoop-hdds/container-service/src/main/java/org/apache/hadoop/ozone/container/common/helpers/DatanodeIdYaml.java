@@ -1,31 +1,34 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.common.helpers;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.lang.reflect.Field;
-import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -53,7 +56,7 @@ public final class DatanodeIdYaml {
   }
 
   /**
-   * Creates a yaml file using DatanodeDetails. This method expects the path
+   * Creates a yaml file using DatnodeDetails. This method expects the path
    * validation to be performed by the caller.
    *
    * @param datanodeDetails {@link DatanodeDetails}
@@ -68,8 +71,10 @@ public final class DatanodeIdYaml {
     options.setDefaultFlowStyle(DumperOptions.FlowStyle.FLOW);
     Yaml yaml = new Yaml(options);
 
-    final DatanodeDetailsYaml data = getDatanodeDetailsYaml(datanodeDetails, conf);
-    YamlUtils.dump(yaml, data, path, LOG);
+    try (Writer writer = new OutputStreamWriter(
+        new FileOutputStream(path), StandardCharsets.UTF_8)) {
+      yaml.dump(getDatanodeDetailsYaml(datanodeDetails, conf), writer);
+    }
   }
 
   /**
@@ -78,7 +83,7 @@ public final class DatanodeIdYaml {
   public static DatanodeDetails readDatanodeIdFile(File path)
       throws IOException {
     DatanodeDetails datanodeDetails;
-    try (InputStream inputFileStream = Files.newInputStream(path.toPath())) {
+    try (FileInputStream inputFileStream = new FileInputStream(path)) {
       DatanodeDetailsYaml datanodeDetailsYaml;
       try {
         datanodeDetailsYaml =
@@ -223,11 +228,6 @@ public final class DatanodeIdYaml {
     public void setCurrentVersion(int version) {
       this.currentVersion = version;
     }
-
-    @Override
-    public String toString() {
-      return "DatanodeDetailsYaml(" + uuid + ", " + hostName + "/" + ipAddress + ")";
-    }
   }
 
   private static DatanodeDetailsYaml getDatanodeDetailsYaml(
@@ -238,9 +238,8 @@ public final class DatanodeIdYaml {
         = new DatanodeLayoutStorage(conf, datanodeDetails.getUuidString());
 
     Map<String, Integer> portDetails = new LinkedHashMap<>();
-    final List<DatanodeDetails.Port> ports = datanodeDetails.getPorts();
-    if (!CollectionUtils.isEmpty(ports)) {
-      for (DatanodeDetails.Port port : ports) {
+    if (!CollectionUtils.isEmpty(datanodeDetails.getPorts())) {
+      for (DatanodeDetails.Port port : datanodeDetails.getPorts()) {
         Field f = null;
         try {
           f = DatanodeDetails.Port.Name.class
@@ -268,7 +267,7 @@ public final class DatanodeIdYaml {
     }
 
     return new DatanodeDetailsYaml(
-        datanodeDetails.getUuidString(),
+        datanodeDetails.getUuid().toString(),
         datanodeDetails.getIpAddress(),
         datanodeDetails.getHostName(),
         datanodeDetails.getCertSerialId(),

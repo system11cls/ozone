@@ -1,37 +1,44 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli.container.upgrade;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.ozone.container.common.utils.HddsVolumeUtil;
+import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
+import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
+import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
+
+import org.apache.hadoop.ozone.container.metadata.DatanodeStoreSchemaThreeImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
-import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
-import org.apache.hadoop.ozone.container.metadata.DatanodeStoreSchemaThreeImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.scm.cli.container.upgrade.UpgradeUtils.getContainerDBPath;
 
 /**
  * This class manages v2 to v3 container upgrade.
@@ -42,41 +49,74 @@ public class UpgradeManager {
       LoggerFactory.getLogger(UpgradeManager.class);
 
   private final Map<String, DatanodeStoreSchemaThreeImpl>
-      volumeStoreMap = new ConcurrentHashMap<>();
+      volumeStoreMap = new HashMap<>();
 
-  public List<Result> run(OzoneConfiguration configuration,
-      List<HddsVolume> volumes) throws IOException {
+  public void run(OzoneConfiguration configuration) throws IOException {
+    final DatanodeDetails detail =
+        UpgradeUtils.getDatanodeDetails(configuration);
+
+    final MutableVolumeSet dataVolumeSet = UpgradeUtils
+        .getHddsVolumes(configuration, StorageVolume.VolumeType.DATA_VOLUME,
+            detail.getUuidString());
+
+    HddsVolumeUtil.loadAllHddsVolumeDbStore(dataVolumeSet, null, false, LOG);
+    initVolumeStoreMap(dataVolumeSet, configuration);
+    upgradeAll(dataVolumeSet, configuration);
+  }
+
+  public void initVolumeStoreMap(MutableVolumeSet dataVolumeSet,
+      OzoneConfiguration configuration) throws IOException {
+    for (StorageVolume storageVolume : dataVolumeSet.getVolumesList()) {
+      final HddsVolume volume = (HddsVolume) storageVolume;
+      final File containerDBPath = getContainerDBPath(volume);
+      final DatanodeStoreSchemaThreeImpl datanodeStoreSchemaThree =
+          new DatanodeStoreSchemaThreeImpl(configuration,
+              containerDBPath.getAbsolutePath(), false);
+      volumeStoreMap.put(volume.getStorageDir().getAbsolutePath(),
+          datanodeStoreSchemaThree);
+    }
+  }
+
+  public List<Result> upgradeAll(MutableVolumeSet volumeSet,
+      OzoneConfiguration configuration) {
     List<Result> results = new ArrayList<>();
-    Map<HddsVolume, CompletableFuture<Result>> volumeFutures = new HashMap<>();
+    final List<StorageVolume> volumesList = volumeSet.getVolumesList();
+    Map<HddsVolume, CompletableFuture<Result>> volumeFutures =
+        new HashMap<>();
     long startTime = System.currentTimeMillis();
 
-    LOG.info("Start to upgrade {} volume(s)", volumes.size());
-    for (StorageVolume volume : volumes) {
+    LOG.info("Start upgrade {} volumes container LayoutVersion",
+        volumesList.size());
+
+    for (StorageVolume volume : volumesList) {
       final HddsVolume hddsVolume = (HddsVolume) volume;
       final UpgradeTask task =
-          new UpgradeTask(configuration, hddsVolume, volumeStoreMap);
-      final CompletableFuture<Result> future = task.getUpgradeFuture();
+          new UpgradeTask(configuration, hddsVolume,
+              getDBStore(hddsVolume));
+
+      final CompletableFuture<Result> future =
+          task.getUpgradeFutureByVolume();
       volumeFutures.put(hddsVolume, future);
     }
 
-    for (Map.Entry<HddsVolume, CompletableFuture<Result>> entry :
-        volumeFutures.entrySet()) {
+    for (Map.Entry<HddsVolume, CompletableFuture<Result>> entry : volumeFutures
+        .entrySet()) {
       final HddsVolume hddsVolume = entry.getKey();
       final CompletableFuture<Result> volumeFuture = entry.getValue();
 
       try {
         final Result result = volumeFuture.get();
         results.add(result);
-        LOG.info("Finish upgrading containers on volume {}, {}",
-            hddsVolume.getVolumeRootDir(), result.toString());
+        LOG.info("Finish upgrade containers on volume {}, result {}",
+            hddsVolume.getVolumeRootDir(), result);
       } catch (Exception e) {
-        LOG.error("Failed to upgrade containers on volume {}",
+        LOG.error("Upgrade containers on volume {} failed",
             hddsVolume.getVolumeRootDir(), e);
       }
     }
 
-    LOG.info("It took {}ms to finish all volume upgrade.",
-        (System.currentTimeMillis() - startTime));
+    LOG.info("Upgrade all volume container LayoutVersion costs {}s",
+        (System.currentTimeMillis() - startTime) / 1000);
     return results;
   }
 
@@ -119,10 +159,6 @@ public class UpgradeManager {
       return resultMap;
     }
 
-    public boolean isSuccess() {
-      return this.status == Status.SUCCESS;
-    }
-
     public void success() {
       this.endTimeMs = System.currentTimeMillis();
       this.status = Status.SUCCESS;
@@ -137,23 +173,21 @@ public class UpgradeManager {
     @Override
     public String toString() {
       final StringBuilder stringBuilder = new StringBuilder();
-      stringBuilder.append("Result:{");
-      stringBuilder.append("hddsRootDir=");
+      stringBuilder.append("Result{");
+      stringBuilder.append("volumeDir=");
       stringBuilder.append(getHddsVolume().getHddsRootDir());
       stringBuilder.append(", resultList=");
       AtomicLong total = new AtomicLong(0L);
-      if (resultMap != null) {
-        resultMap.forEach((k, r) -> {
-          stringBuilder.append(r.toString());
-          stringBuilder.append("\n");
-          total.addAndGet(r.getTotalRow());
-        });
-      }
+      resultMap.forEach((k, r) -> {
+        stringBuilder.append(r.toString());
+        stringBuilder.append("\n");
+        total.addAndGet(r.getTotalRow());
+      });
       stringBuilder.append(", totalRow=");
       stringBuilder.append(total.get());
       stringBuilder.append(", costMs=");
       stringBuilder.append(getCost());
-      stringBuilder.append(", status=");
+      stringBuilder.append("ms, status=");
       stringBuilder.append(status);
       if (e != null) {
         stringBuilder.append(", Exception=");

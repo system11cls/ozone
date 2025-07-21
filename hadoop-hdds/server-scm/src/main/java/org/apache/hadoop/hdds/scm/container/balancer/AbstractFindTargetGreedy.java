@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,13 +19,6 @@
 package org.apache.hadoop.hdds.scm.container.balancer;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.ContainerPlacementStatus;
 import org.apache.hadoop.hdds.scm.PlacementPolicyValidateProxy;
@@ -36,6 +30,14 @@ import org.apache.hadoop.hdds.scm.container.ContainerReplica;
 import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.slf4j.Logger;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Find a target for a source datanode with greedy strategy.
@@ -54,7 +56,7 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
       ContainerManager containerManager,
       PlacementPolicyValidateProxy placementPolicyValidateProxy,
       NodeManager nodeManager) {
-    sizeEnteringNode = new ConcurrentHashMap<>();
+    sizeEnteringNode = new HashMap<>();
     this.containerManager = containerManager;
     this.placementPolicyValidateProxy = placementPolicyValidateProxy;
     this.nodeManager = nodeManager;
@@ -94,7 +96,7 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
    * Find a {@link ContainerMoveSelection} consisting of a target and
    * container to move for a source datanode. Favours more under-utilized nodes.
    * @param source Datanode to find a target for
-   * @param container candidate container satisfying
+   * @param candidateContainers Set of candidate containers satisfying
    *                            selection criteria
    *                            {@link ContainerBalancerSelectionCriteria}
    * (DatanodeDetails, Long) method returns true if the size specified in the
@@ -103,30 +105,32 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
    */
   @Override
   public ContainerMoveSelection findTargetForContainerMove(
-      DatanodeDetails source, ContainerID container) {
+      DatanodeDetails source, Set<ContainerID> candidateContainers) {
     sortTargetForSource(source);
     for (DatanodeUsageInfo targetInfo : potentialTargets) {
       DatanodeDetails target = targetInfo.getDatanodeDetails();
-      Set<ContainerReplica> replicas;
-      ContainerInfo containerInfo;
-      try {
-        replicas = containerManager.getContainerReplicas(container);
-        containerInfo = containerManager.getContainer(container);
-      } catch (ContainerNotFoundException e) {
-        logger.warn("Could not get Container {} from Container Manager for " +
-            "obtaining replicas in Container Balancer.", container, e);
-        return null;
-      }
+      for (ContainerID container : candidateContainers) {
+        Set<ContainerReplica> replicas;
+        ContainerInfo containerInfo;
+        try {
+          replicas = containerManager.getContainerReplicas(container);
+          containerInfo = containerManager.getContainer(container);
+        } catch (ContainerNotFoundException e) {
+          logger.warn("Could not get Container {} from Container Manager for " +
+              "obtaining replicas in Container Balancer.", container, e);
+          continue;
+        }
 
-      if (replicas.stream().noneMatch(
-          replica -> replica.getDatanodeDetails().equals(target)) &&
-          containerMoveSatisfiesPlacementPolicy(container, replicas, source,
-          target) &&
-          canSizeEnterTarget(target, containerInfo.getUsedBytes())) {
-        return new ContainerMoveSelection(target, container);
+        if (replicas.stream().noneMatch(
+            replica -> replica.getDatanodeDetails().equals(target)) &&
+            containerMoveSatisfiesPlacementPolicy(container, replicas, source,
+            target) &&
+            canSizeEnterTarget(target, containerInfo.getUsedBytes())) {
+          return new ContainerMoveSelection(target, container);
+        }
       }
     }
-    logger.debug("Container Balancer could not find a target for " +
+    logger.info("Container Balancer could not find a target for " +
         "source datanode {}", source.getUuidString());
     return null;
   }
@@ -224,9 +228,6 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
       if (totalEnteringSize < config.getMaxSizeEnteringTarget()) {
         //reorder
         potentialTargets.add(nodeManager.getUsageInfo(target));
-      } else {
-        logger.debug("Datanode {} removed from the list of potential targets. The total size of data entering it in " +
-            "this iteration is {}.", target, totalEnteringSize);
       }
       return;
     }
@@ -277,13 +278,4 @@ public abstract class AbstractFindTargetGreedy implements FindTargetStrategy {
     return nodeManager;
   }
 
-  @Override
-  public Map<DatanodeDetails, Long> getSizeEnteringNodes() {
-    return sizeEnteringNode;
-  }
-
-  @Override
-  public void clearSizeEnteringNodes() {
-    sizeEnteringNode.clear();
-  }
 }

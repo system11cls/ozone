@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,28 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.io.IOException;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.util.OptionalLong;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
@@ -45,6 +26,19 @@ import org.apache.hadoop.ozone.protocol.commands.DeleteContainerCommand;
 import org.apache.ozone.test.TestClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.OptionalLong;
+
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 /**
  * Test for the DeleteContainerCommandHandler.
@@ -68,14 +62,8 @@ public class TestDeleteContainerCommandHandler {
   }
 
   @Test
-  public void testExpiredCommandsAreNotProcessed()
-      throws IOException, InterruptedException {
-    CountDownLatch latch1 = new CountDownLatch(1);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().build();
-    ThreadPoolWithLockExecutor executor = new ThreadPoolWithLockExecutor(
-        threadFactory, latch1);
-    DeleteContainerCommandHandler handler = new DeleteContainerCommandHandler(
-        clock, executor, 100);
+  public void testExpiredCommandsAreNotProcessed() throws IOException {
+    DeleteContainerCommandHandler handler = createSubject(clock, 1000);
 
     DeleteContainerCommand command1 = new DeleteContainerCommand(1L);
     command1.setDeadline(clock.millis() + 10000);
@@ -86,27 +74,21 @@ public class TestDeleteContainerCommandHandler {
 
     clock.fastForward(15000);
     handler.handle(command1, ozoneContainer, null, null);
-    latch1.await();
-    assertEquals(1, handler.getTimeoutCount());
-    CountDownLatch latch2 = new CountDownLatch(2);
-    executor.setLatch(latch2);
+    Assertions.assertEquals(1, handler.getTimeoutCount());
     handler.handle(command2, ozoneContainer, null, null);
     handler.handle(command3, ozoneContainer, null, null);
-    latch2.await();
-
-    assertEquals(1, handler.getTimeoutCount());
-    assertEquals(3, handler.getInvocationCount());
-    verify(controller, times(0))
+    Assertions.assertEquals(1, handler.getTimeoutCount());
+    Assertions.assertEquals(3, handler.getInvocationCount());
+    Mockito.verify(controller, times(0))
         .deleteContainer(1L, false);
-    verify(controller, times(1))
+    Mockito.verify(controller, times(1))
         .deleteContainer(2L, false);
-    verify(controller, times(1))
+    Mockito.verify(controller, times(1))
         .deleteContainer(3L, false);
   }
 
   @Test
-  public void testCommandForCurrentTermIsExecuted()
-      throws IOException, InterruptedException {
+  public void testCommandForCurrentTermIsExecuted() throws IOException {
     // GIVEN
     DeleteContainerCommand command = new DeleteContainerCommand(1L);
     command.setTerm(1);
@@ -114,20 +96,13 @@ public class TestDeleteContainerCommandHandler {
     when(context.getTermOfLeaderSCM())
         .thenReturn(OptionalLong.of(command.getTerm()));
 
-    TestClock testClock = new TestClock(Instant.now(), ZoneId.systemDefault());
-    CountDownLatch latch = new CountDownLatch(1);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().build();
-    ThreadPoolWithLockExecutor executor = new ThreadPoolWithLockExecutor(
-        threadFactory, latch);
-    DeleteContainerCommandHandler subject = new DeleteContainerCommandHandler(
-        testClock, executor, 100);
+    DeleteContainerCommandHandler subject = createSubject();
 
     // WHEN
     subject.handle(command, ozoneContainer, context, null);
-    latch.await();
 
     // THEN
-    verify(controller, times(1))
+    Mockito.verify(controller, times(1))
         .deleteContainer(1L, false);
   }
 
@@ -146,7 +121,7 @@ public class TestDeleteContainerCommandHandler {
     subject.handle(command, ozoneContainer, context, null);
 
     // THEN
-    verify(controller, never())
+    Mockito.verify(controller, never())
         .deleteContainer(1L, false);
   }
 
@@ -156,7 +131,7 @@ public class TestDeleteContainerCommandHandler {
         clock, 1);
     DeleteContainerCommand command1 = new DeleteContainerCommand(1L);
     Lock lock = new ReentrantLock();
-    doAnswer(invocation -> {
+    Mockito.doAnswer(invocation -> {
       try {
         lock.lock();
       } finally {
@@ -173,7 +148,7 @@ public class TestDeleteContainerCommandHandler {
     
       // one is waiting in execution as thread count 1, so count 1
       // and one in queue, others ignored
-      verify(controller, times(1))
+      Mockito.verify(controller, times(1))
           .deleteContainer(1L, false);
     } finally {
       lock.unlock();
@@ -187,10 +162,8 @@ public class TestDeleteContainerCommandHandler {
 
   private static DeleteContainerCommandHandler createSubject(
       TestClock clock, int queueSize) {
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().build();
-    ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.
-        newFixedThreadPool(1, threadFactory);
-    return new DeleteContainerCommandHandler(clock, executor, queueSize);
+    return new DeleteContainerCommandHandler(clock,
+        newDirectExecutorService(), queueSize);
   }
 
   private static DeleteContainerCommandHandler createSubjectWithPoolSize(
@@ -198,21 +171,4 @@ public class TestDeleteContainerCommandHandler {
     return new DeleteContainerCommandHandler(1, clock, queueSize, "");
   }
 
-  static class ThreadPoolWithLockExecutor extends ThreadPoolExecutor {
-    private CountDownLatch countDownLatch;
-    ThreadPoolWithLockExecutor(ThreadFactory threadFactory, CountDownLatch latch) {
-      super(1, 1, 0, TimeUnit.MILLISECONDS,
-          new LinkedBlockingQueue<Runnable>(), threadFactory);
-      this.countDownLatch = latch;
-    }
-
-    void setLatch(CountDownLatch latch) {
-      this.countDownLatch = latch;
-    }
-
-    @Override
-    protected void afterExecute(Runnable r, Throwable t) {
-      countDownLatch.countDown();
-    }
-  }
 }

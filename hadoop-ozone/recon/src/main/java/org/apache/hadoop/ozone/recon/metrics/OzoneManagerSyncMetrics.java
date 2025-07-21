@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -106,39 +107,39 @@ public final class OzoneManagerSyncMetrics {
     averageNumUpdatesInDeltaRequest.set(avg);
   }
 
-  public long getNumSnapshotRequests() {
-    return numSnapshotRequests.value();
+  public MutableCounterLong getNumSnapshotRequests() {
+    return numSnapshotRequests;
   }
 
-  public long getNumSnapshotRequestsFailed() {
-    return numSnapshotRequestsFailed.value();
+  public MutableCounterLong getNumSnapshotRequestsFailed() {
+    return numSnapshotRequestsFailed;
   }
 
-  MutableRate getSnapshotRequestLatency() {
+  public MutableRate getSnapshotRequestLatency() {
     return snapshotRequestLatency;
   }
 
-  public long getNumDeltaRequestsFailed() {
-    return numDeltaRequestsFailed.value();
+  public MutableCounterLong getNumDeltaRequestsFailed() {
+    return numDeltaRequestsFailed;
   }
 
-  public long getNumUpdatesInDeltaTotal() {
-    return numUpdatesInDeltaTotal.value();
+  public MutableCounterLong getNumUpdatesInDeltaTotal() {
+    return numUpdatesInDeltaTotal;
   }
 
-  public float getAverageNumUpdatesInDeltaRequest() {
-    return averageNumUpdatesInDeltaRequest.value();
+  public MutableGaugeFloat getAverageNumUpdatesInDeltaRequest() {
+    return averageNumUpdatesInDeltaRequest;
   }
 
-  public long getNumNonZeroDeltaRequests() {
-    return numNonZeroDeltaRequests.value();
+  public MutableCounterLong getNumNonZeroDeltaRequests() {
+    return numNonZeroDeltaRequests;
   }
 
   public void setSequenceNumberLag(long lag) {
     sequenceNumberLag.set(lag);
   }
 
-  public long getSequenceNumberLag() {
-    return sequenceNumberLag.value();
+  public MutableGaugeLong getSequenceNumberLag() {
+    return sequenceNumberLag;
   }
 }

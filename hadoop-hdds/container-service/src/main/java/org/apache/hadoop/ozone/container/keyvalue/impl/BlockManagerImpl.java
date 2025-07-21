@@ -1,35 +1,31 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.keyvalue.impl;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.BCSID_MISMATCH;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.UNSUPPORTED_REQUEST;
-import static org.apache.hadoop.ozone.OzoneConsts.INCREMENTAL_CHUNK_LIST;
-
-import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
@@ -39,7 +35,10 @@ import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.BlockManager;
-import org.apache.hadoop.ozone.container.upgrade.VersionedDatanodeFeatures;
+
+import com.google.common.base.Preconditions;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.BCSID_MISMATCH;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.NO_SUCH_BLOCK;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,19 +48,17 @@ import org.slf4j.LoggerFactory;
  */
 public class BlockManagerImpl implements BlockManager {
 
-  public static final Logger LOG =
-      LoggerFactory.getLogger(BlockManagerImpl.class);
+  static final Logger LOG = LoggerFactory.getLogger(BlockManagerImpl.class);
 
   private ConfigurationSource config;
 
   private static final String DB_NULL_ERR_MSG = "DB cannot be null here";
-  public static final String FULL_CHUNK = "full";
+  private static final String NO_SUCH_BLOCK_ERR_MSG =
+      "Unable to find the block.";
 
   // Default Read Buffer capacity when Checksum is not present
   private final int defaultReadBufferCapacity;
   private final int readMappedBufferThreshold;
-  private final int readMappedBufferMaxCount;
-  private final boolean readNettyChunkedNioFile;
 
   /**
    * Constructs a Block Manager.
@@ -77,12 +74,6 @@ public class BlockManagerImpl implements BlockManager {
     this.readMappedBufferThreshold = config.getBufferSize(
         ScmConfigKeys.OZONE_CHUNK_READ_MAPPED_BUFFER_THRESHOLD_KEY,
         ScmConfigKeys.OZONE_CHUNK_READ_MAPPED_BUFFER_THRESHOLD_DEFAULT);
-    this.readMappedBufferMaxCount = config.getInt(
-        ScmConfigKeys.OZONE_CHUNK_READ_MAPPED_BUFFER_MAX_COUNT_KEY,
-        ScmConfigKeys.OZONE_CHUNK_READ_MAPPED_BUFFER_MAX_COUNT_DEFAULT);
-    this.readNettyChunkedNioFile = config.getBoolean(
-        ScmConfigKeys.OZONE_CHUNK_READ_NETTY_CHUNKED_NIO_FILE_KEY,
-        ScmConfigKeys.OZONE_CHUNK_READ_NETTY_CHUNKED_NIO_FILE_DEFAULT);
   }
 
   @Override
@@ -95,11 +86,13 @@ public class BlockManagerImpl implements BlockManager {
       boolean endOfBlock) throws IOException {
     return persistPutBlock(
         (KeyValueContainer) container,
-        data, endOfBlock);
+        data,
+        config,
+        endOfBlock);
   }
 
-  public long persistPutBlock(KeyValueContainer container,
-      BlockData data, boolean endOfBlock)
+  public static long persistPutBlock(KeyValueContainer container,
+      BlockData data, ConfigurationSource config, boolean endOfBlock)
       throws IOException {
     Preconditions.checkNotNull(data, "BlockData cannot be null for put " +
         "operation.");
@@ -143,6 +136,7 @@ public class BlockManagerImpl implements BlockManager {
       // update the blockData as well as BlockCommitSequenceId here
       try (BatchOperation batch = db.getStore().getBatchHandler()
           .initBatchOperation()) {
+
         // If the block does not exist in the pendingPutBlockCache of the
         // container, then check the DB to ascertain if it exists or not.
         // If block exists in cache, blockCount should not be incremented.
@@ -155,16 +149,8 @@ public class BlockManagerImpl implements BlockManager {
           }
         }
 
-        boolean incrementalEnabled = true;
-        if (!VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.HBASE_SUPPORT)) {
-          if (isPartialChunkList(data)) {
-            throw new StorageContainerException("DataNode has not finalized " +
-                "upgrading to a version that supports incremental chunk list.", UNSUPPORTED_REQUEST);
-          }
-          incrementalEnabled = false;
-        }
-        db.getStore().putBlockByID(batch, incrementalEnabled, localID, data,
-            containerData, endOfBlock);
+        db.getStore().getBlockDataTable().putWithBatch(
+            batch, containerData.getBlockKey(localID), data);
         if (bcsId != 0) {
           db.getStore().getMetadataTable().putWithBatch(
               batch, containerData.getBcsIdKey(), bcsId);
@@ -221,50 +207,6 @@ public class BlockManagerImpl implements BlockManager {
   }
 
   @Override
-  public void finalizeBlock(Container container, BlockID blockId)
-      throws IOException {
-    Preconditions.checkNotNull(blockId, "blockId cannot " +
-        "be null for finalizeBlock operation.");
-    Preconditions.checkState(blockId.getContainerID() >= 0,
-        "Container Id cannot be negative");
-
-    KeyValueContainer kvContainer = (KeyValueContainer)container;
-    long localID = blockId.getLocalID();
-
-    kvContainer.removeFromPendingPutBlockCache(localID);
-
-    try (DBHandle db = BlockUtils.getDB(kvContainer.getContainerData(),
-        config)) {
-      // Should never fail.
-      Preconditions.checkNotNull(db, DB_NULL_ERR_MSG);
-
-      // persist finalizeBlock
-      try (BatchOperation batch = db.getStore().getBatchHandler()
-          .initBatchOperation()) {
-        db.getStore().getFinalizeBlocksTable().putWithBatch(batch,
-            kvContainer.getContainerData().getBlockKey(localID), localID);
-        db.getStore().getBatchHandler().commitBatchOperation(batch);
-
-        mergeLastChunkForBlockFinalization(blockId, db, kvContainer, batch, localID);
-      }
-    }
-  }
-
-  private void mergeLastChunkForBlockFinalization(BlockID blockId, DBHandle db,
-                         KeyValueContainer kvContainer, BatchOperation batch,
-                         long localID) throws IOException {
-    // if the chunk list of the block to be finalized was written incremental,
-    // merge the last chunk into block data.
-    BlockData blockData = getBlockByID(db, blockId, kvContainer.getContainerData());
-    if (blockData.getMetadata().containsKey(INCREMENTAL_CHUNK_LIST)) {
-      BlockData emptyBlockData = new BlockData(blockId);
-      emptyBlockData.addMetadata(INCREMENTAL_CHUNK_LIST, "");
-      db.getStore().putBlockByID(batch, true, localID,
-          emptyBlockData, kvContainer.getContainerData(), true);
-    }
-  }
-
-  @Override
   public BlockData getBlock(Container container, BlockID blockID) throws IOException {
     BlockUtils.verifyBCSId(container, blockID);
     KeyValueContainerData containerData = (KeyValueContainerData) container
@@ -304,19 +246,8 @@ public class BlockManagerImpl implements BlockManager {
     return defaultReadBufferCapacity;
   }
 
-  @Override
   public int getReadMappedBufferThreshold() {
     return readMappedBufferThreshold;
-  }
-
-  @Override
-  public int getReadMappedBufferMaxCount() {
-    return readMappedBufferMaxCount;
-  }
-
-  @Override
-  public boolean isReadNettyChunkedNioFile() {
-    return readNettyChunkedNioFile;
   }
 
   /**
@@ -358,7 +289,7 @@ public class BlockManagerImpl implements BlockManager {
                 .getSequentialRangeKVs(startKey, count,
                     cData.containerPrefix(), cData.getUnprefixedKeyFilter());
         for (Table.KeyValue<String, BlockData> entry : range) {
-          result.add(db.getStore().getCompleteBlockData(entry.getValue(), null, entry.getKey()));
+          result.add(entry.getValue());
         }
         return result;
       }
@@ -378,10 +309,13 @@ public class BlockManagerImpl implements BlockManager {
   private BlockData getBlockByID(DBHandle db, BlockID blockID,
       KeyValueContainerData containerData) throws IOException {
     String blockKey = containerData.getBlockKey(blockID.getLocalID());
-    return db.getStore().getBlockByID(blockID, blockKey);
-  }
 
-  private static boolean isPartialChunkList(BlockData data) {
-    return data.getMetadata().containsKey(INCREMENTAL_CHUNK_LIST);
+    BlockData blockData = db.getStore().getBlockDataTable().get(blockKey);
+    if (blockData == null) {
+      throw new StorageContainerException(NO_SUCH_BLOCK_ERR_MSG +
+              " BlockID : " + blockID, NO_SUCH_BLOCK);
+    }
+
+    return blockData;
   }
 }

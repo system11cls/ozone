@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,21 +18,20 @@
 
 package org.apache.hadoop.ozone.om.request.security;
 
-import static org.apache.hadoop.ozone.om.OzoneManagerUtils.buildTokenAuditMap;
-
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.util.Map;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
-import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.security.OMRenewDelegationTokenResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
@@ -42,8 +42,9 @@ import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.proto.SecurityProtos.RenewDelegationTokenRequestProto;
 import org.apache.hadoop.security.token.Token;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import static org.apache.hadoop.ozone.om.OzoneManagerUtils.buildTokenAuditMap;
 
 /**
  * Handle RenewDelegationToken Request.
@@ -70,7 +71,7 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
 
     long renewTime;
     try {
-      Token<OzoneTokenIdentifier> token = OMPBHelper.tokenFromProto(
+      Token<OzoneTokenIdentifier> token = OMPBHelper.convertToDelegationToken(
           renewDelegationTokenRequest.getToken());
       auditMap = buildTokenAuditMap(token);
 
@@ -83,7 +84,7 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
       // Call OM to renew token
       renewTime = ozoneManager.renewDelegationToken(token);
     } catch (IOException ioe) {
-      markForAudit(auditLogger,
+      auditLog(auditLogger,
           buildAuditMessage(OMAction.RENEW_DELEGATION_TOKEN, auditMap, ioe,
               request.getUserInfo()));
       throw ioe;
@@ -125,13 +126,14 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
   }
 
   @Override
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
+  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
+      long transactionLogIndex) {
 
     UpdateRenewDelegationTokenRequest updateRenewDelegationTokenRequest =
         getOmRequest().getUpdatedRenewDelegationTokenRequest();
 
     Token<OzoneTokenIdentifier> ozoneTokenIdentifierToken =
-        OMPBHelper.tokenFromProto(updateRenewDelegationTokenRequest
+        OMPBHelper.convertToDelegationToken(updateRenewDelegationTokenRequest
             .getRenewDelegationTokenRequest().getToken());
 
     AuditLogger auditLogger = ozoneManager.getAuditLogger();
@@ -164,7 +166,7 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
       // Update Cache.
       omMetadataManager.getDelegationTokenTable().addCacheEntry(
           new CacheKey<>(ozoneTokenIdentifier),
-          CacheValue.get(context.getIndex(), renewTime));
+          CacheValue.get(transactionLogIndex, renewTime));
 
       omClientResponse =
           new OMRenewDelegationTokenResponse(ozoneTokenIdentifier, renewTime,
@@ -179,7 +181,7 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
           createErrorOMResponse(omResponse, exception));
     }
 
-    markForAudit(auditLogger,
+    auditLog(auditLogger,
         buildAuditMessage(OMAction.RENEW_DELEGATION_TOKEN, auditMap, exception,
             getOmRequest().getUserInfo()));
 

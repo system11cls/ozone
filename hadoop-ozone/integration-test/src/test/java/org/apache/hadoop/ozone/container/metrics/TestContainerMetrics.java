@@ -1,38 +1,32 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.metrics;
 
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.apache.ozone.test.MetricsAsserts.assertCounter;
-import static org.apache.ozone.test.MetricsAsserts.assertQuantileGauges;
-import static org.apache.ozone.test.MetricsAsserts.getMetrics;
-import static org.apache.ratis.rpc.SupportedRpcType.GRPC;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import com.google.common.collect.Maps;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.hdds.HddsConfigKeys;
+import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.hdds.DFSConfigKeysLegacy;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -65,10 +59,20 @@ import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.apache.hadoop.ozone.container.common.volume.VolumeSet;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
+import org.apache.ozone.test.GenericTestUtils;
+
+import com.google.common.collect.Maps;
+import static org.apache.ozone.test.MetricsAsserts.assertCounter;
+import static org.apache.ozone.test.MetricsAsserts.assertQuantileGauges;
+import static org.apache.ozone.test.MetricsAsserts.getMetrics;
+import static org.apache.ratis.rpc.SupportedRpcType.GRPC;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.apache.ratis.util.function.CheckedFunction;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -80,8 +84,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @Timeout(300)
 public class TestContainerMetrics {
-  @TempDir
-  private static Path testDir;
+  static final String TEST_DIR = GenericTestUtils.getRandomizedTempPath() + File.separator;
   @TempDir
   private Path tempDir;
   private static final OzoneConfiguration CONF = new OzoneConfiguration();
@@ -90,11 +93,20 @@ public class TestContainerMetrics {
   @BeforeAll
   public static void setup() {
     DefaultMetricsSystem.setMiniClusterMode(true);
-    CONF.setInt(HddsConfigKeys.HDDS_METRICS_PERCENTILES_INTERVALS_KEY,
+    CONF.setInt(DFSConfigKeysLegacy.DFS_METRICS_PERCENTILES_INTERVALS_KEY,
         DFS_METRICS_PERCENTILES_INTERVALS);
     CONF.setBoolean(OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_ENABLED, false);
-    CONF.set(OzoneConfigKeys.OZONE_METADATA_DIRS, testDir.toString());
+    CONF.set(OzoneConfigKeys.OZONE_METADATA_DIRS, TEST_DIR);
 
+  }
+
+  @AfterAll
+  public static void cleanup() {
+    // clean up volume dir
+    File file = new File(TEST_DIR);
+    if (file.exists()) {
+      FileUtil.fullyDelete(file);
+    }
   }
 
   @AfterEach
@@ -109,7 +121,7 @@ public class TestContainerMetrics {
     runTestClientServer(pipeline -> CONF
             .setInt(OzoneConfigKeys.HDDS_CONTAINER_IPC_PORT,
                 pipeline.getFirstNode()
-                    .getStandalonePort().getValue()),
+                    .getPort(DatanodeDetails.Port.Name.STANDALONE).getValue()),
         pipeline -> new XceiverClientGrpc(pipeline, CONF),
         (dn, volumeSet) -> new XceiverServerGrpc(dn, CONF,
             createDispatcher(dn, volumeSet), null), (dn, p) -> {
@@ -133,7 +145,7 @@ public class TestContainerMetrics {
   }
 
   private HddsDispatcher createDispatcher(DatanodeDetails dd, VolumeSet volumeSet) {
-    ContainerSet containerSet = newContainerSet();
+    ContainerSet containerSet = new ContainerSet(1000);
     StateContext context = ContainerTestUtils.getMockContext(
         dd, CONF);
     ContainerMetrics metrics = ContainerMetrics.create(CONF);
@@ -147,9 +159,7 @@ public class TestContainerMetrics {
               c -> { }));
     }
     HddsDispatcher dispatcher = new HddsDispatcher(CONF, containerSet,
-        volumeSet, handlers, context, metrics, null);
-    StorageVolumeUtil.getHddsVolumesList(volumeSet.getVolumesList())
-        .forEach(hddsVolume -> hddsVolume.setDbParentDir(tempDir.toFile()));
+          volumeSet, handlers, context, metrics, null);
     dispatcher.setClusterId(UUID.randomUUID().toString());
     return dispatcher;
   }
@@ -157,9 +167,9 @@ public class TestContainerMetrics {
   static void runTestClientServer(
       CheckedConsumer<Pipeline, IOException> initConf,
       CheckedFunction<Pipeline, XceiverClientSpi,
-                IOException> createClient,
+                      IOException> createClient,
       CheckedBiFunction<DatanodeDetails, MutableVolumeSet, XceiverServerSpi,
-          IOException> createServer,
+                IOException> createServer,
       CheckedBiConsumer<DatanodeDetails, Pipeline, IOException> initServer)
       throws Exception {
     XceiverServerSpi server = null;
@@ -173,7 +183,7 @@ public class TestContainerMetrics {
       initConf.accept(pipeline);
 
       DatanodeDetails dn = pipeline.getFirstNode();
-      volumeSet = createVolumeSet(dn, testDir.resolve(dn.getUuidString()).toString());
+      volumeSet = createVolumeSet(dn, TEST_DIR + dn.getUuidString());
       server = createServer.apply(dn, volumeSet);
       server.start();
       initServer.accept(dn, pipeline);
@@ -236,13 +246,13 @@ public class TestContainerMetrics {
   private XceiverServerSpi newXceiverServerRatis(DatanodeDetails dn, MutableVolumeSet volumeSet)
       throws IOException {
     CONF.setInt(OzoneConfigKeys.HDDS_CONTAINER_RATIS_IPC_PORT,
-        dn.getRatisPort().getValue());
-    final String dir = testDir.resolve(dn.getUuidString()).toString();
+        dn.getPort(DatanodeDetails.Port.Name.RATIS).getValue());
+    final String dir = TEST_DIR + dn.getUuid();
     CONF.set(OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATANODE_STORAGE_DIR, dir);
     final ContainerDispatcher dispatcher = createDispatcher(dn,
         volumeSet);
-    return XceiverServerRatis.newXceiverServerRatis(null, dn, CONF, dispatcher,
-        new ContainerController(newContainerSet(), Maps.newHashMap()),
+    return XceiverServerRatis.newXceiverServerRatis(dn, CONF, dispatcher,
+        new ContainerController(new ContainerSet(1000), Maps.newHashMap()),
         null, null);
   }
 }

@@ -1,47 +1,44 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.client;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.hdds.annotation.InterfaceStability;
+import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionInfo;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
+import org.apache.hadoop.hdds.scm.DatanodeAdminError;
+import org.apache.hadoop.hdds.scm.container.ContainerReplicaInfo;
+import org.apache.hadoop.hdds.scm.container.ReplicationManagerReport;
+import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
+import org.apache.hadoop.hdds.scm.container.ContainerInfo;
+import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+    .ContainerDataProto;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer.StatusAndMessages;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.hdds.annotation.InterfaceStability;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionInfo;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
-import org.apache.hadoop.hdds.scm.DatanodeAdminError;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.container.ContainerListResult;
-import org.apache.hadoop.hdds.scm.container.ContainerReplicaInfo;
-import org.apache.hadoop.hdds.scm.container.ReplicationManagerReport;
-import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization.StatusAndMessages;
 
 /**
  * The interface to call into underlying container layer.
@@ -121,11 +118,10 @@ public interface ScmClient extends Closeable {
    * @param startContainerID start containerID.
    * @param count count must be {@literal >} 0.
    *
-   * @return a list of containers capped by max count allowed
-   * in "ozone.scm.container.list.max.count" and total number of containers.
+   * @return a list of pipeline.
    * @throws IOException
    */
-  ContainerListResult listContainer(long startContainerID,
+  List<ContainerInfo> listContainer(long startContainerID,
       int count) throws IOException;
 
   /**
@@ -135,11 +131,10 @@ public interface ScmClient extends Closeable {
    * @param count count must be {@literal >} 0.
    * @param state Container of this state will be returned.
    * @param replicationConfig container replication Config.
-   * @return a list of containers capped by max count allowed
-   * in "ozone.scm.container.list.max.count" and total number of containers.
+   * @return a list of pipeline.
    * @throws IOException
    */
-  ContainerListResult listContainer(long startContainerID, int count,
+  List<ContainerInfo> listContainer(long startContainerID, int count,
       HddsProtos.LifeCycleState state,
       HddsProtos.ReplicationType replicationType,
       ReplicationConfig replicationConfig)
@@ -184,14 +179,6 @@ public interface ScmClient extends Closeable {
       String owner) throws IOException;
 
   /**
-   * Gets the list of underReplicated and unClosed containers on a decommissioning node.
-   *
-   * @param dn - Datanode detail
-   * @return Lists of underReplicated and Unclosed containers
-   */
-  Map<String, List<ContainerID>> getContainersOnDecomNode(DatanodeDetails dn) throws IOException;
-
-  /**
    * Returns a set of Nodes that meet a query criteria. Passing null for opState
    * or nodeState acts like a wild card, returning all nodes in that state.
    * @param opState - Operational State of the node, eg IN_SERVICE,
@@ -208,23 +195,14 @@ public interface ScmClient extends Closeable {
       String poolName) throws IOException;
 
   /**
-   * Returns a node with the given UUID.
-   * @param uuid - datanode uuid string
-   * @return A nodes that matches the requested UUID.
-   * @throws IOException
-   */
-  HddsProtos.Node queryNode(UUID uuid) throws IOException;
-
-  /**
    * Allows a list of hosts to be decommissioned. The hosts are identified
    * by their hostname and optionally port in the format foo.com:port.
    * @param hosts A list of hostnames, optionally with port
-   * @param force true to forcefully decommission Datanodes
    * @throws IOException
    * @return A list of DatanodeAdminError for any hosts which failed to
    *         decommission
    */
-  List<DatanodeAdminError> decommissionNodes(List<String> hosts, boolean force)
+  List<DatanodeAdminError> decommissionNodes(List<String> hosts)
       throws IOException;
 
   /**
@@ -254,7 +232,7 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   List<DatanodeAdminError> startMaintenanceNodes(List<String> hosts,
-      int endHours, boolean force) throws IOException;
+      int endHours) throws IOException;
 
   /**
    * Creates a specified replication pipeline.
@@ -359,20 +337,13 @@ public interface ScmClient extends Closeable {
   /**
    * Start ContainerBalancer.
    */
-  @SuppressWarnings("checkstyle:parameternumber")
   StartContainerBalancerResponseProto startContainerBalancer(
       Optional<Double> threshold,
       Optional<Integer> iterations,
       Optional<Integer> maxDatanodesPercentageToInvolvePerIteration,
       Optional<Long> maxSizeToMovePerIterationInGB,
       Optional<Long> maxSizeEnteringTargetInGB,
-      Optional<Long> maxSizeLeavingSourceInGB,
-      Optional<Integer> balancingInterval,
-      Optional<Integer> moveTimeout,
-      Optional<Integer> moveReplicationTimeout,
-      Optional<Boolean> networkTopologyEnable,
-      Optional<String> includeNodes,
-      Optional<String> excludeNodes) throws IOException;
+      Optional<Long> maxSizeLeavingSourceInGB) throws IOException;
 
   /**
    * Stop ContainerBalancer.
@@ -386,17 +357,16 @@ public interface ScmClient extends Closeable {
    */
   boolean getContainerBalancerStatus() throws IOException;
 
-  ContainerBalancerStatusInfoResponseProto getContainerBalancerStatusInfo() throws IOException;
-
   /**
-   * returns the list of SCM peer roles. Currently only include peer address.
+   * returns the list of ratis peer roles. Currently only include peer address.
    */
-  List<String> getScmRoles() throws IOException;
+  List<String> getScmRatisRoles() throws IOException;
 
   /**
    * Force generates new secret keys (rotate).
    *
    * @param force boolean flag that forcefully rotates the key on demand
+   * @return
    * @throws IOException
    */
   boolean rotateSecretKeys(boolean force) throws IOException;
@@ -414,7 +384,7 @@ public interface ScmClient extends Closeable {
    * considered to be failed if it has been sent more than MAX_RETRY limit
    * and its count is reset to -1.
    *
-   * @param count Maximum num of returned transactions, if {@literal < 0}. return all.
+   * @param count Maximum num of returned transactions, if < 0. return all.
    * @param startTxId The least transaction id to start with.
    * @return a list of failed deleted block transactions.
    * @throws IOException
@@ -463,6 +433,4 @@ public interface ScmClient extends Closeable {
 
   DecommissionScmResponseProto decommissionScm(
       String scmId) throws IOException;
-
-  String getMetrics(String query) throws IOException;
 }

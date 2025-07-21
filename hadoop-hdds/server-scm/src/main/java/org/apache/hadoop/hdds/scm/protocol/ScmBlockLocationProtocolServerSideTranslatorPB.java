@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,19 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.protocol;
 
-import com.google.protobuf.ProtocolMessageEnum;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.AllocateBlockResponse;
@@ -35,7 +32,6 @@ import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Allo
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.DeleteKeyBlocksResultProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.DeleteScmKeyBlocksRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.DeleteScmKeyBlocksResponseProto;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.GetClusterTreeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationRequest;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationResponse;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SortDatanodesRequestProto;
@@ -47,15 +43,18 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.ha.RatisUtil;
-import org.apache.hadoop.hdds.scm.net.InnerNode;
 import org.apache.hadoop.hdds.scm.protocolPB.ScmBlockLocationProtocolPB;
 import org.apache.hadoop.hdds.scm.protocolPB.StorageContainerLocationProtocolPB;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.hdds.server.OzoneProtocolMessageDispatcher;
 import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
-import org.apache.hadoop.hdds.utils.ProtocolMessageMetrics;
 import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.common.DeleteBlockGroupResult;
+import org.apache.hadoop.hdds.utils.ProtocolMessageMetrics;
+
+import com.google.protobuf.ProtocolMessageEnum;
+import com.google.protobuf.RpcController;
+import com.google.protobuf.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +69,6 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
 
   private final ScmBlockLocationProtocol impl;
   private final StorageContainerManager scm;
-  private static final String ROLE_TYPE = "SCM";
 
   private static final Logger LOG = LoggerFactory
       .getLogger(ScmBlockLocationProtocolServerSideTranslatorPB.class);
@@ -110,7 +108,7 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
     if (!scm.checkLeader()) {
       RatisUtil.checkRatisException(
           scm.getScmHAManager().getRatisServer().triggerNotLeaderException(),
-          scm.getBlockProtocolRpcPort(), scm.getScmId(), scm.getHostname(), ROLE_TYPE);
+          scm.getBlockProtocolRpcPort(), scm.getScmId());
     }
     return dispatcher.processRequest(
         request,
@@ -161,10 +159,6 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
             request.getSortDatanodesRequest(), request.getVersion()
         ));
         break;
-      case GetClusterTree:
-        response.setGetClusterTreeResponse(
-            getClusterTree(request.getVersion()));
-        break;
       default:
         // Should never happen
         throw new IOException("Unknown Operation " + request.getCmdType() +
@@ -172,7 +166,7 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
       }
     } catch (IOException e) {
       RatisUtil.checkRatisException(e, scm.getBlockProtocolRpcPort(),
-          scm.getScmId(), scm.getHostname(), ROLE_TYPE);
+          scm.getScmId());
       response.setSuccess(false);
       response.setStatus(exceptionToResponseStatus(e));
       if (e.getMessage() != null) {
@@ -216,7 +210,7 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
     for (AllocatedBlock block : allocatedBlocks) {
       builder.addBlocks(AllocateBlockResponse.newBuilder()
           .setContainerBlockID(block.getBlockID().getProtobuf())
-          .setPipeline(block.getPipeline().getProtobufMessage(clientVersion, Name.IO_PORTS)));
+          .setPipeline(block.getPipeline().getProtobufMessage(clientVersion)));
     }
 
     return builder.build();
@@ -281,14 +275,5 @@ public final class ScmBlockLocationProtocolServerSideTranslatorPB
     } catch (IOException ex) {
       throw new ServiceException(ex);
     }
-  }
-
-  public GetClusterTreeResponseProto getClusterTree(int clientVersion)
-      throws IOException {
-    GetClusterTreeResponseProto.Builder resp =
-        GetClusterTreeResponseProto.newBuilder();
-    InnerNode clusterTree = impl.getNetworkTopology();
-    resp.setClusterTree(clusterTree.toProtobuf(clientVersion).getInnerNode());
-    return resp.build();
   }
 }

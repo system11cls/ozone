@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +18,13 @@
 
 package org.apache.hadoop.ozone.om.failover;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
+
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.io.Text;
@@ -39,6 +38,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.ozone.test.GenericTestUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
@@ -68,16 +68,26 @@ public class TestOMFailovers {
             failoverProxyProvider.getRetryPolicy(
                 OzoneConfigKeys.OZONE_CLIENT_FAILOVER_MAX_ATTEMPTS_DEFAULT));
 
-    ServiceException serviceException = assertThrows(ServiceException.class,
-        () -> proxy.submitRequest(null, null));
+    try {
+      proxy.submitRequest(null, null);
+      Assertions.fail("Request should fail with AccessControlException");
+    } catch (Exception ex) {
+      Assertions.assertTrue(ex instanceof ServiceException);
 
-    // Request should try all OMs one be one and fail when the last OM also
-    // throws AccessControlException.
-    assertThat(serviceException).hasCauseInstanceOf(AccessControlException.class)
-        .hasMessage("ServiceException of type class org.apache.hadoop.security.AccessControlException for om3");
-    assertThat(logCapturer.getOutput()).contains(getRetryProxyDebugMsg("om1"));
-    assertThat(logCapturer.getOutput()).contains(getRetryProxyDebugMsg("om2"));
-    assertThat(logCapturer.getOutput()).contains(getRetryProxyDebugMsg("om3"));
+      // Request should try all OMs one be one and fail when the last OM also
+      // throws AccessControlException.
+      GenericTestUtils.assertExceptionContains("ServiceException of " +
+          "type class org.apache.hadoop.security.AccessControlException for " +
+          "om3", ex);
+      Assertions.assertTrue(ex.getCause() instanceof AccessControlException);
+
+      Assertions.assertTrue(
+          logCapturer.getOutput().contains(getRetryProxyDebugMsg("om1")));
+      Assertions.assertTrue(
+          logCapturer.getOutput().contains(getRetryProxyDebugMsg("om2")));
+      Assertions.assertTrue(
+          logCapturer.getOutput().contains(getRetryProxyDebugMsg("om3")));
+    }
   }
 
   private String getRetryProxyDebugMsg(String omNodeId) {

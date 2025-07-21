@@ -1,44 +1,30 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.client.rpc;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_PIPELINE_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_DESTROY_TIMEOUT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.DatanodeRatisServerConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.ratis.conf.RatisClientConfig;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.ozone.ClientConfigForTesting;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
@@ -50,16 +36,38 @@ import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
 import org.apache.hadoop.ozone.container.TestHelper;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_PIPELINE_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_DESTROY_TIMEOUT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
 
 /**
  * Tests the containerStateMachine stream handling.
  */
-@Timeout(300)
 public class TestContainerStateMachineStream {
+
+  /**
+   * Set a timeout for each test.
+   */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
+
   private MiniOzoneCluster cluster;
   private OzoneConfiguration conf = new OzoneConfiguration();
   private OzoneClient client;
@@ -77,7 +85,7 @@ public class TestContainerStateMachineStream {
    *
    * @throws IOException
    */
-  @BeforeEach
+  @Before
   public void setup() throws Exception {
     conf = new OzoneConfiguration();
 
@@ -89,7 +97,6 @@ public class TestContainerStateMachineStream {
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_COMMAND_STATUS_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
-    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 200, TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_PIPELINE_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(OZONE_SCM_STALENODE_INTERVAL, 30, TimeUnit.SECONDS);
@@ -114,19 +121,19 @@ public class TestContainerStateMachineStream {
     raftClientConfig.setRpcWatchRequestTimeout(Duration.ofSeconds(10));
     conf.setFromObject(raftClientConfig);
 
-    ClientConfigForTesting.newBuilder(StorageUnit.BYTES)
-        .setDataStreamMinPacketSize(1024)
-        .setBlockSize(BLOCK_SIZE)
-        .setChunkSize(CHUNK_SIZE)
-        .setStreamBufferFlushSize(FLUSH_SIZE)
-        .setStreamBufferMaxSize(MAX_FLUSH_SIZE)
-        .applyTo(conf);
-
     conf.setLong(OzoneConfigKeys.HDDS_RATIS_SNAPSHOT_THRESHOLD_KEY, 1);
     conf.setQuietMode(false);
-    cluster = MiniOzoneCluster.newBuilder(conf)
-        .setNumDatanodes(3)
-        .build();
+    cluster =
+        MiniOzoneCluster.newBuilder(conf)
+            .setNumDatanodes(3)
+            .setHbInterval(200)
+            .setDataStreamMinPacketSize(1024)
+            .setBlockSize(BLOCK_SIZE)
+            .setChunkSize(CHUNK_SIZE)
+            .setStreamBufferFlushSize(FLUSH_SIZE)
+            .setStreamBufferMaxSize(MAX_FLUSH_SIZE)
+            .setStreamBufferSizeUnit(StorageUnit.BYTES)
+            .build();
     cluster.waitForClusterToBeReady();
     cluster.waitForPipelineTobeReady(HddsProtos.ReplicationFactor.ONE, 60000);
     //the easiest way to create an open container is creating a key
@@ -143,7 +150,7 @@ public class TestContainerStateMachineStream {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterEach
+  @After
   public void shutdown() {
     IOUtils.closeQuietly(client);
     if (cluster != null) {
@@ -177,9 +184,9 @@ public class TestContainerStateMachineStream {
     long bytesUsed = dn.getDatanodeStateMachine()
         .getContainer().getContainerSet()
         .getContainer(omKeyLocationInfo.getContainerID()).
-        getContainerData().getBytesUsed();
+            getContainerData().getBytesUsed();
 
-    assertEquals(bytesUsed, size);
+    Assert.assertTrue(bytesUsed == size);
   }
 
 
@@ -208,9 +215,9 @@ public class TestContainerStateMachineStream {
     long bytesUsed = dn.getDatanodeStateMachine()
         .getContainer().getContainerSet()
         .getContainer(omKeyLocationInfo.getContainerID()).
-        getContainerData().getBytesUsed();
+            getContainerData().getBytesUsed();
 
-    assertEquals(bytesUsed, size);
+    Assert.assertTrue(bytesUsed == size);
   }
 
 }

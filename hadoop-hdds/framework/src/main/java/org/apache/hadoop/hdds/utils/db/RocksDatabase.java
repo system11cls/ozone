@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,33 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.utils.db;
 
-import static org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions.closeDeeply;
-import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator.managed;
-import static org.apache.hadoop.hdds.utils.db.managed.ManagedTransactionLogIterator.managed;
-import static org.rocksdb.RocksDB.listColumnFamilies;
-
 import com.google.common.annotations.VisibleForTesting;
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedCheckpoint;
@@ -58,7 +35,6 @@ import org.apache.hadoop.hdds.utils.db.managed.ManagedTransactionLogIterator;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteBatch;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteOptions;
 import org.apache.ozone.rocksdiff.RocksDiffUtils;
-import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -68,6 +44,33 @@ import org.rocksdb.LiveFileMetaData;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.StringUtils.bytes2String;
+import static org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions.closeDeeply;
+import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator.managed;
+import static org.apache.hadoop.hdds.utils.db.managed.ManagedTransactionLogIterator.managed;
+import static org.rocksdb.RocksDB.listColumnFamilies;
 
 /**
  * A wrapper class for {@link org.rocksdb.RocksDB}.
@@ -83,14 +86,10 @@ public final class RocksDatabase implements Closeable {
   }
   private static final ManagedReadOptions DEFAULT_READ_OPTION =
       new ManagedReadOptions();
+  private static Map<String, List<ColumnFamilyHandle>> dbNameToCfHandleMap =
+      new HashMap<>();
 
-  static String bytes2String(byte[] bytes) {
-    return StringCodec.get().fromPersistedFormat(bytes);
-  }
-
-  static String bytes2String(ByteBuffer bytes) {
-    return StringCodec.get().decode(bytes);
-  }
+  private final StackTraceElement[] stackTrace;
 
   static IOException toIOException(Object name, String op, RocksDBException e) {
     return HddsServerUtil.toIOException(name + ": Failed to " + op, e);
@@ -159,7 +158,15 @@ public final class RocksDatabase implements Closeable {
         db = ManagedRocksDB.open(dbOptions, dbFile.getAbsolutePath(),
             descriptors, handles);
       }
-      return new RocksDatabase(dbFile, db, dbOptions, writeOptions, descriptors, handles);
+      dbNameToCfHandleMap.put(db.get().getName(), handles);
+      // init a column family map.
+      AtomicLong counter = new AtomicLong(0);
+      for (ColumnFamilyHandle h : handles) {
+        final ColumnFamily f = new ColumnFamily(h, counter);
+        columnFamilies.put(f.getName(), f);
+      }
+      return new RocksDatabase(dbFile, db, dbOptions, writeOptions,
+          descriptors, Collections.unmodifiableMap(columnFamilies), counter);
     } catch (RocksDBException e) {
       close(columnFamilies, db, descriptors, writeOptions, dbOptions);
       throw toIOException(RocksDatabase.class, "open " + dbFile, e);
@@ -253,13 +260,17 @@ public final class RocksDatabase implements Closeable {
    *
    * @see ColumnFamilyHandle
    */
-  public final class ColumnFamily {
+  public static final class ColumnFamily {
     private final byte[] nameBytes;
+    private AtomicLong counter;
     private final String name;
     private final ColumnFamilyHandle handle;
+    private AtomicBoolean isClosed = new AtomicBoolean(false);
 
-    private ColumnFamily(ColumnFamilyHandle handle) throws RocksDBException {
+    public ColumnFamily(ColumnFamilyHandle handle, AtomicLong counter)
+        throws RocksDBException {
       this.nameBytes = handle.getName();
+      this.counter = counter;
       this.name = bytes2String(nameBytes);
       this.handle = handle;
       LOG.debug("new ColumnFamily for {}", name);
@@ -276,6 +287,10 @@ public final class RocksDatabase implements Closeable {
     @VisibleForTesting
     public ColumnFamilyHandle getHandle() {
       return handle;
+    }
+
+    public int getID() {
+      return getHandle().getID();
     }
 
     public void batchDelete(ManagedWriteBatch writeBatch, byte[] key)
@@ -305,7 +320,7 @@ public final class RocksDatabase implements Closeable {
         ByteBuffer value) throws IOException {
       if (LOG.isDebugEnabled()) {
         LOG.debug("batchPut buffer key {}", bytes2String(key.duplicate()));
-        LOG.debug("batchPut buffer value size {}", value.remaining());
+        LOG.debug("batchPut buffer value {}", bytes2String(value.duplicate()));
       }
 
       try (UncheckedAutoCloseable ignored = acquire()) {
@@ -314,6 +329,10 @@ public final class RocksDatabase implements Closeable {
         throw toIOException(this, "batchPut ByteBuffer key "
             + bytes2String(key), e);
       }
+    }
+
+    public void markClosed() {
+      isClosed.set(true);
     }
 
     private UncheckedAutoCloseable acquire() throws IOException {
@@ -334,49 +353,27 @@ public final class RocksDatabase implements Closeable {
   }
 
   private final String name;
-  private final Throwable creationStackTrace = new Throwable("Object creation stack trace");
-
   private final ManagedRocksDB db;
   private final ManagedDBOptions dbOptions;
   private final ManagedWriteOptions writeOptions;
   private final List<ColumnFamilyDescriptor> descriptors;
-  /** column family names -> {@link ColumnFamily}. */
   private final Map<String, ColumnFamily> columnFamilies;
-  /** {@link ColumnFamilyHandle#getID()} -> column family names. */
-  private final Supplier<Map<Integer, String>> columnFamilyNames;
 
   private final AtomicBoolean isClosed = new AtomicBoolean();
-  /** Count the number of operations running concurrently. */
-  private final AtomicLong counter = new AtomicLong();
+  private final AtomicLong counter;
 
   private RocksDatabase(File dbFile, ManagedRocksDB db,
       ManagedDBOptions dbOptions, ManagedWriteOptions writeOptions,
-      List<ColumnFamilyDescriptor> descriptors, List<ColumnFamilyHandle> handles) throws RocksDBException {
+      List<ColumnFamilyDescriptor> descriptors,
+      Map<String, ColumnFamily> columnFamilies, AtomicLong counter) {
     this.name = getClass().getSimpleName() + "[" + dbFile + "]";
     this.db = db;
     this.dbOptions = dbOptions;
     this.writeOptions = writeOptions;
     this.descriptors = descriptors;
-    this.columnFamilies = toColumnFamilyMap(handles);
-    this.columnFamilyNames = MemoizedSupplier.valueOf(() -> toColumnFamilyNameMap(columnFamilies.values()));
-  }
-
-  private Map<String, ColumnFamily> toColumnFamilyMap(List<ColumnFamilyHandle> handles) throws RocksDBException {
-    final Map<String, ColumnFamily> map = new HashMap<>();
-    for (ColumnFamilyHandle h : handles) {
-      final ColumnFamily f = new ColumnFamily(h);
-      map.put(f.getName(), f);
-    }
-    return Collections.unmodifiableMap(map);
-  }
-
-  private static Map<Integer, String> toColumnFamilyNameMap(Collection<ColumnFamily> families) {
-    return Collections.unmodifiableMap(families.stream()
-        .collect(Collectors.toMap(f -> f.getHandle().getID(), ColumnFamily::getName)));
-  }
-
-  Map<Integer, String> getColumnFamilyNames() {
-    return columnFamilyNames.get();
+    this.columnFamilies = columnFamilies;
+    this.counter = counter;
+    this.stackTrace = Thread.currentThread().getStackTrace();
   }
 
   @Override
@@ -391,6 +388,10 @@ public final class RocksDatabase implements Closeable {
 
       // Then close all attached listeners
       dbOptions.listeners().forEach(listener -> listener.close());
+
+      if (columnFamilies != null) {
+        columnFamilies.values().stream().forEach(f -> f.markClosed());
+      }
 
       if (isSync) {
         waitAndClose();
@@ -578,9 +579,20 @@ public final class RocksDatabase implements Closeable {
     }
   }
 
-  private ColumnFamilyHandle getColumnFamilyHandle(String columnFamilyName) {
-    final ColumnFamily columnFamily = getColumnFamily(columnFamilyName);
-    return columnFamily != null ? columnFamily.getHandle() : null;
+  private ColumnFamilyHandle getColumnFamilyHandle(String cfName)
+      throws IOException {
+    for (ColumnFamilyHandle cf : getCfHandleMap().get(db.get().getName())) {
+      try {
+        String table = new String(cf.getName(), UTF_8);
+        if (cfName.equals(table)) {
+          return cf;
+        }
+      } catch (RocksDBException e) {
+        closeOnError(e);
+        throw toIOException(this, "columnFamilyHandle.getName", e);
+      }
+    }
+    return null;
   }
 
   public void compactRange(ColumnFamily family, final byte[] begin,
@@ -680,7 +692,7 @@ public final class RocksDatabase implements Closeable {
     try (UncheckedAutoCloseable ignored = acquire()) {
       final int size = db.get().get(family.getHandle(),
           DEFAULT_READ_OPTION, key, outValue);
-      LOG.trace("get: size={}, remaining={}",
+      LOG.debug("get: size={}, remaining={}",
           size, outValue.asReadOnlyBuffer().remaining());
       return size == ManagedRocksDB.NOT_FOUND ? null : size;
     } catch (RocksDBException e) {
@@ -840,13 +852,14 @@ public final class RocksDatabase implements Closeable {
   /**
    * Deletes sst files which do not correspond to prefix
    * for given table.
-   * @param prefixPairs a map of TableName to prefixUsed.
+   * @param prefixPairs, a map of TableName to prefixUsed.
    */
   public void deleteFilesNotMatchingPrefix(Map<String, String> prefixPairs)
       throws IOException, RocksDBException {
     try (UncheckedAutoCloseable ignored = acquire()) {
       for (LiveFileMetaData liveFileMetaData : getSstFileList()) {
-        String sstFileColumnFamily = StringUtils.bytes2String(liveFileMetaData.columnFamilyName());
+        String sstFileColumnFamily =
+            new String(liveFileMetaData.columnFamilyName(), UTF_8);
         int lastLevel = getLastLevel();
 
         if (!prefixPairs.containsKey(sstFileColumnFamily)) {
@@ -864,8 +877,8 @@ public final class RocksDatabase implements Closeable {
         }
 
         String prefixForColumnFamily = prefixPairs.get(sstFileColumnFamily);
-        String firstDbKey = StringUtils.bytes2String(liveFileMetaData.smallestKey());
-        String lastDbKey = StringUtils.bytes2String(liveFileMetaData.largestKey());
+        String firstDbKey = new String(liveFileMetaData.smallestKey(), UTF_8);
+        String lastDbKey = new String(liveFileMetaData.largestKey(), UTF_8);
         boolean isKeyWithPrefixPresent = RocksDiffUtils.isKeyWithPrefixPresent(
             prefixForColumnFamily, firstDbKey, lastDbKey);
         if (!isKeyWithPrefixPresent) {
@@ -883,10 +896,20 @@ public final class RocksDatabase implements Closeable {
     }
   }
 
+  public static Map<String, List<ColumnFamilyHandle>> getCfHandleMap() {
+    return dbNameToCfHandleMap;
+  }
+
   @Override
   protected void finalize() throws Throwable {
     if (!isClosed()) {
-      LOG.warn("RocksDatabase {} is not closed properly.", name, creationStackTrace);
+      String warning = "RocksDatabase is not closed properly.";
+      if (LOG.isDebugEnabled()) {
+        String debugMessage = String.format("%n StackTrace for unclosed " +
+            "RocksDatabase instance: %s", Arrays.toString(stackTrace));
+        warning = warning.concat(debugMessage);
+      }
+      LOG.warn(warning);
     }
     super.finalize();
   }

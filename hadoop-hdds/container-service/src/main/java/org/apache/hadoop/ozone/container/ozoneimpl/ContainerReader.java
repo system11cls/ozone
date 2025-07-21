@@ -1,32 +1,30 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.ozoneimpl;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.CLOSED;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.DELETED;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.RECOVERING;
-
-import com.google.common.base.Preconditions;
 import java.io.File;
 import java.io.IOException;
+
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.ozone.common.Storage;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerData;
@@ -36,6 +34,11 @@ import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.DELETED;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+    .ContainerDataProto.State.RECOVERING;
+
 import org.apache.hadoop.ozone.container.keyvalue.helpers.KeyValueContainerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,18 +77,18 @@ public class ContainerReader implements Runnable {
   private final ConfigurationSource config;
   private final File hddsVolumeDir;
   private final MutableVolumeSet volumeSet;
-  private final boolean shouldDelete;
+  private final boolean shouldDeleteRecovering;
 
   public ContainerReader(
       MutableVolumeSet volSet, HddsVolume volume, ContainerSet cset,
-      ConfigurationSource conf, boolean shouldDelete) {
+      ConfigurationSource conf, boolean shouldDeleteRecovering) {
     Preconditions.checkNotNull(volume);
     this.hddsVolume = volume;
     this.hddsVolumeDir = hddsVolume.getHddsRootDir();
     this.containerSet = cset;
     this.config = conf;
     this.volumeSet = volSet;
-    this.shouldDelete = shouldDelete;
+    this.shouldDeleteRecovering = shouldDeleteRecovering;
   }
 
   @Override
@@ -144,7 +147,7 @@ public class ContainerReader implements Runnable {
       LOG.info("Start to verify containers on volume {}", hddsVolumeRootDir);
       File currentDir = new File(idDir, Storage.STORAGE_DIR_CURRENT);
       File[] containerTopDirs = currentDir.listFiles();
-      if (containerTopDirs != null && containerTopDirs.length > 0) {
+      if (containerTopDirs != null) {
         for (File containerTopDir : containerTopDirs) {
           if (containerTopDir.isDirectory()) {
             File[] containerDirs = containerTopDir.listFiles();
@@ -210,7 +213,7 @@ public class ContainerReader implements Runnable {
         KeyValueContainer kvContainer = new KeyValueContainer(kvContainerData,
             config);
         if (kvContainer.getContainerState() == RECOVERING) {
-          if (shouldDelete) {
+          if (shouldDeleteRecovering) {
             kvContainer.markContainerUnhealthy();
             LOG.info("Stale recovering container {} marked UNHEALTHY",
                 kvContainerData.getContainerID());
@@ -219,22 +222,10 @@ public class ContainerReader implements Runnable {
           return;
         }
         if (kvContainer.getContainerState() == DELETED) {
-          if (shouldDelete) {
-            cleanupContainer(hddsVolume, kvContainer);
-          }
+          cleanupContainer(hddsVolume, kvContainer);
           return;
         }
-        try {
-          containerSet.addContainer(kvContainer);
-        } catch (StorageContainerException e) {
-          if (e.getResult() != ContainerProtos.Result.CONTAINER_EXISTS) {
-            throw e;
-          }
-          if (shouldDelete) {
-            resolveDuplicate((KeyValueContainer) containerSet.getContainer(
-                kvContainer.getContainerData().getContainerID()), kvContainer);
-          }
-        }
+        containerSet.addContainer(kvContainer);
       } else {
         throw new StorageContainerException("Container File is corrupted. " +
             "ContainerType is KeyValueContainer but cast to " +
@@ -247,79 +238,6 @@ public class ContainerReader implements Runnable {
           containerData.getContainerType(),
           ContainerProtos.Result.UNKNOWN_CONTAINER_TYPE);
     }
-  }
-
-  private void resolveDuplicate(KeyValueContainer existing,
-      KeyValueContainer toAdd) throws IOException {
-    if (existing.getContainerData().getReplicaIndex() != 0 ||
-        toAdd.getContainerData().getReplicaIndex() != 0) {
-      // This is an EC container. As EC Containers don't have a BSCID, we can't
-      // know which one has the most recent data. Additionally, it is possible
-      // for both copies to have a different replica index for the same
-      // container. Therefore we just let whatever one is loaded first win AND
-      // leave the other one on disk.
-      LOG.warn("Container {} is present at {} and at {}. Both are EC " +
-              "containers. Leaving both containers on disk.",
-          existing.getContainerData().getContainerID(),
-          existing.getContainerData().getContainerPath(),
-          toAdd.getContainerData().getContainerPath());
-      return;
-    }
-
-    long existingBCSID = existing.getBlockCommitSequenceId();
-    ContainerProtos.ContainerDataProto.State existingState
-        = existing.getContainerState();
-    long toAddBCSID = toAdd.getBlockCommitSequenceId();
-    ContainerProtos.ContainerDataProto.State toAddState
-        = toAdd.getContainerState();
-
-    if (existingState != toAddState) {
-      if (existingState == CLOSED) {
-        // If we have mis-matched states, always pick a closed one
-        LOG.warn("Container {} is present at {} with state CLOSED and at " +
-                "{} with state {}. Removing the latter container.",
-            existing.getContainerData().getContainerID(),
-            existing.getContainerData().getContainerPath(),
-            toAdd.getContainerData().getContainerPath(), toAddState);
-        KeyValueContainerUtil.removeContainer(toAdd.getContainerData(),
-            hddsVolume.getConf());
-        return;
-      } else if (toAddState == CLOSED) {
-        LOG.warn("Container {} is present at {} with state CLOSED and at " +
-                "{} with state {}. Removing the latter container.",
-            toAdd.getContainerData().getContainerID(),
-            toAdd.getContainerData().getContainerPath(),
-            existing.getContainerData().getContainerPath(), existingState);
-        swapAndRemoveContainer(existing, toAdd);
-        return;
-      }
-    }
-
-    if (existingBCSID >= toAddBCSID) {
-      // existing is newer or equal, so remove the one we have yet to load.
-      LOG.warn("Container {} is present at {} with a newer or equal BCSID " +
-          "than at {}. Removing the latter container.",
-          existing.getContainerData().getContainerID(),
-          existing.getContainerData().getContainerPath(),
-          toAdd.getContainerData().getContainerPath());
-      KeyValueContainerUtil.removeContainer(toAdd.getContainerData(),
-          hddsVolume.getConf());
-    } else {
-      LOG.warn("Container {} is present at {} with a lesser BCSID " +
-              "than at {}. Removing the former container.",
-          existing.getContainerData().getContainerID(),
-          existing.getContainerData().getContainerPath(),
-          toAdd.getContainerData().getContainerPath());
-      swapAndRemoveContainer(existing, toAdd);
-    }
-  }
-
-  private void swapAndRemoveContainer(KeyValueContainer existing,
-      KeyValueContainer toAdd) throws IOException {
-    containerSet.removeContainerOnlyFromMemory(existing.getContainerData().getContainerID());
-    containerSet.addContainer(toAdd);
-    KeyValueContainerUtil.removeContainer(existing.getContainerData(),
-        hddsVolume.getConf());
   }
 
   private void cleanupContainer(

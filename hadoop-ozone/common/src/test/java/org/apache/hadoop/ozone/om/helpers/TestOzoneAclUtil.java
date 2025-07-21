@@ -1,21 +1,35 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om.helpers;
+
+import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
+import org.apache.hadoop.ozone.security.acl.OzoneAclConfig;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.List;
 
 import static org.apache.hadoop.hdds.conf.OzoneConfiguration.newInstanceOf;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
@@ -23,20 +37,7 @@ import static org.apache.hadoop.ozone.OzoneAcl.AclScope.DEFAULT;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.GROUP;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.USER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import org.apache.hadoop.ozone.OzoneAcl;
-import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
-import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
-import org.apache.hadoop.ozone.security.acl.OzoneAclConfig;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.junit.jupiter.api.Test;
 
 /**
  * Test for OzoneAcls utility class.
@@ -47,20 +48,23 @@ public class TestOzoneAclUtil {
       getDefaultAcls();
 
   private static final OzoneAcl USER1 = new OzoneAcl(USER, "user1",
-      ACCESS, ACLType.READ_ACL);
+      ACLType.READ_ACL, ACCESS);
+
+  private static final OzoneAcl USER2 = new OzoneAcl(USER, "user2",
+      ACLType.WRITE, ACCESS);
 
   private static final OzoneAcl GROUP1 = new OzoneAcl(GROUP, "group1",
-      ACCESS, ACLType.ALL);
+      ACLType.ALL, ACCESS);
 
   @Test
   public void testAddAcl() throws IOException {
     List<OzoneAcl> currentAcls = getDefaultAcls();
-    assertFalse(currentAcls.isEmpty());
+    assertTrue(currentAcls.size() > 0);
 
     // Add new permission to existing acl entry.
     OzoneAcl oldAcl = currentAcls.get(0);
     OzoneAcl newAcl = new OzoneAcl(oldAcl.getType(), oldAcl.getName(),
-        ACCESS, ACLType.READ_ACL);
+        ACLType.READ_ACL, ACCESS);
 
     addAndVerifyAcl(currentAcls, newAcl, true, DEFAULT_ACLS.size());
     // Add same permission again and verify result
@@ -87,12 +91,12 @@ public class TestOzoneAclUtil {
     removeAndVerifyAcl(currentAcls, USER1, false, 0);
 
     currentAcls = getDefaultAcls();
-    assertFalse(currentAcls.isEmpty());
+    assertTrue(currentAcls.size() > 0);
 
     // Add new permission to existing acl entru.
     OzoneAcl oldAcl = currentAcls.get(0);
     OzoneAcl newAcl = new OzoneAcl(oldAcl.getType(), oldAcl.getName(),
-        ACCESS, ACLType.READ_ACL);
+        ACLType.READ_ACL, ACCESS);
 
     // Remove non existing acl entry
     removeAndVerifyAcl(currentAcls, USER1, false, DEFAULT_ACLS.size());
@@ -138,12 +142,9 @@ public class TestOzoneAclUtil {
       if (acl.getName().equals(removedAcl.getName()) &&
           acl.getType().equals(removedAcl.getType()) &&
           acl.getAclScope().equals(removedAcl.getAclScope())) {
-        for (ACLType t : removedAcl.getAclList()) {
-          if (acl.isSet(t)) {
-            return false;
-          }
-        }
-        return true;
+        BitSet temp = (BitSet) acl.getAclBitSet().clone();
+        temp.and(removedAcl.getAclBitSet());
+        return !temp.equals(removedAcl.getAclBitSet());
       }
     }
     return true;
@@ -154,12 +155,9 @@ public class TestOzoneAclUtil {
       if (acl.getName().equals(newAcl.getName()) &&
           acl.getType().equals(newAcl.getType()) &&
           acl.getAclScope().equals(newAcl.getAclScope())) {
-        for (ACLType t : newAcl.getAclList()) {
-          if (!acl.isSet(t)) {
-            return false;
-          }
-        }
-        return true;
+        BitSet temp = (BitSet) acl.getAclBitSet().clone();
+        temp.and(newAcl.getAclBitSet());
+        return temp.equals(newAcl.getAclBitSet());
       }
     }
     return false;
@@ -182,15 +180,15 @@ public class TestOzoneAclUtil {
     }
 
     OzoneAclConfig aclConfig = newInstanceOf(OzoneAclConfig.class);
-    IAccessAuthorizer.ACLType[] userRights = aclConfig.getUserDefaultRights();
-    IAccessAuthorizer.ACLType[] groupRights = aclConfig.getGroupDefaultRights();
+    IAccessAuthorizer.ACLType userRights = aclConfig.getUserDefaultRights();
+    IAccessAuthorizer.ACLType groupRights = aclConfig.getGroupDefaultRights();
 
     OzoneAclUtil.addAcl(ozoneAcls, new OzoneAcl(USER,
-        ugi.getUserName(), ACCESS, userRights));
+        ugi.getUserName(), userRights, ACCESS));
     //Group ACLs of the User
     List<String> userGroups = Arrays.asList(ugi.getGroupNames());
     userGroups.stream().forEach((group) -> OzoneAclUtil.addAcl(ozoneAcls,
-        new OzoneAcl(GROUP, group, ACCESS, groupRights)));
+        new OzoneAcl(GROUP, group, groupRights, ACCESS)));
     return ozoneAcls;
   }
 
@@ -204,8 +202,8 @@ public class TestOzoneAclUtil {
         OzoneAcl.parseAcl("user:masstter:rw[DEFAULT]"));
 
     //[user:masstter:rwx[DEFAULT]]
-    assertEquals(1, ozoneAcls.size());
-    assertEquals(DEFAULT, ozoneAcls.get(0).getAclScope());
+    Assertions.assertEquals(1, ozoneAcls.size());
+    Assertions.assertEquals(DEFAULT, ozoneAcls.get(0).getAclScope());
 
     ozoneAcls = new ArrayList<>();
     OzoneAclUtil.addAcl(ozoneAcls,
@@ -214,8 +212,8 @@ public class TestOzoneAclUtil {
         OzoneAcl.parseAcl("user:masstter:rw[ACCESS]"));
 
     //[user:masstter:rwx[ACCESS]]
-    assertEquals(1, ozoneAcls.size());
-    assertEquals(ACCESS, ozoneAcls.get(0).getAclScope());
+    Assertions.assertEquals(1, ozoneAcls.size());
+    Assertions.assertEquals(ACCESS, ozoneAcls.get(0).getAclScope());
 
     ozoneAcls = new ArrayList<>();
     OzoneAclUtil.addAcl(ozoneAcls,
@@ -224,9 +222,10 @@ public class TestOzoneAclUtil {
         OzoneAcl.parseAcl("user:masstter:rwx[ACCESS]"));
 
     //[user:masstter:rwx[ACCESS], user:masstter:rwx[DEFAULT]]
-    assertEquals(2, ozoneAcls.size());
-    assertNotEquals(ozoneAcls.get(0).getAclScope(),
+    Assertions.assertEquals(2, ozoneAcls.size());
+    Assertions.assertNotEquals(ozoneAcls.get(0).getAclScope(),
         ozoneAcls.get(1).getAclScope());
-    assertEquals(ozoneAcls.get(0).getAclByteString(), ozoneAcls.get(1).getAclByteString());
+    Assertions.assertEquals(ozoneAcls.get(0).getAclBitSet(),
+        ozoneAcls.get(1).getAclBitSet());
   }
 }

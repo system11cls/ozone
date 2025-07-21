@@ -1,53 +1,25 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.container.replication;
-
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
-import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -67,10 +39,36 @@ import org.apache.hadoop.ozone.container.common.SCMTestUtils;
 import org.apache.hadoop.ozone.protocol.commands.DeleteContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaOp.PendingOpType.DELETE;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.LEAF_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.RACK_SCHEMA;
+import static org.apache.hadoop.hdds.scm.net.NetConstants.ROOT_SCHEMA;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 
 /**
  * Tests the ECOverReplicationHandling functionality.
@@ -83,12 +81,12 @@ public class TestECOverReplicationHandler {
   private Set<Pair<DatanodeDetails, SCMCommand<?>>> commandsSent;
 
   @BeforeEach
-  void setup(@TempDir File testDir) throws NodeNotFoundException, NotLeaderException,
+  public void setup() throws NodeNotFoundException, NotLeaderException,
       CommandTargetOverloadedException {
     staleNode = null;
 
-    replicationManager = mock(ReplicationManager.class);
-    when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
+    replicationManager = Mockito.mock(ReplicationManager.class);
+    Mockito.when(replicationManager.getNodeStatus(any(DatanodeDetails.class)))
         .thenAnswer(invocation -> {
           DatanodeDetails dd = invocation.getArgument(0);
           if (staleNode != null && staleNode.equals(dd)) {
@@ -104,7 +102,7 @@ public class TestECOverReplicationHandler {
         commandsSent);
 
     NodeManager nodeManager = new MockNodeManager(true, 10);
-    OzoneConfiguration conf = SCMTestUtils.getConf(testDir);
+    OzoneConfiguration conf = SCMTestUtils.getConf();
     ECReplicationConfig repConfig = new ECReplicationConfig(3, 2);
     container = ReplicationTestUtil
         .createContainer(HddsProtos.LifeCycleState.CLOSED, repConfig);
@@ -204,8 +202,9 @@ public class TestECOverReplicationHandler {
     ContainerReplica toReturn = ReplicationTestUtil.createContainerReplica(
         container.containerID(), 1, IN_SERVICE,
         ContainerReplicaProto.State.CLOSED);
-    policy = mock(PlacementPolicy.class);
-    when(policy.replicasToRemoveToFixOverreplication(any(), anyInt()))
+    policy = Mockito.mock(PlacementPolicy.class);
+    Mockito.when(policy.replicasToRemoveToFixOverreplication(
+        Mockito.any(), Mockito.anyInt()))
         .thenReturn(ImmutableSet.of(toReturn));
     testOverReplicationWithIndexes(availableReplicas, Collections.emptyMap(),
         ImmutableList.of());
@@ -312,8 +311,13 @@ public class TestECOverReplicationHandler {
     ECOverReplicationHandler ecORH =
         new ECOverReplicationHandler(policy, replicationManager);
 
-    assertThrows(CommandTargetOverloadedException.class,
-        () -> ecORH.processAndSendCommands(availableReplicas, ImmutableList.of(), health, 1));
+    try {
+      ecORH.processAndSendCommands(availableReplicas, ImmutableList.of(),
+          health, 1);
+      Assertions.fail("Expected CommandTargetOverloadedException");
+    } catch (CommandTargetOverloadedException e) {
+      // This is expected.
+    }
     assertEquals(1, commandsSent.size());
   }
 
@@ -325,8 +329,8 @@ public class TestECOverReplicationHandler {
     ECOverReplicationHandler ecORH =
         new ECOverReplicationHandler(policy, replicationManager);
     ContainerHealthResult.OverReplicatedHealthResult result =
-        mock(ContainerHealthResult.OverReplicatedHealthResult.class);
-    when(result.getContainerInfo()).thenReturn(container);
+        Mockito.mock(ContainerHealthResult.OverReplicatedHealthResult.class);
+    Mockito.when(result.getContainerInfo()).thenReturn(container);
 
     ecORH.processAndSendCommands(availableReplicas, pendingOps,
             result, 1);
@@ -353,7 +357,7 @@ public class TestECOverReplicationHandler {
     );
 
     index2commandNum.keySet().forEach(i -> {
-      assertThat(index2excessNum).containsKey(i);
+      assertTrue(index2excessNum.containsKey(i));
       assertEquals(index2commandNum.get(i), index2excessNum.get(i));
     });
   }

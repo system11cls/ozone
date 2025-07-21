@@ -1,39 +1,27 @@
-/*
+
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.DEFAULT_SHUTDOWN_HOOK_PRIORITY;
-
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Snapshot;
-import com.codahale.metrics.UniformReservoir;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.google.common.annotations.VisibleForTesting;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -49,9 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.time.DurationFormatUtils;
+
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
@@ -70,13 +56,26 @@ import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.util.ShutdownHookManager;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.util.VersionInfo;
-import org.kohsuke.MetaInfServices;
+
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Snapshot;
+import com.codahale.metrics.UniformReservoir;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+
+import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.DEFAULT_SHUTDOWN_HOOK_PRIORITY;
 
 /**
  * Data generator tool to generate as much keys as possible.
@@ -87,9 +86,8 @@ import picocli.CommandLine.ParentCommand;
     versionProvider = HddsVersionProvider.class,
     mixinStandardHelpOptions = true,
     showDefaultValues = true)
-@MetaInfServices(FreonSubcommand.class)
 @SuppressWarnings("java:S2245") // no need for secure random
-public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand {
+public final class RandomKeyGenerator implements Callable<Void> {
 
   @ParentCommand
   private Freon freon;
@@ -105,7 +103,7 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
 
   private static final int QUANTILES = 10;
 
-  private static final int CHECK_INTERVAL_MILLIS = 100;
+  private static final int CHECK_INTERVAL_MILLIS = 5000;
 
   private byte[] keyValueBuffer = null;
 
@@ -242,7 +240,7 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
   private OzoneConfiguration ozoneConfiguration;
   private ProgressBar progressbar;
 
-  public RandomKeyGenerator() {
+  RandomKeyGenerator() {
     // for picocli
   }
 
@@ -287,7 +285,7 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
   @Override
   public Void call() throws Exception {
     if (ozoneConfiguration == null) {
-      ozoneConfiguration = freon.getOzoneConf();
+      ozoneConfiguration = freon.createOzoneConfiguration();
     }
     if (!ozoneConfiguration.getBoolean(
         HddsConfigKeys.HDDS_CONTAINER_PERSISTDATA,
@@ -357,7 +355,11 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
     // wait until all keys are added or exception occurred.
     while ((numberOfKeysAdded.get() != totalKeyCount)
            && exception == null) {
-      Thread.sleep(CHECK_INTERVAL_MILLIS);
+      try {
+        Thread.sleep(CHECK_INTERVAL_MILLIS);
+      } catch (InterruptedException e) {
+        throw e;
+      }
     }
     executor.shutdown();
     executor.awaitTermination(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
@@ -371,7 +373,11 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
 
     if (validateExecutor != null) {
       while (!validationQueue.isEmpty()) {
-        Thread.sleep(CHECK_INTERVAL_MILLIS);
+        try {
+          Thread.sleep(CHECK_INTERVAL_MILLIS);
+        } catch (InterruptedException e) {
+          throw e;
+        }
       }
       validateExecutor.shutdown();
       validateExecutor.awaitTermination(Integer.MAX_VALUE,
@@ -415,7 +421,11 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
       // wait until all Buckets are cleaned or exception occurred.
       while ((numberOfBucketsCleaned.get() != totalBucketCount)
           && exception == null) {
-        Thread.sleep(CHECK_INTERVAL_MILLIS);
+        try {
+          Thread.sleep(CHECK_INTERVAL_MILLIS);
+        } catch (InterruptedException e) {
+          throw e;
+        }
       }
     } catch (InterruptedException e) {
       LOG.error("Failed to wait until all Buckets are cleaned", e);
@@ -547,13 +557,13 @@ public final class RandomKeyGenerator implements Callable<Void>, FreonSubcommand
       String jsonName =
           new SimpleDateFormat("yyyyMMddHHmmss").format(Time.now()) + ".json";
       String jsonPath = jsonDir + "/" + jsonName;
-      try (OutputStream os = Files.newOutputStream(Paths.get(jsonPath))) {
+      try (FileOutputStream os = new FileOutputStream(jsonPath)) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setVisibility(PropertyAccessor.FIELD,
             JsonAutoDetect.Visibility.ANY);
         ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
         writer.writeValue(os, jobInfo);
-      } catch (FileNotFoundException | NoSuchFileException e) {
+      } catch (FileNotFoundException e) {
         out.println("Json File could not be created for the path: " + jsonPath);
         out.println(e);
       } catch (IOException e) {

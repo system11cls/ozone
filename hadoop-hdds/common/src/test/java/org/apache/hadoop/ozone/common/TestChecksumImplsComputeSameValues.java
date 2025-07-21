@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,20 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.common;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.zip.CRC32;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.util.NativeCRC32Wrapper;
 import org.apache.hadoop.util.PureJavaCrc32;
 import org.apache.hadoop.util.PureJavaCrc32C;
 import org.junit.jupiter.api.Test;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.CRC32;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests to verify that different checksum implementations compute the same
@@ -51,7 +52,7 @@ public class TestChecksumImplsComputeSameValues {
       if (NativeCRC32Wrapper.isAvailable()) {
         impls.add(new ChecksumByteBufferImpl(new NativeCheckSumCRC32(1, bpc)));
       }
-      assertTrue(validateImpls(data, impls, bpc));
+      assertEquals(true, validateImpls(data, impls, bpc));
     }
   }
 
@@ -73,7 +74,7 @@ public class TestChecksumImplsComputeSameValues {
       if (NativeCRC32Wrapper.isAvailable()) {
         impls.add(new ChecksumByteBufferImpl(new NativeCheckSumCRC32(2, bpc)));
       }
-      assertTrue(validateImpls(data, impls, bpc));
+      assertEquals(true, validateImpls(data, impls, bpc));
     }
   }
 

@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,29 +14,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-
 package org.apache.hadoop.hdds.utils.db;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentCaptor.forClass;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.NoSuchElementException;
-import java.util.function.Consumer;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils;
 import org.apache.log4j.Level;
@@ -45,6 +27,25 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.rocksdb.RocksIterator;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.NoSuchElementException;
+import java.util.function.Consumer;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * This test prescribe expected behaviour
@@ -96,7 +97,7 @@ public class TestRDBStoreByteArrayIterator {
     iter.forEachRemaining(consumerStub);
 
     ArgumentCaptor<RawKeyValue.ByteArray> capture =
-        forClass(RawKeyValue.ByteArray.class);
+        ArgumentCaptor.forClass(RawKeyValue.ByteArray.class);
     verify(consumerStub, times(3)).accept(capture.capture());
     assertArrayEquals(
         new byte[]{0x00}, capture.getAllValues().get(0).getKey());
@@ -293,9 +294,13 @@ public class TestRDBStoreByteArrayIterator {
     assertTrue(iter.hasNext());
     verify(rocksDBIteratorMock, times(1)).isValid();
     verify(rocksDBIteratorMock, times(1)).key();
-    Exception e =
-        assertThrows(Exception.class, () -> iter.seekToLast(), "Prefixed iterator does not support seekToLast");
-    assertInstanceOf(UnsupportedOperationException.class, e);
+
+    try {
+      iter.seekToLast();
+      fail("Prefixed iterator does not support seekToLast");
+    } catch (Exception e) {
+      assertTrue(e instanceof UnsupportedOperationException);
+    }
 
     iter.close();
   }

@@ -1,30 +1,24 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.recon.persistence;
 
-import static org.apache.ozone.recon.schema.SqlDbUtils.DERBY_DRIVER_CLASS;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.hadoop.ozone.recon.codegen.SqlDbUtils.DERBY_DRIVER_CLASS;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Provider;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,44 +27,46 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.sql.DataSource;
+
 import org.apache.hadoop.ozone.recon.ReconControllerModule.ReconDaoBindingModule;
 import org.apache.hadoop.ozone.recon.ReconSchemaManager;
-import org.apache.ozone.recon.schema.ReconSchemaGenerationModule;
+import org.hadoop.ozone.recon.codegen.ReconSchemaGenerationModule;
 import org.jooq.Configuration;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.util.FileSystemUtils;
+
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Provider;
 
 /**
  * Class that provides a Recon SQL DB with all the tables created, and APIs
  * to access the DAOs easily.
  */
 public class AbstractReconSqlDBTest {
+  private Path temporaryFolder;
+
   private Injector injector;
   private DSLContext dslContext;
   private Provider<DataSourceConfiguration> configurationProvider;
 
   public AbstractReconSqlDBTest() {
-  }
-
-  public void init(Path temporaryFolder) {
     try {
-      FileSystemUtils.deleteRecursively(temporaryFolder.resolve("Config"));
+      temporaryFolder = Files.createTempDirectory("JunitConfig");
       configurationProvider =
           new DerbyDataSourceConfigurationProvider(Files.createDirectory(
               temporaryFolder.resolve("Config")).toFile());
     } catch (IOException e) {
-      fail();
+      Assertions.fail();
     }
-  }
-
-  public AbstractReconSqlDBTest(Path temporaryFolder) {
-    init(temporaryFolder);
   }
 
   protected AbstractReconSqlDBTest(Provider<DataSourceConfiguration> provider) {
@@ -78,8 +74,7 @@ public class AbstractReconSqlDBTest {
   }
 
   @BeforeEach
-  public void createReconSchemaForTest(@TempDir Path temporaryFolder) throws IOException {
-    init(temporaryFolder);
+  public void createReconSchemaForTest() throws IOException {
     injector = Guice.createInjector(getReconSqlDBModules());
     dslContext = DSL.using(new DefaultConfiguration().set(
         injector.getInstance(DataSource.class)));
@@ -121,10 +116,6 @@ public class AbstractReconSqlDBTest {
 
   protected Connection getConnection() throws SQLException {
     return injector.getInstance(DataSource.class).getConnection();
-  }
-
-  protected DataSource getDataSource() {
-    return injector.getInstance(DataSource.class);
   }
 
   protected DSLContext getDslContext() {

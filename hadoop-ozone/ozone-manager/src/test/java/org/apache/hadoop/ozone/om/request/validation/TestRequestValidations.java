@@ -1,37 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om.request.validation;
 
-import static org.apache.hadoop.ozone.om.request.validation.ValidationContext.of;
-import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.GeneralValidatorsForTesting.finishValidatorTest;
-import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.GeneralValidatorsForTesting.startValidatorTest;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateKey;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.DeleteKeys;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.RenameKey;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -45,8 +29,23 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.upgrade.LayoutVersionManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.hadoop.ozone.om.request.validation.ValidationContext.of;
+import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.GeneralValidatorsForTesting.startValidatorTest;
+import static org.apache.hadoop.ozone.om.request.validation.testvalidatorset1.GeneralValidatorsForTesting.finishValidatorTest;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.CreateKey;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.DeleteKeys;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.RenameKey;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Testing the RequestValidations class that is used to run the validation for
@@ -79,7 +78,7 @@ public class TestRequestValidations {
 
   @Test
   public void testUsingRegistryWithoutLoading() throws Exception {
-    assertThrows(NullPointerException.class, () -> {
+    Assertions.assertThrows(NullPointerException.class, () -> {
       new RequestValidations()
           .fromPackage(PACKAGE)
           .withinContext(of(aFinalizedVersionManager(), metadataManager))
@@ -89,7 +88,7 @@ public class TestRequestValidations {
 
   @Test
   public void testUsingRegistryWithoutContext() throws Exception {
-    assertThrows(NullPointerException.class, () -> {
+    Assertions.assertThrows(NullPointerException.class, () -> {
       new RequestValidations()
           .fromPackage(PACKAGE)
           .load()
@@ -158,8 +157,11 @@ public class TestRequestValidations {
   public void testPreProcessorExceptionHandling() throws Exception {
     ValidationContext ctx = of(aFinalizedVersionManager(), metadataManager);
     RequestValidations validations = loadValidations(ctx);
-    assertThrows(Exception.class,
-        () -> validations.validateRequest(aDeleteKeysRequest(olderClientVersion())));
+
+    try {
+      validations.validateRequest(aDeleteKeysRequest(olderClientVersion()));
+      fail("ServiceException was expected but was not thrown.");
+    } catch (Exception ignored) { }
 
     validationListener.assertNumOfEvents(1);
     validationListener.assertExactListOfValidatorsCalled(
@@ -170,8 +172,12 @@ public class TestRequestValidations {
   public void testPostProcessorExceptionHandling() {
     ValidationContext ctx = of(aFinalizedVersionManager(), metadataManager);
     RequestValidations validations = loadValidations(ctx);
-    assertThrows(Exception.class,
-        () -> validations.validateResponse(aDeleteKeysRequest(olderClientVersion()), aDeleteKeysResponse()));
+
+    try {
+      validations.validateResponse(
+          aDeleteKeysRequest(olderClientVersion()), aDeleteKeysResponse());
+      fail("ServiceException was expected but was not thrown.");
+    } catch (Exception ignored) { }
 
     validationListener.assertNumOfEvents(1);
     validationListener.assertExactListOfValidatorsCalled(
@@ -266,7 +272,7 @@ public class TestRequestValidations {
         .thenReturn(BucketLayout.FILE_SYSTEM_OPTIMIZED);
 
     BucketLayout buckLayout = ctx.getBucketLayout("vol-1", "buck-1");
-    assertTrue(buckLayout.isFileSystemOptimized());
+    Assertions.assertTrue(buckLayout.isFileSystemOptimized());
   }
 
   private RequestValidations loadValidations(ValidationContext ctx) {

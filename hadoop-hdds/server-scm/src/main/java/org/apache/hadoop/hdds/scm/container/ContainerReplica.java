@@ -1,30 +1,32 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.scm.container;
 
-import com.google.common.base.Preconditions;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
+
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 
 /**
  * In-memory state of a container replica.
@@ -37,25 +39,33 @@ public final class ContainerReplica implements Comparable<ContainerReplica> {
   private final UUID placeOfBirth;
   private final int replicaIndex;
 
-  private final Long sequenceId;
+  private Long sequenceId;
   private final long keyCount;
   private final long bytesUsed;
   private final boolean isEmpty;
 
-  private ContainerReplica(ContainerReplicaBuilder b) {
-    containerID = b.containerID;
-    state = b.state;
-    datanodeDetails = b.datanode;
-    placeOfBirth = Optional.ofNullable(b.placeOfBirth).orElse(datanodeDetails.getUuid());
-    keyCount = b.keyCount;
-    bytesUsed = b.bytesUsed;
-    replicaIndex = b.replicaIndex;
-    isEmpty = b.isEmpty;
-    sequenceId = b.sequenceId;
+  @SuppressWarnings("parameternumber")
+  private ContainerReplica(
+      final ContainerID containerID,
+      final ContainerReplicaProto.State state,
+      final int replicaIndex,
+      final DatanodeDetails datanode,
+      final UUID originNodeId,
+      long keyNum,
+      long dataSize,
+      boolean isEmpty) {
+    this.containerID = containerID;
+    this.state = state;
+    this.datanodeDetails = datanode;
+    this.placeOfBirth = originNodeId;
+    this.keyCount = keyNum;
+    this.bytesUsed = dataSize;
+    this.replicaIndex = replicaIndex;
+    this.isEmpty = isEmpty;
   }
 
-  public ContainerID getContainerID() {
-    return containerID;
+  private void setSequenceId(Long seqId) {
+    sequenceId = seqId;
   }
 
   /**
@@ -289,7 +299,12 @@ public final class ContainerReplica implements Comparable<ContainerReplica> {
           "Container state can't be null");
       Preconditions.checkNotNull(datanode,
           "DatanodeDetails can't be null");
-      return new ContainerReplica(this);
+      ContainerReplica replica = new ContainerReplica(
+          containerID, state, replicaIndex, datanode,
+          Optional.ofNullable(placeOfBirth).orElse(datanode.getUuid()),
+          keyCount, bytesUsed, isEmpty);
+      Optional.ofNullable(sequenceId).ifPresent(replica::setSequenceId);
+      return replica;
     }
   }
 

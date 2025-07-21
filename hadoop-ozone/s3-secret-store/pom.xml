@@ -12,54 +12,57 @@
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.apache.ozone</groupId>
     <artifactId>ozone</artifactId>
-    <version>2.0.0</version>
+    <version>1.4.1</version>
   </parent>
   <artifactId>ozone-s3-secret-store</artifactId>
-  <version>2.0.0</version>
-  <packaging>jar</packaging>
   <name>Apache Ozone S3 Secret Store</name>
+  <packaging>jar</packaging>
+  <version>1.4.1</version>
   <properties>
-    <downloadSources>true</downloadSources>
     <file.encoding>UTF-8</file.encoding>
+    <downloadSources>true</downloadSources>
+    <allow.junit4>false</allow.junit4>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>com.bettercloud</groupId>
-      <artifactId>vault-java-driver</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>jakarta.annotation</groupId>
-      <artifactId>jakarta.annotation-api</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.apache.ozone</groupId>
       <artifactId>ozone-common</artifactId>
+      <scope>compile</scope>
     </dependency>
+
     <dependency>
       <groupId>org.apache.ozone</groupId>
       <artifactId>ozone-manager</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.bettercloud</groupId>
+      <artifactId>vault-java-driver</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <proc>none</proc>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 </project>

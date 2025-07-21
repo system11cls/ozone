@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,33 +14,29 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.request.bucket;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
-import java.util.ArrayList;
 import java.util.UUID;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.apache.hadoop.ozone.om.request.util.OMMultipartUploadUtils;
+import org.apache.hadoop.util.Time;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DeleteBucketRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.util.Time;
-import org.junit.jupiter.api.Test;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .DeleteBucketRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
 
 /**
  * Tests OMBucketDeleteRequest class which handles DeleteBucket request.
@@ -56,7 +53,8 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
         new OMBucketDeleteRequest(omRequest);
 
     // As user info gets added.
-    assertNotEquals(omRequest, omBucketDeleteRequest.preExecute(ozoneManager));
+    Assertions.assertNotEquals(omRequest,
+        omBucketDeleteRequest.preExecute(ozoneManager));
   }
 
   @Test
@@ -75,7 +73,7 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
 
     omBucketDeleteRequest.validateAndUpdateCache(ozoneManager, 1);
 
-    assertNull(omMetadataManager.getBucketTable().get(
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
   }
 
@@ -94,10 +92,10 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
     OMClientResponse omClientResponse =
         omBucketDeleteRequest.validateAndUpdateCache(ozoneManager, 1);
 
-    assertNull(omMetadataManager.getBucketTable().get(
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
 
-    assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
         omClientResponse.getOMResponse().getStatus());
 
     OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
@@ -119,10 +117,12 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
         new OMBucketDeleteRequest(omRequest);
 
     // Create a MPU key in the MPU table to simulate incomplete MPU
+    long creationTime = Time.now();
     String uploadId = OMMultipartUploadUtils.getMultipartUploadId();
-    final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, UUID.randomUUID().toString(),
-            RatisReplicationConfig.getInstance(ONE), new OmKeyLocationInfoGroup(0L, new ArrayList<>(), true))
-        .build();
+    final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName,
+        bucketName, UUID.randomUUID().toString(),
+        HddsProtos.ReplicationType.RATIS, HddsProtos.ReplicationFactor.ONE,
+        0L, creationTime, true);
     final OmMultipartKeyInfo multipartKeyInfo = OMRequestTestUtils.
         createOmMultipartKeyInfo(uploadId, Time.now(),
             HddsProtos.ReplicationType.RATIS,
@@ -134,9 +134,9 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
     OMClientResponse omClientResponse =
         omBucketDeleteRequest.validateAndUpdateCache(ozoneManager, 1L);
 
-    assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_EMPTY,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_EMPTY,
         omClientResponse.getOMResponse().getStatus());
-    assertNotNull(omMetadataManager.getBucketTable().get(
+    Assertions.assertNotNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
 
     // Remove the MPU keys to simulate MPU aborts / completes
@@ -150,9 +150,9 @@ public class TestOMBucketDeleteRequest extends TestBucketRequest {
     omClientResponse =
         omBucketDeleteRequest.validateAndUpdateCache(ozoneManager, 3L);
 
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omClientResponse.getOMResponse().getStatus());
-    assertNull(omMetadataManager.getBucketTable().get(
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
   }
 

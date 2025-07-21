@@ -1,34 +1,23 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.util.concurrent.MoreExecutors;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
@@ -49,15 +38,19 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Test cases to verify CreatePipelineCommandHandler.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class TestCreatePipelineCommandHandler {
 
   private OzoneContainer ozoneContainer;
@@ -70,12 +63,12 @@ public class TestCreatePipelineCommandHandler {
   @BeforeEach
   public void setup() throws Exception {
     conf = new OzoneConfiguration();
-    ozoneContainer = mock(OzoneContainer.class);
-    connectionManager = mock(SCMConnectionManager.class);
-    raftClient = mock(RaftClient.class);
-    raftClientGroupManager = mock(GroupManagementApi.class);
-    when(raftClient.getGroupManagementApi(
-        any(RaftPeerId.class))).thenReturn(raftClientGroupManager);
+    ozoneContainer = Mockito.mock(OzoneContainer.class);
+    connectionManager = Mockito.mock(SCMConnectionManager.class);
+    raftClient = Mockito.mock(RaftClient.class);
+    raftClientGroupManager = Mockito.mock(GroupManagementApi.class);
+    Mockito.lenient().when(raftClient.getGroupManagementApi(
+        Mockito.any(RaftPeerId.class))).thenReturn(raftClientGroupManager);
   }
 
   @Test
@@ -88,9 +81,9 @@ public class TestCreatePipelineCommandHandler {
             HddsProtos.ReplicationFactor.THREE, datanodes);
     stateContext = ContainerTestUtils.getMockContext(datanodes.get(0), conf);
 
-    final XceiverServerSpi writeChanel = mock(XceiverServerSpi.class);
-    when(ozoneContainer.getWriteChannel()).thenReturn(writeChanel);
-    when(writeChanel.isExist(pipelineID.getProtobuf()))
+    final XceiverServerSpi writeChanel = Mockito.mock(XceiverServerSpi.class);
+    Mockito.when(ozoneContainer.getWriteChannel()).thenReturn(writeChanel);
+    Mockito.when(writeChanel.isExist(pipelineID.getProtobuf()))
         .thenReturn(false);
 
     final CreatePipelineCommandHandler commandHandler =
@@ -102,11 +95,11 @@ public class TestCreatePipelineCommandHandler {
     List<Integer> priorityList =
         new ArrayList<>(Collections.nCopies(datanodes.size(), 0));
 
-    verify(writeChanel, times(1))
+    Mockito.verify(writeChanel, Mockito.times(1))
         .addGroup(pipelineID.getProtobuf(), datanodes, priorityList);
 
-    verify(raftClientGroupManager, times(2))
-        .add(any(RaftGroup.class));
+    Mockito.verify(raftClientGroupManager, Mockito.times(2))
+        .add(Mockito.any(RaftGroup.class));
   }
 
   @Test
@@ -117,10 +110,10 @@ public class TestCreatePipelineCommandHandler {
         new CreatePipelineCommand(pipelineID, HddsProtos.ReplicationType.RATIS,
             HddsProtos.ReplicationFactor.THREE, datanodes);
 
-    final XceiverServerSpi writeChanel = mock(XceiverServerSpi.class);
+    final XceiverServerSpi writeChanel = Mockito.mock(XceiverServerSpi.class);
     stateContext = ContainerTestUtils.getMockContext(datanodes.get(0), conf);
-    when(ozoneContainer.getWriteChannel()).thenReturn(writeChanel);
-    when(writeChanel.isExist(pipelineID.getProtobuf()))
+    Mockito.when(ozoneContainer.getWriteChannel()).thenReturn(writeChanel);
+    Mockito.when(writeChanel.isExist(pipelineID.getProtobuf()))
         .thenReturn(true);
 
     final CreatePipelineCommandHandler commandHandler =
@@ -128,11 +121,11 @@ public class TestCreatePipelineCommandHandler {
     commandHandler.handle(command, ozoneContainer, stateContext,
         connectionManager);
 
-    verify(writeChanel, times(0))
+    Mockito.verify(writeChanel, Mockito.times(0))
         .addGroup(pipelineID.getProtobuf(), datanodes);
 
-    verify(raftClientGroupManager, times(0))
-        .add(any(RaftGroup.class));
+    Mockito.verify(raftClientGroupManager, Mockito.times(0))
+        .add(Mockito.any(RaftGroup.class));
   }
 
   private List<DatanodeDetails> getDatanodes() {

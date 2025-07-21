@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,21 +18,7 @@
 
 package org.apache.hadoop.ozone.security.acl;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS_NATIVE;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.ALL;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.CREATE;
-import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.NONE;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -50,9 +37,27 @@ import org.apache.hadoop.ozone.om.helpers.OzoneAclUtil;
 import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.client.AuthenticationException;
+import org.apache.ozone.test.GenericTestUtils;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS_NATIVE;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.ALL;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.CREATE;
+import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.NONE;
+
 
 /**
  * Test Ozone owner check from OzoneNativeAuthorizer.
@@ -68,14 +73,14 @@ public class TestVolumeOwner {
   private static OMMetadataManager metadataManager;
   private static UserGroupInformation testUgi;
   private static OzoneManagerProtocol writeClient;
-  @TempDir
   private static File testDir;
 
   @BeforeAll
-  static void setup() throws Exception {
+  public static void setup() throws IOException, AuthenticationException {
     ozoneConfig = new OzoneConfiguration();
     ozoneConfig.set(OZONE_ACL_AUTHORIZER_CLASS,
         OZONE_ACL_AUTHORIZER_CLASS_NATIVE);
+    testDir = GenericTestUtils.getRandomizedTestDir();
     ozoneConfig.set(OZONE_METADATA_DIRS, testDir.toString());
 
     OmTestManagers omTestManagers =
@@ -96,6 +101,11 @@ public class TestVolumeOwner {
     prepareTestVols();
     prepareTestBuckets();
     prepareTestKeys();
+  }
+
+  @AfterAll
+  public static void cleanup() throws IOException {
+    FileUtils.deleteDirectory(testDir);
   }
 
   // create 2 volumes
@@ -135,13 +145,13 @@ public class TestVolumeOwner {
               .setReplicationConfig(
                   StandaloneReplicationConfig.getInstance(
                       HddsProtos.ReplicationFactor.ONE))
-              .setOwnerName(
-                  UserGroupInformation.getCurrentUser().getShortUserName())
               .setDataSize(0);
           if (k == 0) {
-            keyArgsBuilder.setAcls(OzoneAclUtil.getAclList(testUgi, ALL, ALL));
+            keyArgsBuilder.setAcls(OzoneAclUtil.getAclList(
+                testUgi.getUserName(), testUgi.getGroupNames(), ALL, ALL));
           } else {
-            keyArgsBuilder.setAcls(OzoneAclUtil.getAclList(testUgi, NONE, NONE));
+            keyArgsBuilder.setAcls(OzoneAclUtil.getAclList(
+                testUgi.getUserName(), testUgi.getGroupNames(), NONE, NONE));
           }
           OmKeyArgs keyArgs = keyArgsBuilder.build();
           OpenKeySession keySession = writeClient.createFile(keyArgs, true,
@@ -162,19 +172,19 @@ public class TestVolumeOwner {
     // admin = true, owner = false, ownerName = testvolumeOwner
     RequestContext nonOwnerContext = getUserRequestContext("om",
         IAccessAuthorizer.ACLType.CREATE, false, getTestVolOwnerName(0));
-    assertTrue(nativeAuthorizer.checkAccess(vol0, nonOwnerContext),
+    Assertions.assertTrue(nativeAuthorizer.checkAccess(vol0, nonOwnerContext),
         "matching admins are allowed to perform admin " +
         "operations");
 
     // admin = true, owner = false, ownerName = null
-    assertTrue(nativeAuthorizer.checkAccess(vol0, nonOwnerContext),
+    Assertions.assertTrue(nativeAuthorizer.checkAccess(vol0, nonOwnerContext),
         "matching admins are allowed to perform admin " +
         "operations");
 
     // admin = false, owner = false, ownerName = testvolumeOwner
     RequestContext nonAdminNonOwnerContext = getUserRequestContext("testuser",
         IAccessAuthorizer.ACLType.CREATE, false, getTestVolOwnerName(0));
-    assertFalse(nativeAuthorizer.checkAccess(vol0,
+    Assertions.assertFalse(nativeAuthorizer.checkAccess(vol0,
         nonAdminNonOwnerContext), "mismatching admins are not allowed to " +
         "perform admin operations");
 
@@ -182,7 +192,7 @@ public class TestVolumeOwner {
     RequestContext nonAdminOwnerContext = getUserRequestContext(
         getTestVolOwnerName(0), IAccessAuthorizer.ACLType.CREATE,
         true, getTestVolOwnerName(0));
-    assertFalse(nativeAuthorizer.checkAccess(vol0,
+    Assertions.assertFalse(nativeAuthorizer.checkAccess(vol0,
         nonAdminOwnerContext), "mismatching admins are not allowed to " +
         "perform admin operations even for owner");
 
@@ -193,7 +203,7 @@ public class TestVolumeOwner {
     for (IAccessAuthorizer.ACLType type: aclsToTest) {
       nonAdminOwnerContext = getUserRequestContext(getTestVolOwnerName(0),
           type, true, getTestVolOwnerName(0));
-      assertTrue(nativeAuthorizer.checkAccess(vol0,
+      Assertions.assertTrue(nativeAuthorizer.checkAccess(vol0,
           nonAdminOwnerContext), "Owner is allowed to perform all non-admin " +
           "operations");
     }
@@ -208,7 +218,7 @@ public class TestVolumeOwner {
     for (IAccessAuthorizer.ACLType type: aclsToTest) {
       RequestContext nonAdminOwnerContext = getUserRequestContext(
           getTestVolOwnerName(1), type, true, getTestVolOwnerName(1));
-      assertTrue(nativeAuthorizer.checkAccess(obj,
+      Assertions.assertTrue(nativeAuthorizer.checkAccess(obj,
           nonAdminOwnerContext), "non admin volume owner without acls are " +
           "allowed to do " + type + " on bucket");
     }
@@ -217,7 +227,7 @@ public class TestVolumeOwner {
     for (IAccessAuthorizer.ACLType type: aclsToTest) {
       RequestContext nonAdminOwnerContext = getUserRequestContext(
           getTestVolOwnerName(1), type, false, getTestVolOwnerName(0));
-      assertFalse(nativeAuthorizer.checkAccess(obj,
+      Assertions.assertFalse(nativeAuthorizer.checkAccess(obj,
           nonAdminOwnerContext), "non admin non volume owner without acls" +
           " are not allowed to do " + type + " on bucket");
     }
@@ -232,7 +242,7 @@ public class TestVolumeOwner {
     for (IAccessAuthorizer.ACLType type: aclsToTest) {
       RequestContext nonAdminOwnerContext = getUserRequestContext(
           getTestVolOwnerName(0), type, true, getTestVolOwnerName(0));
-      assertTrue(nativeAuthorizer.checkAccess(obj,
+      Assertions.assertTrue(nativeAuthorizer.checkAccess(obj,
           nonAdminOwnerContext), "non admin volume owner without acls are " +
           "allowed to access key");
     }
@@ -241,7 +251,7 @@ public class TestVolumeOwner {
     for (IAccessAuthorizer.ACLType type: aclsToTest) {
       RequestContext nonAdminOwnerContext = getUserRequestContext(
           getTestVolOwnerName(0), type, false, getTestVolOwnerName(1));
-      assertFalse(nativeAuthorizer.checkAccess(obj,
+      Assertions.assertFalse(nativeAuthorizer.checkAccess(obj,
               nonAdminOwnerContext),
           "non admin volume owner without acls are" +
               " not allowed to access key");

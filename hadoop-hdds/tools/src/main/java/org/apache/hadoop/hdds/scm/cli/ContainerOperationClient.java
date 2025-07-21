@@ -1,34 +1,23 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT;
-
 import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -40,7 +29,6 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerD
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ReadContainerResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionInfo;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
 import org.apache.hadoop.hdds.scm.DatanodeAdminError;
@@ -48,24 +36,34 @@ import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.XceiverClientManager;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
+import org.apache.hadoop.hdds.security.x509.certificate.client.CACertificateProvider;
 import org.apache.hadoop.hdds.scm.client.ScmClient;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.container.ContainerListResult;
 import org.apache.hadoop.hdds.scm.container.ContainerReplicaInfo;
 import org.apache.hadoop.hdds.scm.container.ReplicationManagerReport;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.protocol.StorageContainerLocationProtocol;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CACertificateProvider;
 import org.apache.hadoop.hdds.utils.HAUtils;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization.StatusAndMessages;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer.StatusAndMessages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT;
 
 /**
  * This class provides the client-facing APIs of container operations.
@@ -83,7 +81,6 @@ public class ContainerOperationClient implements ScmClient {
   private final boolean containerTokenEnabled;
   private final OzoneConfiguration configuration;
   private XceiverClientManager xceiverClientManager;
-  private int maxCountOfContainerList;
 
   public synchronized XceiverClientManager getXceiverClientManager()
       throws IOException {
@@ -111,16 +108,13 @@ public class ContainerOperationClient implements ScmClient {
     }
     containerTokenEnabled = conf.getBoolean(HDDS_CONTAINER_TOKEN_ENABLED,
         HDDS_CONTAINER_TOKEN_ENABLED_DEFAULT);
-    maxCountOfContainerList = conf
-        .getInt(ScmConfigKeys.OZONE_SCM_CONTAINER_LIST_MAX_COUNT,
-            ScmConfigKeys.OZONE_SCM_CONTAINER_LIST_MAX_COUNT_DEFAULT);
   }
 
   private XceiverClientManager newXCeiverClientManager(ConfigurationSource conf)
       throws IOException {
     XceiverClientManager manager;
     if (OzoneSecurityUtil.isSecurityEnabled(conf)) {
-      CACertificateProvider caCerts = () -> HAUtils.buildCAX509List(conf);
+      CACertificateProvider caCerts = () -> HAUtils.buildCAX509List(null, conf);
       manager = new XceiverClientManager(conf,
           conf.getObject(XceiverClientManager.ScmClientConfig.class),
           new ClientTrustManager(caCerts, null));
@@ -189,7 +183,7 @@ public class ContainerOperationClient implements ScmClient {
     }
   }
 
-  public String getEncodedContainerToken(long containerId) throws IOException {
+  private String getEncodedContainerToken(long containerId) throws IOException {
     if (!containerTokenEnabled) {
       return "";
     }
@@ -222,11 +216,6 @@ public class ContainerOperationClient implements ScmClient {
   }
 
   @Override
-  public Map<String, List<ContainerID>> getContainersOnDecomNode(DatanodeDetails dn) throws IOException {
-    return storageContainerLocationClient.getContainersOnDecomNode(dn);
-  }
-
-  @Override
   public List<HddsProtos.Node> queryNode(
       HddsProtos.NodeOperationalState opState,
       HddsProtos.NodeState nodeState,
@@ -237,14 +226,9 @@ public class ContainerOperationClient implements ScmClient {
   }
 
   @Override
-  public HddsProtos.Node queryNode(UUID uuid) throws IOException {
-    return storageContainerLocationClient.queryNode(uuid);
-  }
-
-  @Override
-  public List<DatanodeAdminError> decommissionNodes(List<String> hosts, boolean force)
+  public List<DatanodeAdminError> decommissionNodes(List<String> hosts)
       throws IOException {
-    return storageContainerLocationClient.decommissionNodes(hosts, force);
+    return storageContainerLocationClient.decommissionNodes(hosts);
   }
 
   @Override
@@ -255,9 +239,9 @@ public class ContainerOperationClient implements ScmClient {
 
   @Override
   public List<DatanodeAdminError> startMaintenanceNodes(List<String> hosts,
-      int endHours, boolean force) throws IOException {
+      int endHours) throws IOException {
     return storageContainerLocationClient.startMaintenanceNodes(
-        hosts, endHours, force);
+        hosts, endHours);
   }
 
   @Override
@@ -343,29 +327,17 @@ public class ContainerOperationClient implements ScmClient {
   }
 
   @Override
-  public ContainerListResult listContainer(long startContainerID,
+  public List<ContainerInfo> listContainer(long startContainerID,
       int count) throws IOException {
-    if (count > maxCountOfContainerList) {
-      LOG.warn("Attempting to list {} containers. However, this exceeds" +
-          " the cluster's current limit of {}. The results will be capped at the" +
-          " maximum allowed count.", count, maxCountOfContainerList);
-      count = maxCountOfContainerList;
-    }
     return storageContainerLocationClient.listContainer(
         startContainerID, count);
   }
 
   @Override
-  public ContainerListResult listContainer(long startContainerID,
+  public List<ContainerInfo> listContainer(long startContainerID,
       int count, HddsProtos.LifeCycleState state,
       HddsProtos.ReplicationType repType,
       ReplicationConfig replicationConfig) throws IOException {
-    if (count > maxCountOfContainerList) {
-      LOG.warn("Attempting to list {} containers. However, this exceeds" +
-          " the cluster's current limit of {}. The results will be capped at the" +
-          " maximum allowed count.", count, maxCountOfContainerList);
-      count = maxCountOfContainerList;
-    }
     return storageContainerLocationClient.listContainer(
         startContainerID, count, state, repType, replicationConfig);
   }
@@ -469,7 +441,6 @@ public class ContainerOperationClient implements ScmClient {
     return storageContainerLocationClient.getSafeModeRuleStatuses();
   }
 
-  @Override
   public boolean forceExitSafeMode() throws IOException {
     return storageContainerLocationClient.forceExitSafeMode();
   }
@@ -501,19 +472,12 @@ public class ContainerOperationClient implements ScmClient {
       Optional<Integer> maxDatanodesPercentageToInvolvePerIteration,
       Optional<Long> maxSizeToMovePerIterationInGB,
       Optional<Long> maxSizeEnteringTargetInGB,
-      Optional<Long> maxSizeLeavingSourceInGB,
-      Optional<Integer> balancingInterval,
-      Optional<Integer> moveTimeout,
-      Optional<Integer> moveReplicationTimeout,
-      Optional<Boolean> networkTopologyEnable,
-      Optional<String> includeNodes,
-      Optional<String> excludeNodes) throws IOException {
+      Optional<Long> maxSizeLeavingSourceInGB)
+      throws IOException {
     return storageContainerLocationClient.startContainerBalancer(threshold,
         iterations, maxDatanodesPercentageToInvolvePerIteration,
         maxSizeToMovePerIterationInGB, maxSizeEnteringTargetInGB,
-        maxSizeLeavingSourceInGB, balancingInterval, moveTimeout,
-        moveReplicationTimeout, networkTopologyEnable, includeNodes,
-        excludeNodes);
+        maxSizeLeavingSourceInGB);
   }
 
   @Override
@@ -527,13 +491,8 @@ public class ContainerOperationClient implements ScmClient {
   }
 
   @Override
-  public ContainerBalancerStatusInfoResponseProto getContainerBalancerStatusInfo() throws IOException {
-    return storageContainerLocationClient.getContainerBalancerStatusInfo();
-  }
-
-  @Override
-  public List<String> getScmRoles() throws IOException {
-    return storageContainerLocationClient.getScmInfo().getPeerRoles();
+  public List<String> getScmRatisRoles() throws IOException {
+    return storageContainerLocationClient.getScmInfo().getRatisPeerRoles();
   }
 
   @Override
@@ -591,11 +550,6 @@ public class ContainerOperationClient implements ScmClient {
       String scmId)
       throws IOException {
     return storageContainerLocationClient.decommissionScm(scmId);
-  }
-
-  @Override
-  public String getMetrics(String query) throws IOException {
-    return storageContainerLocationClient.getMetrics(query);
   }
 
 }

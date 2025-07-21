@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,52 +18,43 @@
 
 package org.apache.hadoop.ozone.om.request.file;
 
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.DIRECTORY_NOT_FOUND;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.FILE_ALREADY_EXISTS;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.NOT_A_FILE;
-import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.VOLUME_NOT_FOUND;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.hadoop.crypto.CipherSuite;
-import org.apache.hadoop.crypto.CryptoProtocolVersion;
-import org.apache.hadoop.crypto.key.KeyProviderCryptoExtension;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.ozone.OzoneAcl;
+import java.util.Map;
+import java.util.HashMap;
+
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
+import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
+import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.request.key.TestOMKeyRequest;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateFileRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .CreateFileRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
+
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.OzoneConsts.OM_SNAPSHOT_INDICATOR;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.VOLUME_NOT_FOUND;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.FILE_ALREADY_EXISTS;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.NOT_A_FILE;
+import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.DIRECTORY_NOT_FOUND;
 
 /**
  * Tests OMFileCreateRequest.
@@ -78,15 +70,16 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     OMFileCreateRequest omFileCreateRequest = getOMFileCreateRequest(omRequest);
 
     OMRequest modifiedOmRequest = omFileCreateRequest.preExecute(ozoneManager);
-    assertNotEquals(omRequest, modifiedOmRequest);
+    Assertions.assertNotEquals(omRequest, modifiedOmRequest);
 
     // Check clientID and modification time is set or not.
-    assertTrue(modifiedOmRequest.hasCreateFileRequest());
-    assertThat(modifiedOmRequest.getCreateFileRequest().getClientID()).isGreaterThan(0);
+    Assertions.assertTrue(modifiedOmRequest.hasCreateFileRequest());
+    Assertions.assertTrue(
+        modifiedOmRequest.getCreateFileRequest().getClientID() > 0);
 
     KeyArgs keyArgs = modifiedOmRequest.getCreateFileRequest().getKeyArgs();
-    assertNotNull(keyArgs);
-    assertThat(keyArgs.getModificationTime()).isGreaterThan(0);
+    Assertions.assertNotNull(keyArgs);
+    Assertions.assertTrue(keyArgs.getModificationTime() > 0);
 
     // As our data size is 100, and scmBlockSize is default to 1000, so we
     // shall have only one block.
@@ -94,18 +87,18 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
         keyArgs.getKeyLocationsList();
 
     // KeyLocation should be set.
-    assertEquals(1, keyLocations.size());
-    assertEquals(CONTAINER_ID,
+    Assertions.assertEquals(1, keyLocations.size());
+    Assertions.assertEquals(CONTAINER_ID,
         keyLocations.get(0).getBlockID().getContainerBlockID()
             .getContainerID());
-    assertEquals(LOCAL_ID,
+    Assertions.assertEquals(LOCAL_ID,
         keyLocations.get(0).getBlockID().getContainerBlockID()
             .getLocalID());
-    assertTrue(keyLocations.get(0).hasPipeline());
+    Assertions.assertTrue(keyLocations.get(0).hasPipeline());
 
-    assertEquals(0, keyLocations.get(0).getOffset());
+    Assertions.assertEquals(0, keyLocations.get(0).getOffset());
 
-    assertEquals(scmBlockSize, keyLocations.get(0).getLength());
+    Assertions.assertEquals(scmBlockSize, keyLocations.get(0).getLength());
   }
 
   @Test
@@ -117,16 +110,17 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     OMFileCreateRequest omFileCreateRequest = getOMFileCreateRequest(omRequest);
 
     OMRequest modifiedOmRequest = omFileCreateRequest.preExecute(ozoneManager);
-    assertNotEquals(omRequest, modifiedOmRequest);
+    Assertions.assertNotEquals(omRequest, modifiedOmRequest);
 
     // When KeyName is root, nothing will be set.
-    assertTrue(modifiedOmRequest.hasCreateFileRequest());
-    assertThat(modifiedOmRequest.getCreateFileRequest().getClientID()).isLessThanOrEqualTo(0);
+    Assertions.assertTrue(modifiedOmRequest.hasCreateFileRequest());
+    Assertions.assertFalse(
+        modifiedOmRequest.getCreateFileRequest().getClientID() > 0);
 
     KeyArgs keyArgs = modifiedOmRequest.getCreateFileRequest().getKeyArgs();
-    assertNotNull(keyArgs);
-    assertEquals(0, keyArgs.getModificationTime());
-    assertEquals(0, keyArgs.getKeyLocationsList().size());
+    Assertions.assertNotNull(keyArgs);
+    Assertions.assertEquals(0, keyArgs.getModificationTime());
+    Assertions.assertEquals(0, keyArgs.getKeyLocationsList().size());
   }
 
   @Test
@@ -145,14 +139,14 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
     // Before calling
     OmKeyInfo omKeyInfo = verifyPathInOpenKeyTable(keyName, id, false);
-    assertNull(omKeyInfo);
+    Assertions.assertNull(omKeyInfo);
 
     omFileCreateRequest = getOMFileCreateRequest(modifiedOmRequest);
 
     OMClientResponse omFileCreateResponse =
         omFileCreateRequest.validateAndUpdateCache(ozoneManager, 100L);
 
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omFileCreateResponse.getOMResponse().getStatus());
 
     // Check open table whether key is added or not.
@@ -161,24 +155,25 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
     List< OmKeyLocationInfo > omKeyLocationInfoList =
         omKeyInfo.getLatestVersionLocations().getLocationList();
-    assertEquals(1, omKeyLocationInfoList.size());
+    Assertions.assertEquals(1, omKeyLocationInfoList.size());
 
     OmKeyLocationInfo omKeyLocationInfo = omKeyLocationInfoList.get(0);
 
     // Check modification time
-    assertEquals(modifiedOmRequest.getCreateFileRequest()
+    Assertions.assertEquals(modifiedOmRequest.getCreateFileRequest()
         .getKeyArgs().getModificationTime(), omKeyInfo.getModificationTime());
 
-    assertEquals(omKeyInfo.getModificationTime(), omKeyInfo.getCreationTime());
+    Assertions.assertEquals(omKeyInfo.getModificationTime(),
+        omKeyInfo.getCreationTime());
 
     // Check data of the block
     OzoneManagerProtocolProtos.KeyLocation keyLocation =
         modifiedOmRequest.getCreateFileRequest().getKeyArgs()
             .getKeyLocations(0);
 
-    assertEquals(keyLocation.getBlockID().getContainerBlockID()
+    Assertions.assertEquals(keyLocation.getBlockID().getContainerBlockID()
         .getContainerID(), omKeyLocationInfo.getContainerID());
-    assertEquals(keyLocation.getBlockID().getContainerBlockID()
+    Assertions.assertEquals(keyLocation.getBlockID().getContainerBlockID()
         .getLocalID(), omKeyLocationInfo.getLocalID());
   }
 
@@ -196,53 +191,15 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
             .setBucketName(bucketName)
             .setBucketLayout(getBucketLayout())
             .setQuotaInNamespace(1));
-
+    
     OMFileCreateRequest omFileCreateRequest = getOMFileCreateRequest(omRequest);
     OMRequest modifiedOmRequest = omFileCreateRequest.preExecute(ozoneManager);
 
     omFileCreateRequest = getOMFileCreateRequest(modifiedOmRequest);
     OMClientResponse omFileCreateResponse =
         omFileCreateRequest.validateAndUpdateCache(ozoneManager, 100L);
-    assertSame(omFileCreateResponse.getOMResponse().getStatus(),
+    Assertions.assertSame(omFileCreateResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.QUOTA_EXCEEDED);
-  }
-
-  @Test
-  public void testValidateAndUpdateEncryption() throws Exception {
-    KeyProviderCryptoExtension.EncryptedKeyVersion eKV =
-        KeyProviderCryptoExtension.EncryptedKeyVersion.createForDecryption(
-            "key1", "v1", new byte[0], new byte[0]);
-    KeyProviderCryptoExtension mockKeyProvider = mock(KeyProviderCryptoExtension.class);
-    when(mockKeyProvider.generateEncryptedKey(any())).thenReturn(eKV);
-
-    when(ozoneManager.getKmsProvider()).thenReturn(mockKeyProvider);
-    keyName = "test/" + keyName;
-    OMRequest omRequest = createFileRequest(volumeName, bucketName, keyName,
-        HddsProtos.ReplicationFactor.ONE, HddsProtos.ReplicationType.RATIS,
-        false, true);
-
-    // add volume and create bucket with bucket encryption key
-    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, omMetadataManager,
-        OmBucketInfo.newBuilder().setVolumeName(volumeName)
-            .setBucketName(bucketName)
-            .setBucketLayout(getBucketLayout())
-            .setBucketEncryptionKey(
-                new BucketEncryptionKeyInfo.Builder()
-                    .setKeyName("key1")
-                    .setSuite(mock(CipherSuite.class))
-                    .setVersion(mock(CryptoProtocolVersion.class))
-                    .build()));
-
-    OMFileCreateRequest omFileCreateRequest = getOMFileCreateRequest(omRequest);
-    OMRequest modifiedOmRequest = omFileCreateRequest.preExecute(ozoneManager);
-
-    OMFileCreateRequest omFileCreateRequestPreExecuted = getOMFileCreateRequest(modifiedOmRequest);
-    OMClientResponse omClientResponse = omFileCreateRequestPreExecuted
-        .validateAndUpdateCache(ozoneManager, 100L);
-    assertEquals(
-        OzoneManagerProtocolProtos.Status.OK, omClientResponse.getOMResponse().getStatus());
-    assertTrue(omClientResponse.getOMResponse().getCreateFileResponse().getKeyInfo().hasFileEncryptionInfo());
-    when(ozoneManager.getKmsProvider()).thenReturn(null);
   }
 
   @Test
@@ -259,7 +216,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
     OMClientResponse omFileCreateResponse =
         omFileCreateRequest.validateAndUpdateCache(ozoneManager, 100L);
-    assertEquals(VOLUME_NOT_FOUND,
+    Assertions.assertEquals(VOLUME_NOT_FOUND,
         omFileCreateResponse.getOMResponse().getStatus());
   }
 
@@ -278,7 +235,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
     OMClientResponse omFileCreateResponse =
         omFileCreateRequest.validateAndUpdateCache(ozoneManager, 100L);
-    assertEquals(BUCKET_NOT_FOUND,
+    Assertions.assertEquals(BUCKET_NOT_FOUND,
         omFileCreateResponse.getOMResponse().getStatus());
   }
 
@@ -287,17 +244,19 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     testNonRecursivePath(UUID.randomUUID().toString(), false, false, false);
     testNonRecursivePath("a/b", false, false, true);
 
-    ReplicationConfig replicationConfig = ReplicationConfig.fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
-        HddsProtos.ReplicationFactor.ONE);
     // Create some child keys for the path
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "a/b/c/d", 0L, replicationConfig, omMetadataManager);
+        "a/b/c/d", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "a/b/c/", 0L, replicationConfig, omMetadataManager);
+        "a/b/c/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "a/b/", 0L, replicationConfig, omMetadataManager);
+        "a/b/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "a/", 0L, replicationConfig, omMetadataManager);
+        "a/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
 
     // cannot create file if directory of same name exists
     testNonRecursivePath("a/b/c", false, false, true);
@@ -317,14 +276,14 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     // Should be able to create file even if parent directories does not
     // exist and key already exist, as this is with overwrite enabled.
     testNonRecursivePath(UUID.randomUUID().toString(), false, false, false);
-    ReplicationConfig replicationConfig = ReplicationConfig.fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
-        HddsProtos.ReplicationFactor.ONE);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "c/d/e/f", 0L, replicationConfig, omMetadataManager);
+        "c/d/e/f", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     testNonRecursivePath("c/d/e/f", true, true, false);
     // Create some child keys for the path
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "a/b/c/d", 0L, replicationConfig, omMetadataManager);
+        "a/b/c/d", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     testNonRecursivePath("a/b/c", false, true, false);
   }
 
@@ -335,17 +294,16 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     String key = "c/d/e/f";
     // Should be able to create file even if parent directories does not exist
     testNonRecursivePath(key, false, true, false);
-
+    
     // 3 parent directory created c/d/e
-    assertEquals(omMetadataManager.getBucketTable().get(
+    Assertions.assertEquals(omMetadataManager.getBucketTable().get(
             omMetadataManager.getBucketKey(volumeName, bucketName))
         .getUsedNamespace(), 3);
-
+    
     // Add the key to key table
-    ReplicationConfig replicationConfig = ReplicationConfig.fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
-        HddsProtos.ReplicationFactor.ONE);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        key, 0L, replicationConfig, omMetadataManager);
+        key, 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
 
     // Even if key exists, should be able to create file as overwrite is set
     // to true
@@ -358,21 +316,23 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
       throws Exception {
 
     String key = "c/d/e/f";
-    ReplicationConfig replicationConfig = ReplicationConfig.fromProtoTypeAndFactor(HddsProtos.ReplicationType.RATIS,
-        HddsProtos.ReplicationFactor.ONE);
     // Need to add the path which starts with "c/d/e" to keyTable as this is
     // non-recursive parent should exist.
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "c/", 0L, replicationConfig, omMetadataManager);
+        "c/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "c/d/", 0L, replicationConfig, omMetadataManager);
+        "c/d/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        "c/d/e/", 0L, replicationConfig, omMetadataManager);
+        "c/d/e/", 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     testNonRecursivePath(key, false, false, false);
 
     // Add the key to key table
     OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName,
-        key, 0L, replicationConfig, omMetadataManager);
+        key, 0L,  HddsProtos.ReplicationType.RATIS,
+        HddsProtos.ReplicationFactor.ONE, omMetadataManager);
 
     // Even if key exists, should be able to create file as overwrite is set
     // to true
@@ -419,7 +379,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
     bucketAclResults.addAll(omMetadataManager.getBucketTable()
         .get(bucketKey).getAcls());
-    assertEquals(acls, bucketAclResults);
+    Assertions.assertEquals(acls, bucketAclResults);
 
     // Recursive create file with acls inherited from bucket DEFAULT acls
     OMRequest omRequest = createFileRequest(volumeName, bucketName,
@@ -432,7 +392,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     omFileCreateRequest = getOMFileCreateRequest(modifiedOmRequest);
     OMClientResponse omFileCreateResponse =
         omFileCreateRequest.validateAndUpdateCache(ozoneManager, 100L);
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omFileCreateResponse.getOMResponse().getStatus());
 
     long id = modifiedOmRequest.getCreateFileRequest().getClientID();
@@ -479,7 +439,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
         System.out.println(
             "  subdir acls : " + omDirInfo + " ==> " + omDirAcls);
-        assertTrue(omDirAcls.containsAll(expectedInheritAcls),
+        Assertions.assertEquals(expectedInheritAcls, omDirAcls,
             "Failed to inherit parent DEFAULT acls!");
 
         parentID = omDirInfo.getObjectID();
@@ -489,11 +449,12 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
         // [user:newUser:rw[ACCESS], group:newGroup:rwl[ACCESS]]
         if (indx == dirs.size() - 1) {
           // verify file acls
-          assertEquals(omDirInfo.getObjectID(), omKeyInfo.getParentObjectID());
-          List<OzoneAcl> fileAcls = omKeyInfo.getAcls();
+          Assertions.assertEquals(omDirInfo.getObjectID(),
+              omKeyInfo.getParentObjectID());
+          List<OzoneAcl> fileAcls = omDirInfo.getAcls();
           System.out.println("  file acls : " + omKeyInfo + " ==> " + fileAcls);
-          assertEquals(expectedInheritAcls.stream()
-                  .map(acl -> acl.withScope(OzoneAcl.AclScope.ACCESS))
+          Assertions.assertEquals(expectedInheritAcls.stream()
+                  .map(acl -> acl.setAclScope(OzoneAcl.AclScope.ACCESS))
                   .collect(Collectors.toList()), fileAcls,
               "Failed to inherit parent DEFAULT acls!");
         }
@@ -511,34 +472,49 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
       // Should inherit parent DEFAULT acls
       // [user:newUser:rw[ACCESS], group:newGroup:rwl[ACCESS]]
-      assertTrue(keyAcls.containsAll(parentDefaultAcl.stream()
-              .map(acl -> acl.withScope(OzoneAcl.AclScope.ACCESS))
-              .collect(Collectors.toList())),
+      Assertions.assertEquals(parentDefaultAcl.stream()
+              .map(acl -> acl.setAclScope(OzoneAcl.AclScope.ACCESS))
+              .collect(Collectors.toList()), keyAcls,
           "Failed to inherit bucket DEFAULT acls!");
       // Should not inherit parent ACCESS acls
-      assertThat(keyAcls).doesNotContain(parentAccessAcl);
+      Assertions.assertFalse(keyAcls.contains(parentAccessAcl));
     }
   }
 
-  @ParameterizedTest
-  @CsvSource(value = {
-      ".snapshot/keyName,Cannot create key under path reserved for snapshot: .snapshot/",
-      ".snapshot/a/keyName,Cannot create key under path reserved for snapshot: .snapshot/",
-      ".snapshot/a/b/keyName,Cannot create key under path reserved for snapshot: .snapshot/",
-      ".snapshot,Cannot create key with reserved name: .snapshot"})
-  public void testPreExecuteWithInvalidKeyPrefix(String invalidKeyName,
-                                                 String expectedErrorMessage) throws IOException {
+  @Test
+  public void testPreExecuteWithInvalidKeyPrefix() throws Exception {
+    Map<String, String> invalidKeyScenarios = new HashMap<String, String>() {
+      {
+        put(OM_SNAPSHOT_INDICATOR + "/" + keyName,
+            "Cannot create key under path reserved for snapshot: "
+                + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX);
+        put(OM_SNAPSHOT_INDICATOR + "/a/" + keyName,
+            "Cannot create key under path reserved for snapshot: "
+                + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX);
+        put(OM_SNAPSHOT_INDICATOR + "/a/b" + keyName,
+            "Cannot create key under path reserved for snapshot: "
+                + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX);
+        put(OM_SNAPSHOT_INDICATOR,
+            "Cannot create key with reserved name: " + OM_SNAPSHOT_INDICATOR);
+      }
+    };
 
-    OMRequest omRequest = createFileRequest(volumeName, bucketName,
-        invalidKeyName, HddsProtos.ReplicationFactor.ONE,
-        HddsProtos.ReplicationType.RATIS, false, false);
+    for (Map.Entry<String, String> entry : invalidKeyScenarios.entrySet()) {
+      String invalidKeyName = entry.getKey();
+      String expectedErrorMessage = entry.getValue();
 
-    OMFileCreateRequest omFileCreateRequest =
-        getOMFileCreateRequest(omRequest);
+      OMRequest omRequest = createFileRequest(volumeName, bucketName,
+          invalidKeyName, HddsProtos.ReplicationFactor.ONE,
+          HddsProtos.ReplicationType.RATIS, false, false);
 
-    OMException ex = assertThrows(OMException.class,
-        () -> omFileCreateRequest.preExecute(ozoneManager));
-    assertThat(ex.getMessage()).contains(expectedErrorMessage);
+      OMFileCreateRequest omFileCreateRequest =
+          getOMFileCreateRequest(omRequest);
+
+      OMException ex = Assertions.assertThrows(OMException.class,
+          () -> omFileCreateRequest.preExecute(ozoneManager));
+
+      Assertions.assertTrue(ex.getMessage().contains(expectedErrorMessage));
+    }
   }
 
   protected void testNonRecursivePath(String key,
@@ -561,11 +537,11 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     if (fail) {
       OzoneManagerProtocolProtos.Status respStatus =
           omFileCreateResponse.getOMResponse().getStatus();
-      assertTrue(respStatus == NOT_A_FILE
+      Assertions.assertTrue(respStatus == NOT_A_FILE
           || respStatus == FILE_ALREADY_EXISTS
           || respStatus == DIRECTORY_NOT_FOUND);
     } else {
-      assertTrue(omFileCreateResponse.getOMResponse().getSuccess());
+      Assertions.assertTrue(omFileCreateResponse.getOMResponse().getSuccess());
       long id = modifiedOmRequest.getCreateFileRequest().getClientID();
 
       verifyKeyNameInCreateFileResponse(key, omFileCreateResponse);
@@ -574,12 +550,12 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
 
       List< OmKeyLocationInfo > omKeyLocationInfoList =
           omKeyInfo.getLatestVersionLocations().getLocationList();
-      assertEquals(1, omKeyLocationInfoList.size());
+      Assertions.assertEquals(1, omKeyLocationInfoList.size());
 
       OmKeyLocationInfo omKeyLocationInfo = omKeyLocationInfoList.get(0);
 
       // Check modification time
-      assertEquals(modifiedOmRequest.getCreateFileRequest()
+      Assertions.assertEquals(modifiedOmRequest.getCreateFileRequest()
           .getKeyArgs().getModificationTime(), omKeyInfo.getModificationTime());
 
       // Check data of the block
@@ -587,9 +563,9 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
           modifiedOmRequest.getCreateFileRequest().getKeyArgs()
               .getKeyLocations(0);
 
-      assertEquals(keyLocation.getBlockID().getContainerBlockID()
+      Assertions.assertEquals(keyLocation.getBlockID().getContainerBlockID()
           .getContainerID(), omKeyLocationInfo.getContainerID());
-      assertEquals(keyLocation.getBlockID().getContainerBlockID()
+      Assertions.assertEquals(keyLocation.getBlockID().getContainerBlockID()
           .getLocalID(), omKeyLocationInfo.getLocalID());
     }
   }
@@ -599,7 +575,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
     OzoneManagerProtocolProtos.CreateFileResponse createFileResponse =
             omFileCreateResponse.getOMResponse().getCreateFileResponse();
     String actualFileName = createFileResponse.getKeyInfo().getKeyName();
-    assertEquals(key, actualFileName, "Incorrect keyName");
+    Assertions.assertEquals(key, actualFileName, "Incorrect keyName");
   }
 
   /**
@@ -611,7 +587,7 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
    * @param replicationType
    * @return OMRequest
    */
-  @Nonnull
+  @NotNull
   protected OMRequest createFileRequest(
       String volumeName, String bucketName, String keyName,
       HddsProtos.ReplicationFactor replicationFactor,
@@ -641,11 +617,9 @@ public class TestOMFileCreateRequest extends TestOMKeyRequest {
    * @param omRequest om request
    * @return OMFileCreateRequest reference
    */
-  @Nonnull
-  protected OMFileCreateRequest getOMFileCreateRequest(OMRequest omRequest) throws IOException {
-    OMFileCreateRequest request = new OMFileCreateRequest(omRequest, getBucketLayout());
-    request.setUGI(UserGroupInformation.getCurrentUser());
-    return request;
+  @NotNull
+  protected OMFileCreateRequest getOMFileCreateRequest(OMRequest omRequest) {
+    return new OMFileCreateRequest(omRequest, getBucketLayout());
   }
 
 }

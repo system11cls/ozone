@@ -1,18 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container;
@@ -29,14 +30,11 @@ import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTER
 import static org.apache.hadoop.ozone.container.TestHelper.waitForContainerClose;
 import static org.apache.hadoop.ozone.container.TestHelper.waitForReplicaCount;
 import static org.apache.ozone.test.GenericTestUtils.setLogLevel;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.any;
 
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -46,24 +44,25 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.RandomUtils;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementCapacity;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementMetrics;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRackAware;
 import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRackScatter;
-import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRandom;
 import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager.ReplicationManagerConfiguration;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementCapacity;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRackAware;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms.SCMContainerPlacementRandom;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
@@ -79,7 +78,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
-import org.apache.ozone.test.tag.Flaky;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -100,6 +99,7 @@ class TestContainerReplication {
   private static final String VOLUME = "vol1";
   private static final String BUCKET = "bucket1";
   private static final String KEY = "key1";
+
   private static final List<Class<? extends PlacementPolicy>> POLICIES = asList(
       SCMContainerPlacementCapacity.class,
       SCMContainerPlacementRackAware.class,
@@ -132,16 +132,11 @@ class TestContainerReplication {
     conf.set(OZONE_SCM_CONTAINER_PLACEMENT_IMPL_KEY, placementPolicyClass);
     try (MiniOzoneCluster cluster = newCluster(conf)) {
       cluster.waitForClusterToBeReady();
-      SCMContainerPlacementMetrics metrics = cluster.getStorageContainerManager().getPlacementMetrics();
       try (OzoneClient client = cluster.newClient()) {
         createTestData(client);
 
         List<OmKeyLocationInfo> keyLocations = lookupKey(cluster);
-        assertThat(keyLocations).isNotEmpty();
-        long datanodeChooseAttemptCount = metrics.getDatanodeChooseAttemptCount();
-        long datanodeChooseSuccessCount = metrics.getDatanodeChooseSuccessCount();
-        long datanodeChooseFallbackCount = metrics.getDatanodeChooseFallbackCount();
-        long datanodeRequestCount = metrics.getDatanodeRequestCount();
+        assertFalse(keyLocations.isEmpty());
 
         OmKeyLocationInfo keyLocation = keyLocations.get(0);
         long containerID = keyLocation.getContainerID();
@@ -151,12 +146,6 @@ class TestContainerReplication {
         waitForReplicaCount(containerID, 2, cluster);
 
         waitForReplicaCount(containerID, 3, cluster);
-
-        Supplier<String> messageSupplier = () -> "policy=" + placementPolicyClass + " legacy=" + legacyEnabled;
-        assertEquals(datanodeRequestCount + 1, metrics.getDatanodeRequestCount(), messageSupplier);
-        assertThat(metrics.getDatanodeChooseAttemptCount()).isGreaterThan(datanodeChooseAttemptCount);
-        assertEquals(datanodeChooseSuccessCount + 1, metrics.getDatanodeChooseSuccessCount(), messageSupplier);
-        assertThat(metrics.getDatanodeChooseFallbackCount()).isGreaterThanOrEqualTo(datanodeChooseFallbackCount);
       }
     }
   }
@@ -175,6 +164,7 @@ class TestContainerReplication {
 
     ReplicationManagerConfiguration repConf =
         conf.getObject(ReplicationManagerConfiguration.class);
+    repConf.setEnableLegacy(enableLegacy);
     repConf.setInterval(Duration.ofSeconds(1));
     repConf.setUnderReplicatedInterval(Duration.ofSeconds(1));
     conf.setFromObject(repConf);
@@ -206,7 +196,8 @@ class TestContainerReplication {
     try (OutputStream out = bucket.createKey(KEY, 0, new ECReplicationConfig("RS-3-2-1k"),
         new HashMap<>())) {
       byte[] b = new byte[size];
-      b = RandomUtils.secure().randomBytes(b.length);
+      Random random = new Random();
+      random.nextBytes(b);
       out.write(b);
       return b;
     }
@@ -283,7 +274,6 @@ class TestContainerReplication {
 
 
   @Test
-  @Flaky("HDDS-11087")
   public void testECContainerReplication() throws Exception {
     OzoneConfiguration conf = createConfiguration(false);
     final Map<Integer, Integer> failedReadChunkCountMap = new ConcurrentHashMap<>();

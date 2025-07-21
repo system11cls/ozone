@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,30 +18,19 @@
 
 package org.apache.hadoop.ozone.om.request.key;
 
-import static org.apache.hadoop.ozone.OzoneConsts.DELETED_HSYNC_KEY;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.DIRECTORY_NOT_EMPTY;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
-
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.util.Map;
-import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
-import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.OMAction;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -53,6 +43,14 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.util.Map;
+
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.DIRECTORY_NOT_EMPTY;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
 /**
  * Handles DeleteKey request - prefix layout.
@@ -69,13 +67,13 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
 
   @Override
   @SuppressWarnings("methodlength")
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
-    final long trxnLogIndex = context.getIndex();
+  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
+      long trxnLogIndex) {
     DeleteKeyRequest deleteKeyRequest = getOmRequest().getDeleteKeyRequest();
 
     OzoneManagerProtocolProtos.KeyArgs keyArgs =
         deleteKeyRequest.getKeyArgs();
-    Map<String, String> auditMap = buildLightKeyArgsAuditMap(keyArgs);
+    Map<String, String> auditMap = buildKeyArgsAuditMap(keyArgs);
 
     String volumeName = keyArgs.getVolumeName();
     String bucketName = keyArgs.getBucketName();
@@ -97,6 +95,13 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
     Result result = null;
     OmBucketInfo omBucketInfo = null;
     try {
+      keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
+      volumeName = keyArgs.getVolumeName();
+      bucketName = keyArgs.getBucketName();
+
+      checkACLsWithFSO(ozoneManager, volumeName, bucketName, keyName,
+          IAccessAuthorizer.ACLType.DELETE);
+
       mergeOmLockDetails(omMetadataManager.getLock()
           .acquireWriteLock(BUCKET_LOCK, volumeName, bucketName));
       acquiredLock = getOmLockDetails().isLockAcquired();
@@ -120,7 +125,7 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
       omKeyInfo.setKeyName(fileName);
 
       // Set the UpdateID to current transactionLogIndex
-      omKeyInfo.setUpdateID(trxnLogIndex);
+      omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
 
       final long volumeId = omMetadataManager.getVolumeId(volumeName);
       final long bucketId = omMetadataManager.getBucketId(volumeName,
@@ -128,7 +133,6 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
       String ozonePathKey = omMetadataManager.getOzonePathKey(volumeId,
               bucketId, omKeyInfo.getParentObjectID(),
               omKeyInfo.getFileName());
-      OmKeyInfo deletedOpenKeyInfo = null;
 
       if (keyStatus.isDirectory()) {
         // Check if there are any sub path exists under the user requested path
@@ -156,32 +160,15 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
       omBucketInfo.incrUsedBytes(-quotaReleased);
       omBucketInfo.incrUsedNamespace(-1L);
 
-      // If omKeyInfo has hsync metadata, delete its corresponding open key as well
-      String dbOpenKey = null;
-      String hsyncClientId = omKeyInfo.getMetadata().get(OzoneConsts.HSYNC_CLIENT_ID);
-      if (hsyncClientId != null) {
-        Table<String, OmKeyInfo> openKeyTable = omMetadataManager.getOpenKeyTable(getBucketLayout());
-        long parentId = omKeyInfo.getParentObjectID();
-        dbOpenKey = omMetadataManager.getOpenFileName(volumeId, bucketId, parentId, fileName, hsyncClientId);
-        OmKeyInfo openKeyInfo = openKeyTable.get(dbOpenKey);
-        if (openKeyInfo != null) {
-          openKeyInfo.getMetadata().put(DELETED_HSYNC_KEY, "true");
-          openKeyTable.addCacheEntry(dbOpenKey, openKeyInfo, trxnLogIndex);
-          deletedOpenKeyInfo = openKeyInfo;
-        } else {
-          LOG.warn("Potentially inconsistent DB state: open key not found with dbOpenKey '{}'", dbOpenKey);
-        }
-      }
-
-      if (keyStatus.isFile()) {
-        auditMap.put(OzoneConsts.DATA_SIZE, String.valueOf(omKeyInfo.getDataSize()));
-        auditMap.put(OzoneConsts.REPLICATION_CONFIG, omKeyInfo.getReplicationConfig().toString());
-      }
+      // No need to add cache entries to delete table. As delete table will
+      // be used by DeleteKeyService only, not used for any client response
+      // validation, so we don't need to add to cache.
+      // TODO: Revisit if we need it later.
 
       omClientResponse = new OMKeyDeleteResponseWithFSO(omResponse
           .setDeleteKeyResponse(DeleteKeyResponse.newBuilder()).build(),
-          keyName, omKeyInfo,
-          omBucketInfo.copyObject(), keyStatus.isDirectory(), volumeId, deletedOpenKeyInfo);
+          keyName, omKeyInfo, ozoneManager.isRatisEnabled(),
+          omBucketInfo.copyObject(), keyStatus.isDirectory(), volumeId);
 
       result = Result.SUCCESS;
     } catch (IOException | InvalidPathException ex) {
@@ -200,7 +187,7 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
     }
 
     // Performing audit logging outside of the lock.
-    markForAudit(auditLogger, buildAuditMessage(OMAction.DELETE_KEY, auditMap,
+    auditLog(auditLogger, buildAuditMessage(OMAction.DELETE_KEY, auditMap,
         exception, userInfo));
 
 
@@ -221,14 +208,5 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
     }
 
     return omClientResponse;
-  }
-
-  @Override
-  protected OzoneManagerProtocolProtos.KeyArgs resolveBucketAndCheckAcls(
-      OzoneManager ozoneManager,
-      OzoneManagerProtocolProtos.KeyArgs.Builder newKeyArgs)
-      throws IOException {
-    return resolveBucketAndCheckKeyAclsWithFSO(newKeyArgs.build(),
-        ozoneManager, IAccessAuthorizer.ACLType.DELETE);
   }
 }

@@ -1,36 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli.container;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.client.ScmClient;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
@@ -38,7 +26,20 @@ import org.apache.hadoop.hdds.scm.container.ReplicationManagerReport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import picocli.CommandLine;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for the Container ReportSubCommand class.
@@ -69,24 +70,23 @@ public class TestReportSubCommand {
   @Test
   public void testCorrectValuesAppearInEmptyReport() throws IOException {
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.getReplicationManagerReport()).thenAnswer(invocation -> new ReplicationManagerReport());
+    Mockito.when(scmClient.getReplicationManagerReport())
+        .thenAnswer(invocation -> new ReplicationManagerReport());
 
     cmd.execute(scmClient);
 
-    Pattern p = Pattern.compile("^The Container Report is not available until Replication Manager completes.*");
-    Matcher m = p.matcher(errContent.toString(DEFAULT_ENCODING));
-    assertTrue(m.find());
-
     for (HddsProtos.LifeCycleState state : HddsProtos.LifeCycleState.values()) {
-      p = Pattern.compile("^" + state.toString() + ": 0$", Pattern.MULTILINE);
-      m = p.matcher(outContent.toString(DEFAULT_ENCODING));
+      Pattern p = Pattern.compile(
+          "^" + state.toString() + ": 0$", Pattern.MULTILINE);
+      Matcher m = p.matcher(outContent.toString(DEFAULT_ENCODING));
       assertTrue(m.find());
     }
 
     for (ReplicationManagerReport.HealthState state :
         ReplicationManagerReport.HealthState.values()) {
-      p = Pattern.compile("^" + state.toString() + ": 0$", Pattern.MULTILINE);
-      m = p.matcher(outContent.toString(DEFAULT_ENCODING));
+      Pattern p = Pattern.compile(
+          "^" + state.toString() + ": 0$", Pattern.MULTILINE);
+      Matcher m = p.matcher(outContent.toString(DEFAULT_ENCODING));
       assertTrue(m.find());
     }
   }
@@ -96,15 +96,12 @@ public class TestReportSubCommand {
     // More complete testing of the Report JSON output is in
     // TestReplicationManagerReport.
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.getReplicationManagerReport()).thenAnswer(invocation -> new ReplicationManagerReport());
+    Mockito.when(scmClient.getReplicationManagerReport())
+        .thenAnswer(invocation -> new ReplicationManagerReport());
 
     CommandLine c = new CommandLine(cmd);
     c.parseArgs("--json");
     cmd.execute(scmClient);
-
-    Pattern p = Pattern.compile("^The Container Report is not available until Replication Manager completes.*");
-    Matcher m = p.matcher(errContent.toString(DEFAULT_ENCODING));
-    assertTrue(m.find());
 
     ObjectMapper mapper = new ObjectMapper();
     JsonNode json = mapper.readTree(outContent.toString("UTF-8"));
@@ -117,7 +114,8 @@ public class TestReportSubCommand {
   @Test
   public void testCorrectValuesAppearInReport() throws IOException {
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.getReplicationManagerReport()).thenAnswer(invocation -> createReport());
+    Mockito.when(scmClient.getReplicationManagerReport())
+        .thenAnswer(invocation -> createReport());
 
     cmd.execute(scmClient);
 
@@ -177,7 +175,7 @@ public class TestReportSubCommand {
       if (i != start) {
         sb.append(", ");
       }
-      sb.append("#").append(i);
+      sb.append("#" + i);
     }
     return sb.toString();
   }

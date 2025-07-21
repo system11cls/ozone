@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,24 +18,25 @@
 
 package org.apache.hadoop.ozone.om.response.key;
 
-import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.addBucketToDB;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
+import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+
+import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
-import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+
+import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.addBucketToDB;
 
 /**
  * Tests the OM Response when open keys are deleted.
@@ -74,14 +76,16 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
     for (String key: keysToDelete.keySet()) {
       // open keys with no associated block data should have been removed
       // from the open key table, but not added to the deleted table.
-      assertFalse(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
-      assertFalse(omMetadataManager.getDeletedTable().isExist(key));
+      Assertions.assertFalse(
+          omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
+      Assertions.assertFalse(omMetadataManager.getDeletedTable().isExist(key));
     }
 
     for (String key: keysToKeep.keySet()) {
       // These keys should not have been removed from the open key table.
-      assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
-      assertFalse(omMetadataManager.getDeletedTable().isExist(key));
+      Assertions.assertTrue(
+          omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
+      Assertions.assertFalse(omMetadataManager.getDeletedTable().isExist(key));
     }
   }
 
@@ -106,22 +110,24 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
     for (Map.Entry<String, OmKeyInfo> entry: keysToDelete.entrySet()) {
       // These keys should have been moved from the open key table to the
       // delete table.
-      assertFalse(
+      Assertions.assertFalse(
           omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(
               entry.getKey()));
       String deleteKey = omMetadataManager.getOzoneDeletePathKey(
           entry.getValue().getObjectID(), entry.getKey());
-      assertTrue(omMetadataManager.getDeletedTable().isExist(deleteKey));
+      Assertions.assertTrue(omMetadataManager.getDeletedTable()
+          .isExist(deleteKey));
     }
 
     for (Map.Entry<String, OmKeyInfo> entry: keysToKeep.entrySet()) {
       // These keys should not have been moved out of the open key table.
-      assertTrue(
+      Assertions.assertTrue(
           omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(
               entry.getKey()));
       String deleteKey = omMetadataManager.getOzoneDeletePathKey(
           entry.getValue().getObjectID(), entry.getKey());
-      assertFalse(omMetadataManager.getDeletedTable().isExist(deleteKey));
+      Assertions.assertFalse(omMetadataManager.getDeletedTable()
+          .isExist(deleteKey));
     }
   }
 
@@ -144,8 +150,9 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
     for (String key: keysToDelete.keySet()) {
       // If an error occurs in the response, the batch operation moving keys
       // from the open key table to the delete table should not be committed.
-      assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
-      assertFalse(omMetadataManager.getDeletedTable().isExist(key));
+      Assertions.assertTrue(
+          omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(key));
+      Assertions.assertFalse(omMetadataManager.getDeletedTable().isExist(key));
     }
   }
 
@@ -165,7 +172,7 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
         .build();
 
     OMOpenKeysDeleteResponse response = new OMOpenKeysDeleteResponse(omResponse,
-        keysToDelete, getBucketLayout());
+        keysToDelete, true, getBucketLayout());
 
     // Operations are only added to the batch by this method when status is OK.
     response.checkAndUpdateDB(omMetadataManager, batchOperation);
@@ -205,7 +212,7 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
       long parentID = random.nextLong();
 
       OmKeyInfo omKeyInfo = OMRequestTestUtils.createOmKeyInfo(volume,
-          bucket, key, replicationConfig).build();
+          bucket, key, replicationType, replicationFactor);
 
       if (keyLength > 0) {
         OMRequestTestUtils.addKeyLocationInfo(omKeyInfo, 0, keyLength);
@@ -231,7 +238,7 @@ public class TestOMOpenKeysDeleteResponse extends TestOMKeyResponse {
             clientID, 0L, omMetadataManager);
         openKey = omMetadataManager.getOpenKey(volume, bucket, key, clientID);
       }
-      assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout())
+      Assertions.assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout())
           .isExist(openKey));
 
       newOpenKeys.put(openKey, omKeyInfo);

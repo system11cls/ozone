@@ -1,30 +1,24 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.HashMap;
+
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -46,21 +40,36 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.protocol.commands.CloseContainerCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
 import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_RATIS_VOLUME_FREE_SPACE_MIN;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE;
+
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 
 /**
  * Test to behaviour of the datanode when receive close container command.
  */
-@Timeout(300)
 public class TestCloseContainerHandler {
+
+  /**
+    * Set a timeout for each test.
+    */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
 
   private MiniOzoneCluster cluster;
   private OzoneConfiguration conf;
 
-  @BeforeEach
+  @Before
   public void setup() throws Exception {
     //setup a cluster (1G free space is enough for a unit test)
     conf = new OzoneConfiguration();
@@ -74,7 +83,7 @@ public class TestCloseContainerHandler {
     cluster.waitForPipelineTobeReady(ONE, 30000);
   }
 
-  @AfterEach
+  @After
   public void teardown() {
     if (cluster != null) {
       cluster.shutdown();
@@ -116,7 +125,7 @@ public class TestCloseContainerHandler {
     Pipeline pipeline = cluster.getStorageContainerManager()
         .getPipelineManager().getPipeline(container.getPipelineID());
 
-    assertFalse(isContainerClosed(cluster, containerId.getId()));
+    Assert.assertFalse(isContainerClosed(cluster, containerId.getId()));
 
     DatanodeDetails datanodeDetails =
         cluster.getHddsDatanodes().get(0).getDatanodeDetails();
@@ -134,7 +143,7 @@ public class TestCloseContainerHandler {
             5 * 1000);
 
     //double check if it's really closed (waitFor also throws an exception)
-    assertTrue(isContainerClosed(cluster, containerId.getId()));
+    Assert.assertTrue(isContainerClosed(cluster, containerId.getId()));
   }
 
   private static Boolean isContainerClosed(MiniOzoneCluster cluster,

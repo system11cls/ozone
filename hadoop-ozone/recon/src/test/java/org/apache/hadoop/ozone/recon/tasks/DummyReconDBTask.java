@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +20,9 @@ package org.apache.hadoop.ozone.recon.tasks;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 
 /**
@@ -51,21 +54,20 @@ public class DummyReconDBTask implements ReconOmTask {
   }
 
   @Override
-  public TaskResult process(
-      OMUpdateEventBatch events, Map<String, Integer> seekPos) {
+  public Pair<String, Boolean> process(OMUpdateEventBatch events) {
     if (++callCtr <= numFailuresAllowed) {
-      return buildTaskResult(false);
+      return new ImmutablePair<>(getTaskName(), false);
     } else {
-      return buildTaskResult(true);
+      return new ImmutablePair<>(getTaskName(), true);
     }
   }
 
   @Override
-  public TaskResult reprocess(OMMetadataManager omMetadataManager) {
+  public Pair<String, Boolean> reprocess(OMMetadataManager omMetadataManager) {
     if (++callCtr <= numFailuresAllowed) {
-      return buildTaskResult(false);
+      return new ImmutablePair<>(getTaskName(), false);
     } else {
-      return buildTaskResult(true);
+      return new ImmutablePair<>(getTaskName(), true);
     }
   }
 

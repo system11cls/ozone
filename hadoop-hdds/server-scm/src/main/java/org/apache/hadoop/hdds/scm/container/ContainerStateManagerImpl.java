@@ -1,56 +1,42 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.scm.container;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLEANUP;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLOSE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.DELETE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FINALIZE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FORCE_CLOSE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.QUASI_CLOSE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.DELETED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.DELETING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.OPEN;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.QUASI_CLOSED;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_LOCK_STRIPE_SIZE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_LOCK_STRIPE_SIZE_DEFAULT;
-
-import com.google.common.util.concurrent.Striped;
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.util.EnumMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import com.google.common.base.Preconditions;
+
+import com.google.common.util.concurrent.Striped;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ContainerInfoProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
 import org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol.RequestType;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.common.helpers.InvalidContainerStateException;
@@ -58,6 +44,7 @@ import org.apache.hadoop.hdds.scm.container.replication.ContainerReplicaPendingO
 import org.apache.hadoop.hdds.scm.container.states.ContainerState;
 import org.apache.hadoop.hdds.scm.container.states.ContainerStateMap;
 import org.apache.hadoop.hdds.scm.ha.ExecutionUtil;
+import org.apache.hadoop.hdds.scm.ha.SCMHAInvocationHandler;
 import org.apache.hadoop.hdds.scm.ha.SCMRatisServer;
 import org.apache.hadoop.hdds.scm.metadata.DBTransactionBuffer;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
@@ -68,10 +55,28 @@ import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
 import org.apache.hadoop.ozone.common.statemachine.InvalidStateTransitionException;
 import org.apache.hadoop.ozone.common.statemachine.StateMachine;
+
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FINALIZE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.QUASI_CLOSE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLOSE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FORCE_CLOSE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.DELETE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.CLEANUP;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.OPEN;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.QUASI_CLOSED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.CLOSED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.DELETING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.DELETED;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_LOCK_STRIPE_SIZE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CONTAINER_LOCK_STRIPE_SIZE_DEFAULT;
+
 
 /**
  * Default implementation of ContainerStateManager. This implementation
@@ -240,7 +245,7 @@ public final class ContainerStateManagerImpl
 
       while (iterator.hasNext()) {
         final ContainerInfo container = iterator.next().getValue();
-        Objects.requireNonNull(container, "container == null");
+        Preconditions.checkNotNull(container);
         containers.addContainer(container);
         if (container.getState() == LifeCycleState.OPEN) {
           try {
@@ -251,8 +256,8 @@ public final class ContainerStateManagerImpl
             // CLOSING state by ReplicationManager's OpenContainerHandler
             // For more info: HDDS-10231
             LOG.warn("Found container {} which is in OPEN state with " +
-                "pipeline {} that does not exist.",
-                container, container.getPipelineID());
+                "pipeline {} that does not exist. Marking container for " +
+                "closing.", container, container.getPipelineID());
           }
         }
       }
@@ -269,37 +274,16 @@ public final class ContainerStateManagerImpl
   }
 
   @Override
-  public List<ContainerInfo> getContainerInfos(ContainerID start, int count) {
+  public Set<ContainerID> getContainerIDs() {
     try (AutoCloseableLock ignored = readLock()) {
-      return containers.getContainerInfos(start, count);
+      return containers.getAllContainerIDs();
     }
   }
 
   @Override
-  public List<ContainerInfo> getContainerInfos(LifeCycleState state, ContainerID start, int count) {
+  public Set<ContainerID> getContainerIDs(final LifeCycleState state) {
     try (AutoCloseableLock ignored = readLock()) {
-      return containers.getContainerInfos(state, start, count);
-    }
-  }
-
-  @Override
-  public List<ContainerInfo> getContainerInfos(final LifeCycleState state) {
-    try (AutoCloseableLock ignored = readLock()) {
-      return containers.getContainerInfos(state);
-    }
-  }
-
-  @Override
-  public List<ContainerInfo> getContainerInfos(ReplicationType type) {
-    try (AutoCloseableLock ignored = readLock()) {
-      return containers.getContainerInfos(type);
-    }
-  }
-
-  @Override
-  public int getContainerCount(final LifeCycleState state) {
-    try (AutoCloseableLock ignored = readLock()) {
-      return containers.getContainerCount(state);
+      return containers.getContainerIDsByState(state);
     }
   }
 
@@ -318,7 +302,7 @@ public final class ContainerStateManagerImpl
     // ClosedPipelineException once ClosedPipelineException is introduced
     // in PipelineManager.
 
-    Objects.requireNonNull(containerInfo, "containerInfo == null");
+    Preconditions.checkNotNull(containerInfo);
     final ContainerInfo container = ContainerInfo.fromProtobuf(containerInfo);
     final ContainerID containerID = container.containerID();
     final PipelineID pipelineID = container.getPipelineID();
@@ -385,16 +369,16 @@ public final class ContainerStateManagerImpl
   }
 
   @Override
-  public void transitionDeletingOrDeletedToClosedState(HddsProtos.ContainerID containerID) throws IOException {
+  public void transitionDeletingToClosedState(HddsProtos.ContainerID containerID) throws IOException {
     final ContainerID id = ContainerID.getFromProtobuf(containerID);
 
     try (AutoCloseableLock ignored = writeLock(id)) {
       if (containers.contains(id)) {
         final ContainerInfo oldInfo = containers.getContainerInfo(id);
         final LifeCycleState oldState = oldInfo.getState();
-        if (oldState != DELETING && oldState != DELETED) {
+        if (oldState != DELETING) {
           throw new InvalidContainerStateException("Cannot transition container " + id + " from " + oldState +
-              " back to CLOSED. The container must be in the DELETING or DELETED state.");
+              " back to CLOSED. The container must be in the DELETING state.");
         }
         ExecutionUtil.create(() -> {
           containers.updateState(id, oldState, CLOSED);
@@ -415,10 +399,10 @@ public final class ContainerStateManagerImpl
   }
 
   @Override
-  public void updateContainerReplica(final ContainerReplica replica) {
-    final ContainerID id = replica.getContainerID();
+  public void updateContainerReplica(final ContainerID id,
+                                     final ContainerReplica replica) {
     try (AutoCloseableLock ignored = writeLock(id)) {
-      containers.updateContainerReplica(replica);
+      containers.updateContainerReplica(id, replica);
       // Clear any pending additions for this replica as we have now seen it.
       containerReplicaPendingOps.completeAddReplica(id,
           replica.getDatanodeDetails(), replica.getReplicaIndex());
@@ -426,10 +410,10 @@ public final class ContainerStateManagerImpl
   }
 
   @Override
-  public void removeContainerReplica(final ContainerReplica replica) {
-    final ContainerID id = replica.getContainerID();
+  public void removeContainerReplica(final ContainerID id,
+                                     final ContainerReplica replica) {
     try (AutoCloseableLock ignored = writeLock(id)) {
-      containers.removeContainerReplica(id, replica.getDatanodeDetails().getID());
+      containers.removeContainerReplica(id, replica);
       // Remove any pending delete replication operations for the deleted
       // replica.
       containerReplicaPendingOps.completeDeleteReplica(id,
@@ -459,7 +443,6 @@ public final class ContainerStateManagerImpl
     }
   }
 
-  @Override
   public ContainerInfo getMatchingContainer(final long size, String owner,
       PipelineID pipelineID, NavigableSet<ContainerID> containerIDs) {
     if (containerIDs.isEmpty()) {
@@ -518,7 +501,6 @@ public final class ContainerStateManagerImpl
   }
 
 
-  @Override
   public void removeContainer(final HddsProtos.ContainerID id)
       throws IOException {
     final ContainerID cid = ContainerID.getFromProtobuf(id);
@@ -616,16 +598,21 @@ public final class ContainerStateManagerImpl
     }
 
     public ContainerStateManager build() throws IOException {
-      Objects.requireNonNull(conf, "conf == null");
-      Objects.requireNonNull(pipelineMgr, "pipelineMgr == null");
-      Objects.requireNonNull(table, "table == null");
+      Preconditions.checkNotNull(conf);
+      Preconditions.checkNotNull(pipelineMgr);
+      Preconditions.checkNotNull(table);
 
       final ContainerStateManager csm = new ContainerStateManagerImpl(
           conf, pipelineMgr, table, transactionBuffer,
           containerReplicaPendingOps);
 
-      return scmRatisServer.getProxyHandler(RequestType.CONTAINER,
-          ContainerStateManager.class, csm);
+      final SCMHAInvocationHandler invocationHandler =
+          new SCMHAInvocationHandler(RequestType.CONTAINER, csm,
+              scmRatisServer);
+
+      return (ContainerStateManager) Proxy.newProxyInstance(
+          SCMHAInvocationHandler.class.getClassLoader(),
+          new Class<?>[]{ContainerStateManager.class}, invocationHandler);
     }
 
   }

@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,21 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_AUTO_CREATE_FACTOR_ONE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -42,8 +30,19 @@ import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_PIPELINE_AUTO_CREATE_FACTOR_ONE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
 
 /**
  * Tests for RatisPipelineUtils.
@@ -56,14 +55,14 @@ public class TestRatisPipelineCreateAndDestroy {
 
   public void init(int numDatanodes) throws Exception {
     conf.setInt(OZONE_DATANODE_PIPELINE_LIMIT, 2);
-    conf.setInt(OZONE_SCM_RATIS_PIPELINE_LIMIT, numDatanodes + numDatanodes / 3);
-    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 2000, TimeUnit.MILLISECONDS);
-    conf.setTimeDuration(ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL, 1000, TimeUnit.MILLISECONDS);
     conf.setTimeDuration(
         ScmConfigKeys.OZONE_SCM_PIPELINE_CREATION_INTERVAL, 500,
         TimeUnit.MILLISECONDS);
     cluster = MiniOzoneCluster.newBuilder(conf)
             .setNumDatanodes(numDatanodes)
+            .setTotalPipelineNumLimit(numDatanodes + numDatanodes / 3)
+            .setHbInterval(2000)
+            .setHbProcessorInterval(1000)
             .build();
     cluster.waitForClusterToBeReady();
     StorageContainerManager scm = cluster.getStorageContainerManager();
@@ -82,7 +81,7 @@ public class TestRatisPipelineCreateAndDestroy {
     init(numOfDatanodes);
     // make sure two pipelines are created
     waitForPipelines(2);
-    assertEquals(numOfDatanodes, pipelineManager.getPipelines(
+    Assert.assertEquals(numOfDatanodes, pipelineManager.getPipelines(
         RatisReplicationConfig.getInstance(
             ReplicationFactor.ONE)).size());
 
@@ -104,7 +103,7 @@ public class TestRatisPipelineCreateAndDestroy {
     // make sure two pipelines are created
     waitForPipelines(2);
     // No Factor ONE pipeline is auto created.
-    assertEquals(0, pipelineManager.getPipelines(
+    Assert.assertEquals(0, pipelineManager.getPipelines(
         RatisReplicationConfig.getInstance(
             ReplicationFactor.ONE)).size());
 
@@ -141,11 +140,17 @@ public class TestRatisPipelineCreateAndDestroy {
                     100, 10 * 1000);
 
     // try creating another pipeline now
-    SCMException ioe = assertThrows(SCMException.class, () ->
-        pipelineManager.createPipeline(RatisReplicationConfig.getInstance(
-            ReplicationFactor.THREE)),
-        "pipeline creation should fail after shutting down pipeline");
-    assertEquals(SCMException.ResultCodes.FAILED_TO_FIND_HEALTHY_NODES, ioe.getResult());
+    try {
+      pipelineManager.createPipeline(RatisReplicationConfig.getInstance(
+          ReplicationFactor.THREE));
+      Assert.fail("pipeline creation should fail after shutting down pipeline");
+    } catch (IOException ioe) {
+      // As now all datanodes are shutdown, they move to stale state, there
+      // will be no sufficient datanodes to create the pipeline.
+      Assert.assertTrue(ioe instanceof SCMException);
+      Assert.assertEquals(SCMException.ResultCodes.FAILED_TO_FIND_HEALTHY_NODES,
+          ((SCMException) ioe).getResult());
+    }
 
     // make sure pipelines is destroyed
     waitForPipelines(0);

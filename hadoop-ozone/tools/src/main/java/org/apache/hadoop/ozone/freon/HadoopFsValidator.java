@@ -1,33 +1,37 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
-import com.codahale.metrics.Timer;
+import java.net.URI;
 import java.security.MessageDigest;
 import java.util.concurrent.Callable;
-import org.apache.commons.io.IOUtils;
+
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
-import org.kohsuke.MetaInfServices;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+
+import com.codahale.metrics.Timer;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 /**
  * Data generator tool test om performance.
@@ -38,25 +42,36 @@ import picocli.CommandLine.Command;
     versionProvider = HddsVersionProvider.class,
     mixinStandardHelpOptions = true,
     showDefaultValues = true)
-@MetaInfServices(FreonSubcommand.class)
-public class HadoopFsValidator extends HadoopBaseFreonGenerator
+public class HadoopFsValidator extends BaseFreonGenerator
     implements Callable<Void> {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(HadoopFsValidator.class);
 
+  @Option(names = {"--path"},
+      description = "Hadoop FS file system path",
+      defaultValue = "o3fs://bucket1.vol1")
+  private String rootPath;
+
   private ContentGenerator contentGenerator;
 
   private Timer timer;
+
+  private FileSystem fileSystem;
 
   private byte[] referenceDigest;
 
   @Override
   public Void call() throws Exception {
-    super.init();
 
-    Path file = new Path(getRootPath() + "/" + generateObjectName(0));
-    try (FSDataInputStream stream = getFileSystem().open(file)) {
+    init();
+
+    OzoneConfiguration configuration = createOzoneConfiguration();
+
+    fileSystem = FileSystem.get(URI.create(rootPath), configuration);
+
+    Path file = new Path(rootPath + "/" + generateObjectName(0));
+    try (FSDataInputStream stream = fileSystem.open(file)) {
       referenceDigest = getDigest(stream);
     }
 
@@ -68,10 +83,10 @@ public class HadoopFsValidator extends HadoopBaseFreonGenerator
   }
 
   private void validateFile(long counter) throws Exception {
-    Path file = new Path(getRootPath() + "/" + generateObjectName(counter));
+    Path file = new Path(rootPath + "/" + generateObjectName(counter));
 
     byte[] content = timer.time(() -> {
-      try (FSDataInputStream input = getFileSystem().open(file)) {
+      try (FSDataInputStream input = fileSystem.open(file)) {
         return IOUtils.toByteArray(input);
       }
     });

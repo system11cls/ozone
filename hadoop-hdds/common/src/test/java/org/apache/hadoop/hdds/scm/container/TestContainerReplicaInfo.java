@@ -1,29 +1,29 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.container;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 /**
  * Test for the ContainerReplicaInfo class.
@@ -46,17 +46,17 @@ public class TestContainerReplicaInfo {
 
     ContainerReplicaInfo info = ContainerReplicaInfo.fromProto(proto);
 
-    assertEquals(proto.getContainerID(), info.getContainerID());
-    assertEquals(proto.getBytesUsed(), info.getBytesUsed());
-    assertEquals(proto.getKeyCount(), info.getKeyCount());
-    assertEquals(proto.getPlaceOfBirth(),
+    Assertions.assertEquals(proto.getContainerID(), info.getContainerID());
+    Assertions.assertEquals(proto.getBytesUsed(), info.getBytesUsed());
+    Assertions.assertEquals(proto.getKeyCount(), info.getKeyCount());
+    Assertions.assertEquals(proto.getPlaceOfBirth(),
         info.getPlaceOfBirth().toString());
-    assertEquals(DatanodeDetails.getFromProtoBuf(
+    Assertions.assertEquals(DatanodeDetails.getFromProtoBuf(
         proto.getDatanodeDetails()), info.getDatanodeDetails());
-    assertEquals(proto.getSequenceID(), info.getSequenceId());
-    assertEquals(proto.getState(), info.getState());
+    Assertions.assertEquals(proto.getSequenceID(), info.getSequenceId());
+    Assertions.assertEquals(proto.getState(), info.getState());
     // If replicaIndex is not in the proto, then -1 should be returned
-    assertEquals(-1, info.getReplicaIndex());
+    Assertions.assertEquals(-1, info.getReplicaIndex());
   }
 
   @Test
@@ -76,15 +76,15 @@ public class TestContainerReplicaInfo {
 
     ContainerReplicaInfo info = ContainerReplicaInfo.fromProto(proto);
 
-    assertEquals(proto.getContainerID(), info.getContainerID());
-    assertEquals(proto.getBytesUsed(), info.getBytesUsed());
-    assertEquals(proto.getKeyCount(), info.getKeyCount());
-    assertEquals(proto.getPlaceOfBirth(),
+    Assertions.assertEquals(proto.getContainerID(), info.getContainerID());
+    Assertions.assertEquals(proto.getBytesUsed(), info.getBytesUsed());
+    Assertions.assertEquals(proto.getKeyCount(), info.getKeyCount());
+    Assertions.assertEquals(proto.getPlaceOfBirth(),
         info.getPlaceOfBirth().toString());
-    assertEquals(DatanodeDetails.getFromProtoBuf(
+    Assertions.assertEquals(DatanodeDetails.getFromProtoBuf(
         proto.getDatanodeDetails()), info.getDatanodeDetails());
-    assertEquals(proto.getSequenceID(), info.getSequenceId());
-    assertEquals(proto.getState(), info.getState());
-    assertEquals(4, info.getReplicaIndex());
+    Assertions.assertEquals(proto.getSequenceID(), info.getSequenceId());
+    Assertions.assertEquals(proto.getState(), info.getState());
+    Assertions.assertEquals(4, info.getReplicaIndex());
   }
 }

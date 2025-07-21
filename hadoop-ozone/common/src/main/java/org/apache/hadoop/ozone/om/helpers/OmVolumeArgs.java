@@ -1,30 +1,30 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om.helpers;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+
 import org.apache.hadoop.hdds.utils.db.Codec;
 import org.apache.hadoop.hdds.utils.db.CopyObject;
 import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
@@ -35,6 +35,9 @@ import org.apache.hadoop.ozone.audit.Auditable;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OzoneAclInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.VolumeInfo;
 
+import com.google.common.base.Preconditions;
+
+
 /**
  * A class that encapsulates the OmVolumeArgs Args.
  */
@@ -43,8 +46,7 @@ public final class OmVolumeArgs extends WithObjectID
   private static final Codec<OmVolumeArgs> CODEC = new DelegatedCodec<>(
       Proto2Codec.get(VolumeInfo.getDefaultInstance()),
       OmVolumeArgs::getFromProtobuf,
-      OmVolumeArgs::getProtobuf,
-      OmVolumeArgs.class);
+      OmVolumeArgs::getProtobuf);
 
   public static Codec<OmVolumeArgs> getCodec() {
     return CODEC;
@@ -58,7 +60,7 @@ public final class OmVolumeArgs extends WithObjectID
   private long quotaInBytes;
   private long quotaInNamespace;
   private long usedNamespace;
-  private final CopyOnWriteArrayList<OzoneAcl> acls;
+  private List<OzoneAcl> acls;
   /**
    * Reference count on this Ozone volume.
    *
@@ -73,18 +75,40 @@ public final class OmVolumeArgs extends WithObjectID
    */
   private long refCount;
 
-  private OmVolumeArgs(Builder b) {
-    super(b);
-    this.adminName = b.adminName;
-    this.ownerName = b.ownerName;
-    this.volume = b.volume;
-    this.quotaInBytes = b.quotaInBytes;
-    this.quotaInNamespace = b.quotaInNamespace;
-    this.usedNamespace = b.usedNamespace;
-    this.acls = new CopyOnWriteArrayList<>(b.acls);
-    this.creationTime = b.creationTime;
-    this.modificationTime = b.modificationTime;
-    this.refCount = b.refCount;
+  /**
+   * Private constructor, constructed via builder.
+   * @param adminName  - Administrator's name.
+   * @param ownerName  - Volume owner's name
+   * @param volume - volume name
+   * @param quotaInBytes - Volume Quota in bytes.
+   * @param quotaInNamespace - Volume Quota in counts.
+   * @param usedNamespace - Volume Namespace Quota Usage in counts.
+   * @param metadata - metadata map for custom key/value data.
+   * @param acls - list of volume acls.
+   * @param creationTime - Volume creation time.
+   * @param objectID - ID of this object.
+   * @param updateID - A sequence number that denotes the last update on this
+   * object. This is a monotonically increasing number.
+   */
+  @SuppressWarnings({"checkstyle:ParameterNumber",
+      "This is invoked from a builder."})
+  private OmVolumeArgs(String adminName, String ownerName, String volume,
+      long quotaInBytes, long quotaInNamespace, long usedNamespace,
+      Map<String, String> metadata, List<OzoneAcl> acls, long creationTime,
+      long modificationTime, long objectID, long updateID, long refCount) {
+    this.adminName = adminName;
+    this.ownerName = ownerName;
+    this.volume = volume;
+    this.quotaInBytes = quotaInBytes;
+    this.quotaInNamespace = quotaInNamespace;
+    this.usedNamespace = usedNamespace;
+    this.metadata = metadata;
+    this.acls = acls;
+    this.creationTime = creationTime;
+    this.modificationTime = modificationTime;
+    this.objectID = objectID;
+    this.updateID = updateID;
+    this.refCount = refCount;
   }
 
   public long getRefCount() {
@@ -197,7 +221,7 @@ public final class OmVolumeArgs extends WithObjectID
   }
 
   public List<OzoneAcl> getAcls() {
-    return ImmutableList.copyOf(acls);
+    return acls;
   }
 
   public List<OzoneAcl> getDefaultAcls() {
@@ -262,18 +286,18 @@ public final class OmVolumeArgs extends WithObjectID
       return false;
     }
     OmVolumeArgs that = (OmVolumeArgs) o;
-    return Objects.equals(this.getObjectID(), that.getObjectID());
+    return Objects.equals(this.objectID, that.objectID);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getObjectID());
+    return Objects.hash(this.objectID);
   }
 
   /**
    * Builder for OmVolumeArgs.
    */
-  public static class Builder extends WithObjectID.Builder {
+  public static class Builder {
     private String adminName;
     private String ownerName;
     private String volume;
@@ -282,18 +306,30 @@ public final class OmVolumeArgs extends WithObjectID
     private long quotaInBytes;
     private long quotaInNamespace;
     private long usedNamespace;
-    private final List<OzoneAcl> acls;
+    private Map<String, String> metadata;
+    private List<OzoneAcl> acls;
+    private long objectID;
+    private long updateID;
     private long refCount;
 
-    @Override
+    /**
+     * Sets the Object ID for this Object.
+     * Object ID are unique and immutable identifier for each object in the
+     * System.
+     * @param id - long
+     */
     public Builder setObjectID(long id) {
-      super.setObjectID(id);
+      this.objectID = id;
       return this;
     }
 
-    @Override
+    /**
+     * Sets the update ID for this Object. Update IDs are monotonically
+     * increasing values which are updated each time there is an update.
+     * @param id - long
+     */
     public Builder setUpdateID(long id) {
-      super.setUpdateID(id);
+      this.updateID = id;
       return this;
     }
 
@@ -301,11 +337,8 @@ public final class OmVolumeArgs extends WithObjectID
      * Constructs a builder.
      */
     public Builder() {
-      this(new ArrayList<>());
-    }
-
-    private Builder(List<OzoneAcl> acls) {
-      this.acls = acls;
+      metadata = new HashMap<>();
+      acls = new ArrayList();
       quotaInBytes = OzoneConsts.QUOTA_RESET;
       quotaInNamespace = OzoneConsts.QUOTA_RESET;
     }
@@ -350,15 +383,15 @@ public final class OmVolumeArgs extends WithObjectID
       return this;
     }
 
-    @Override
     public Builder addMetadata(String key, String value) {
-      super.addMetadata(key, value);
+      metadata.put(key, value); // overwrite if present.
       return this;
     }
 
-    @Override
     public Builder addAllMetadata(Map<String, String> additionalMetaData) {
-      super.addAllMetadata(additionalMetaData);
+      if (additionalMetaData != null) {
+        metadata.putAll(additionalMetaData);
+      }
       return this;
     }
 
@@ -367,18 +400,23 @@ public final class OmVolumeArgs extends WithObjectID
       return this;
     }
 
-    public Builder setRefCount(long refCount) {
+    public void setRefCount(long refCount) {
       Preconditions.checkState(refCount >= 0L,
           "refCount should not be negative");
       this.refCount = refCount;
-      return this;
     }
 
+    /**
+     * Constructs a CreateVolumeArgument.
+     * @return CreateVolumeArgs.
+     */
     public OmVolumeArgs build() {
       Preconditions.checkNotNull(adminName);
       Preconditions.checkNotNull(ownerName);
       Preconditions.checkNotNull(volume);
-      return new OmVolumeArgs(this);
+      return new OmVolumeArgs(adminName, ownerName, volume, quotaInBytes,
+          quotaInNamespace, usedNamespace, metadata, acls, creationTime,
+          modificationTime, objectID, updateID, refCount);
     }
 
   }
@@ -392,32 +430,34 @@ public final class OmVolumeArgs extends WithObjectID
         .setQuotaInBytes(quotaInBytes)
         .setQuotaInNamespace(quotaInNamespace)
         .setUsedNamespace(usedNamespace)
-        .addAllMetadata(KeyValueUtil.toProtobuf(getMetadata()))
+        .addAllMetadata(KeyValueUtil.toProtobuf(metadata))
         .addAllVolumeAcls(aclList)
         .setCreationTime(
             creationTime == 0 ? System.currentTimeMillis() : creationTime)
         .setModificationTime(modificationTime)
-        .setObjectID(getObjectID())
-        .setUpdateID(getUpdateID())
+        .setObjectID(objectID)
+        .setUpdateID(updateID)
         .setRefCount(refCount)
         .build();
   }
 
   public static OmVolumeArgs getFromProtobuf(VolumeInfo volInfo) {
-    return new Builder(OzoneAclUtil.fromProtobuf(volInfo.getVolumeAclsList()))
-        .setAdminName(volInfo.getAdminName())
-        .setOwnerName(volInfo.getOwnerName())
-        .setVolume(volInfo.getVolume())
-        .setQuotaInBytes(volInfo.getQuotaInBytes())
-        .setQuotaInNamespace(volInfo.getQuotaInNamespace())
-        .setUsedNamespace(volInfo.getUsedNamespace())
-        .addAllMetadata(KeyValueUtil.getFromProtobuf(volInfo.getMetadataList()))
-        .setCreationTime(volInfo.getCreationTime())
-        .setModificationTime(volInfo.getModificationTime())
-        .setObjectID(volInfo.getObjectID())
-        .setUpdateID(volInfo.getUpdateID())
-        .setRefCount(volInfo.getRefCount())
-        .build();
+    List<OzoneAcl> acls = OzoneAclUtil.fromProtobuf(
+        volInfo.getVolumeAclsList());
+    return new OmVolumeArgs(
+        volInfo.getAdminName(),
+        volInfo.getOwnerName(),
+        volInfo.getVolume(),
+        volInfo.getQuotaInBytes(),
+        volInfo.getQuotaInNamespace(),
+        volInfo.getUsedNamespace(),
+        KeyValueUtil.getFromProtobuf(volInfo.getMetadataList()),
+        acls,
+        volInfo.getCreationTime(),
+        volInfo.getModificationTime(),
+        volInfo.getObjectID(),
+        volInfo.getUpdateID(),
+        volInfo.getRefCount());
   }
 
   @Override
@@ -435,19 +475,19 @@ public final class OmVolumeArgs extends WithObjectID
 
   @Override
   public OmVolumeArgs copyObject() {
-    return new Builder(acls)
-        .setAdminName(adminName)
-        .setOwnerName(ownerName)
-        .setVolume(volume)
-        .setQuotaInBytes(quotaInBytes)
-        .setQuotaInNamespace(quotaInNamespace)
-        .setUsedNamespace(usedNamespace)
-        .addAllMetadata(getMetadata())
-        .setCreationTime(creationTime)
-        .setModificationTime(modificationTime)
-        .setObjectID(getObjectID())
-        .setUpdateID(getUpdateID())
-        .setRefCount(refCount)
-        .build();
+    Map<String, String> cloneMetadata = new HashMap<>();
+    if (metadata != null) {
+      metadata.forEach((k, v) -> cloneMetadata.put(k, v));
+    }
+
+    List<OzoneAcl> cloneAcls = new ArrayList(acls.size());
+
+    acls.forEach(acl -> cloneAcls.add(new OzoneAcl(acl.getType(),
+        acl.getName(), (BitSet) acl.getAclBitSet().clone(),
+        acl.getAclScope())));
+
+    return new OmVolumeArgs(adminName, ownerName, volume, quotaInBytes,
+        quotaInNamespace, usedNamespace, cloneMetadata, cloneAcls,
+        creationTime, modificationTime, objectID, updateID, refCount);
   }
 }

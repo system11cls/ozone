@@ -1,40 +1,43 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.admin.nssummary;
 
+import com.google.gson.internal.LinkedTreeMap;
+import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.ozone.shell.ListOptions;
+import picocli.CommandLine;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.Callable;
+
 import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.getResponseMap;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.makeHttpCall;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.parseInputPath;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printEmptyPathRequest;
+import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printBucketReminder;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printKVSeparator;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printNewLines;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printPathNotFound;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printSpaces;
 import static org.apache.hadoop.ozone.admin.nssummary.NSSummaryCLIUtils.printWithUnderline;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import java.util.concurrent.Callable;
-import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.hdds.cli.HddsVersionProvider;
-import org.apache.hadoop.hdds.server.JsonUtils;
-import org.apache.hadoop.ozone.shell.ListOptions;
-import picocli.CommandLine;
 
 /**
  * Disk Usage Subcommand.
@@ -83,7 +86,7 @@ public class DiskUsageSubCommand implements Callable {
 
   @Override
   public Void call() throws Exception {
-    if (path == null || path.isEmpty()) {
+    if (path == null || path.length() == 0) {
       printEmptyPathRequest();
       return null;
     }
@@ -98,17 +101,22 @@ public class DiskUsageSubCommand implements Callable {
       return null;
     }
 
-    JsonNode duResponse = JsonUtils.readTree(response);
+    HashMap<String, Object> duResponse = getResponseMap(response);
 
-    if ("PATH_NOT_FOUND".equals(duResponse.path("status").asText(""))) {
+    if (duResponse.get("status").equals("PATH_NOT_FOUND")) {
       printPathNotFound();
     } else {
+      if (parent.isObjectStoreBucket(path) ||
+          !parent.bucketIsPresentInThePath(path)) {
+        printBucketReminder();
+      }
 
-      long totalSize = duResponse.path("size").asLong(-1);
+      long totalSize = (long)(double)duResponse.get("size");
+
       if (!noHeader) {
         printWithUnderline("Path", false);
         printKVSeparator();
-        System.out.println(duResponse.path("path").asText(""));
+        System.out.println(duResponse.get("path"));
 
         printWithUnderline("Total Size", false);
         printKVSeparator();
@@ -117,11 +125,11 @@ public class DiskUsageSubCommand implements Callable {
         if (withReplica) {
           printWithUnderline("Total Disk Usage", false);
           printKVSeparator();
-          long du = duResponse.path("sizeWithReplica").asLong(-1);
+          long du = (long)(double)duResponse.get("sizeWithReplica");
           System.out.println(FileUtils.byteCountToDisplaySize(du));
         }
 
-        long sizeDirectKey = duResponse.path("sizeDirectKey").asLong(-1);
+        long sizeDirectKey = (long)(double)duResponse.get("sizeDirectKey");
         if (!listFiles && sizeDirectKey != -1) {
           printWithUnderline("Size of Direct Keys", false);
           printKVSeparator();
@@ -130,7 +138,7 @@ public class DiskUsageSubCommand implements Callable {
         printNewLines(1);
       }
 
-      if (duResponse.path("subPathCount").asInt(-1) == 0) {
+      if ((double)duResponse.get("subPathCount") == 0) {
         if (totalSize == 0) {
           // the object is empty
           System.out.println("The object is empty.\n" +
@@ -153,19 +161,20 @@ public class DiskUsageSubCommand implements Callable {
           seekStr = "";
         }
 
-        ArrayNode subPaths = (ArrayNode) duResponse.path("subPaths");
+        ArrayList duData = (ArrayList)duResponse.get("subPaths");
         int cnt = 0;
-        for (JsonNode subPathDU : subPaths) {
+        for (int i = 0; i < duData.size(); ++i) {
           if (cnt >= limit) {
             break;
           }
-          String subPath = subPathDU.path("path").asText("");
+          LinkedTreeMap subPathDU = (LinkedTreeMap) duData.get(i);
+          String subPath = subPathDU.get("path").toString();
           // differentiate key from other types
-          if (!subPathDU.path("isKey").asBoolean(false)) {
+          if (!(boolean)subPathDU.get("isKey")) {
             subPath += OM_KEY_PREFIX;
           }
-          long size = subPathDU.path("size").asLong(-1);
-          long sizeWithReplica = subPathDU.path("sizeWithReplica").asLong(-1);
+          long size = (long)(double)subPathDU.get("size");
+          long sizeWithReplica = (long)(double)subPathDU.get("sizeWithReplica");
           if (subPath.startsWith(seekStr)) {
             printDURow(subPath, size, sizeWithReplica);
             ++cnt;

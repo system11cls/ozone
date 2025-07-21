@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,20 +19,20 @@
 package org.apache.hadoop.hdds.scm.container.balancer;
 
 import com.google.common.annotations.VisibleForTesting;
-import jakarta.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.PlacementPolicyValidateProxy;
 import org.apache.hadoop.hdds.scm.container.ContainerManager;
 import org.apache.hadoop.hdds.scm.net.NetworkTopology;
 import org.apache.hadoop.hdds.scm.node.DatanodeUsageInfo;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
-import org.slf4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * an implementation of FindTargetGreedy, which will always select the
@@ -40,8 +41,6 @@ import org.slf4j.LoggerFactory;
  */
 public class FindTargetGreedyByNetworkTopology
     extends AbstractFindTargetGreedy {
-  public static final Logger LOG =
-      LoggerFactory.getLogger(FindTargetGreedyByNetworkTopology.class);
 
   private NetworkTopology networkTopology;
   private List potentialTargets;
@@ -52,7 +51,7 @@ public class FindTargetGreedyByNetworkTopology
       NodeManager nodeManager,
       NetworkTopology networkTopology) {
     super(containerManager, placementPolicyValidateProxy, nodeManager);
-    setLogger(LOG);
+    setLogger(LoggerFactory.getLogger(FindTargetGreedyByNetworkTopology.class));
     potentialTargets = new LinkedList<>();
     setPotentialTargets(potentialTargets);
     this.networkTopology = networkTopology;
@@ -63,7 +62,6 @@ public class FindTargetGreedyByNetworkTopology
    * network topology.
    * @param source the specified source datanode
    */
-  @Override
   @VisibleForTesting
   public void sortTargetForSource(DatanodeDetails source) {
     Collections.sort(potentialTargets,
@@ -89,7 +87,7 @@ public class FindTargetGreedyByNetworkTopology
    */
   @Override
   public void resetPotentialTargets(
-      @Nonnull Collection<DatanodeDetails> targets) {
+      @NotNull Collection<DatanodeDetails> targets) {
     // create DatanodeUsageInfo from DatanodeDetails
     List<DatanodeUsageInfo> usageInfos = new ArrayList<>(targets.size());
     targets.forEach(datanodeDetails -> usageInfos.add(

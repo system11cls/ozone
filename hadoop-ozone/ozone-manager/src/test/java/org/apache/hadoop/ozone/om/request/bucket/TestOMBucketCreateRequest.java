@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,38 +14,37 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.request.bucket;
 
-import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.newBucketInfoBuilder;
-import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.newCreateBucketRequest;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
-
 import java.util.UUID;
+
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.StorageTypeProto;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
-import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import org.apache.hadoop.ozone.om.OMMetadataManager;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.StorageTypeProto;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
-import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;
-import org.junit.jupiter.api.Test;
+
+import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.newBucketInfoBuilder;
+import static org.apache.hadoop.ozone.om.request.OMRequestTestUtils.newCreateBucketRequest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests OMBucketCreateRequest class, which handles CreateBucket request.
@@ -111,18 +111,18 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     // As we have not still called validateAndUpdateCache, get() should
     // return null.
 
-    assertNull(omMetadataManager.getBucketTable().get(bucketKey));
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(bucketKey));
 
     OMClientResponse omClientResponse =
         omBucketCreateRequest.validateAndUpdateCache(ozoneManager, 1);
 
     OMResponse omResponse = omClientResponse.getOMResponse();
-    assertNotNull(omResponse.getCreateBucketResponse());
-    assertEquals(OzoneManagerProtocolProtos.Status.VOLUME_NOT_FOUND,
+    Assertions.assertNotNull(omResponse.getCreateBucketResponse());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.VOLUME_NOT_FOUND,
         omResponse.getStatus());
 
     // As request is invalid bucket table should not have entry.
-    assertNull(omMetadataManager.getBucketTable().get(bucketKey));
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(bucketKey));
   }
 
   @Test
@@ -142,8 +142,8 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
         omBucketCreateRequest.validateAndUpdateCache(ozoneManager, 2);
 
     OMResponse omResponse = omClientResponse.getOMResponse();
-    assertNotNull(omResponse.getCreateBucketResponse());
-    assertEquals(OzoneManagerProtocolProtos.Status
+    Assertions.assertNotNull(omResponse.getCreateBucketResponse());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status
             .BUCKET_ALREADY_EXISTS, omResponse.getStatus());
   }
 
@@ -162,7 +162,8 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     OMException e = assertThrows(OMException.class,
         () -> doPreExecute(bucketInfo));
 
-    assertEquals(OMException.ResultCodes.INVALID_REQUEST, e.getResult());
+    Assertions.assertEquals(OMException.ResultCodes.INVALID_REQUEST,
+        e.getResult());
   }
 
   @Test
@@ -177,7 +178,7 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     doValidateAndUpdateCache(volumeName, bucketName,
         omBucketCreateRequest.getOmRequest());
 
-    assertEquals(BucketLayout.FILE_SYSTEM_OPTIMIZED,
+    Assertions.assertEquals(BucketLayout.FILE_SYSTEM_OPTIMIZED,
         omMetadataManager.getBucketTable().get(bucketKey).getBucketLayout());
   }
 
@@ -223,7 +224,7 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     OMClientResponse resp = testRequest.validateAndUpdateCache(
         ozoneManager, 1);
 
-    assertEquals(resp.getOMResponse().getStatus().toString(),
+    Assertions.assertEquals(resp.getOMResponse().getStatus().toString(),
         OMException.ResultCodes.QUOTA_EXCEEDED.toString());
   }
 
@@ -247,7 +248,7 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     OMClientResponse resp = testRequest.validateAndUpdateCache(
         ozoneManager, 1);
 
-    assertEquals(resp.getOMResponse().getStatus().toString(),
+    Assertions.assertEquals(resp.getOMResponse().getStatus().toString(),
         OMException.ResultCodes.QUOTA_ERROR.toString());
   }
 
@@ -300,7 +301,8 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
         String bucketName) {
     Throwable e = assertThrows(OMException.class, () ->
         doPreExecute(volumeName, bucketName));
-    assertEquals(e.getMessage(), "Invalid bucket name: " + bucketName);
+    Assertions.assertEquals(e.getMessage(),
+        "Invalid bucket name: " + bucketName);
   }
 
   protected OMBucketCreateRequest doPreExecute(String volumeName,
@@ -331,10 +333,10 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     // As we have not still called validateAndUpdateCache, get() should
     // return null.
 
-    assertNull(omMetadataManager.getBucketTable().get(bucketKey));
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(bucketKey));
     OMBucketCreateRequest omBucketCreateRequest =
         new OMBucketCreateRequest(modifiedRequest);
-    omBucketCreateRequest.setUGI(UserGroupInformation.getCurrentUser());
+
 
     OMClientResponse omClientResponse =
         omBucketCreateRequest.validateAndUpdateCache(ozoneManager, 1);
@@ -343,24 +345,25 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     // should return non null value.
     OmBucketInfo dbBucketInfo =
         omMetadataManager.getBucketTable().get(bucketKey);
-    assertNotNull(omMetadataManager.getBucketTable().get(bucketKey));
+    Assertions.assertNotNull(omMetadataManager.getBucketTable().get(bucketKey));
 
     // verify table data with actual request data.
     OmBucketInfo bucketInfoFromProto = OmBucketInfo.getFromProtobuf(
         modifiedRequest.getCreateBucketRequest().getBucketInfo());
 
-    assertEquals(bucketInfoFromProto.getCreationTime(),
+    Assertions.assertEquals(bucketInfoFromProto.getCreationTime(),
         dbBucketInfo.getCreationTime());
-    assertEquals(bucketInfoFromProto.getModificationTime(),
+    Assertions.assertEquals(bucketInfoFromProto.getModificationTime(),
         dbBucketInfo.getModificationTime());
-    assertTrue(dbBucketInfo.getAcls().containsAll(bucketInfoFromProto.getAcls()));
-    assertEquals(bucketInfoFromProto.getIsVersionEnabled(),
+    Assertions.assertEquals(bucketInfoFromProto.getAcls(),
+        dbBucketInfo.getAcls());
+    Assertions.assertEquals(bucketInfoFromProto.getIsVersionEnabled(),
         dbBucketInfo.getIsVersionEnabled());
-    assertEquals(bucketInfoFromProto.getStorageType(),
+    Assertions.assertEquals(bucketInfoFromProto.getStorageType(),
         dbBucketInfo.getStorageType());
-    assertEquals(bucketInfoFromProto.getMetadata(),
+    Assertions.assertEquals(bucketInfoFromProto.getMetadata(),
         dbBucketInfo.getMetadata());
-    assertEquals(bucketInfoFromProto.getEncryptionKeyInfo(),
+    Assertions.assertEquals(bucketInfoFromProto.getEncryptionKeyInfo(),
         dbBucketInfo.getEncryptionKeyInfo());
 
     // verify OMResponse.
@@ -375,19 +378,23 @@ public class TestOMBucketCreateRequest extends TestBucketRequest {
     OzoneManagerProtocolProtos.BucketInfo updated =
         modifiedOmRequest.getCreateBucketRequest().getBucketInfo();
 
-    assertEquals(original.getBucketName(), updated.getBucketName());
-    assertEquals(original.getVolumeName(), updated.getVolumeName());
-    assertEquals(original.getIsVersionEnabled(), updated.getIsVersionEnabled());
-    assertEquals(original.getStorageType(), updated.getStorageType());
-    assertEquals(original.getMetadataList(), updated.getMetadataList());
-    assertNotEquals(original.getCreationTime(), updated.getCreationTime());
+    Assertions.assertEquals(original.getBucketName(), updated.getBucketName());
+    Assertions.assertEquals(original.getVolumeName(), updated.getVolumeName());
+    Assertions.assertEquals(original.getIsVersionEnabled(),
+        updated.getIsVersionEnabled());
+    Assertions.assertEquals(original.getStorageType(),
+        updated.getStorageType());
+    Assertions.assertEquals(original.getMetadataList(),
+        updated.getMetadataList());
+    Assertions.assertNotEquals(original.getCreationTime(),
+        updated.getCreationTime());
   }
 
   public static void verifySuccessCreateBucketResponse(OMResponse omResponse) {
-    assertNotNull(omResponse.getCreateBucketResponse());
-    assertEquals(OzoneManagerProtocolProtos.Type.CreateBucket,
+    Assertions.assertNotNull(omResponse.getCreateBucketResponse());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Type.CreateBucket,
         omResponse.getCmdType());
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omResponse.getStatus());
   }
 

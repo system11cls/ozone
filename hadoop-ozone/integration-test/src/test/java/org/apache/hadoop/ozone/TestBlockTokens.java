@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,51 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone;
 
-import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_KERBEROS_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DATANODE_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_EXPIRY_DURATION;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_ROTATE_CHECK_DURATION;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_ROTATE_DURATION;
-import static org.apache.hadoop.hdds.StringUtils.string2Bytes;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.BLOCK_TOKEN_VERIFICATION_FAILED;
-import static org.apache.hadoop.hdds.scm.ScmConfig.ConfigStrings.HDDS_SCM_KERBEROS_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfig.ConfigStrings.HDDS_SCM_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
-import static org.apache.hadoop.hdds.scm.server.SCMHTTPServerConfig.ConfigStrings.HDDS_SCM_HTTP_KERBEROS_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdds.scm.server.SCMHTTPServerConfig.ConfigStrings.HDDS_SCM_HTTP_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HTTP_KERBEROS_KEYTAB_FILE;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HTTP_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KERBEROS_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod.KERBEROS;
-import static org.apache.ozone.test.GenericTestUtils.waitFor;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
+import org.apache.hadoop.hdds.conf.DefaultConfigManager;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.ScmConfig;
@@ -84,14 +46,54 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+
+import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_KERBEROS_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_KERBEROS_PRINCIPAL_KEY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_TOKEN_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_EXPIRY_DURATION;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_ROTATE_CHECK_DURATION;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SECRET_KEY_ROTATE_DURATION;
+import static org.apache.hadoop.hdds.StringUtils.string2Bytes;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.BLOCK_TOKEN_VERIFICATION_FAILED;
+import static org.apache.hadoop.hdds.scm.ScmConfig.ConfigStrings.HDDS_SCM_KERBEROS_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfig.ConfigStrings.HDDS_SCM_KERBEROS_PRINCIPAL_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_CLIENT_ADDRESS_KEY;
+import static org.apache.hadoop.hdds.scm.server.SCMHTTPServerConfig.ConfigStrings.HDDS_SCM_HTTP_KERBEROS_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdds.scm.server.SCMHTTPServerConfig.ConfigStrings.HDDS_SCM_HTTP_KERBEROS_PRINCIPAL_KEY;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ADMINISTRATORS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HTTP_KERBEROS_KEYTAB_FILE;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HTTP_KERBEROS_PRINCIPAL_KEY;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KERBEROS_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KERBEROS_PRINCIPAL_KEY;
+import static org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod.KERBEROS;
+import static org.apache.ozone.test.GenericTestUtils.assertExceptionContains;
+import static org.apache.ozone.test.GenericTestUtils.waitFor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test to verify block tokens in a secure cluster.
@@ -99,7 +101,8 @@ import org.slf4j.LoggerFactory;
 @InterfaceAudience.Private
 @Timeout(value = 180, unit = TimeUnit.SECONDS)
 public final class TestBlockTokens {
-  private static final Logger LOG = LoggerFactory.getLogger(TestBlockTokens.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(TestBlockTokens.class);
   private static final String TEST_VOLUME = "testvolume";
   private static final String TEST_BUCKET = "testbucket";
   private static final String TEST_FILE = "testfile";
@@ -107,15 +110,16 @@ public final class TestBlockTokens {
   private static final int EXPIRY_DURATION_IN_MS = 10000;
   private static final int ROTATION_CHECK_DURATION_IN_MS = 100;
 
-  @TempDir
-  private static File workDir;
   private static MiniKdc miniKdc;
   private static OzoneConfiguration conf;
+  private static File workDir;
   private static File ozoneKeytab;
   private static File spnegoKeytab;
   private static File testUserKeytab;
   private static String testUserPrincipal;
   private static String host;
+  private static String clusterId;
+  private static String scmId;
   private static MiniOzoneHAClusterImpl cluster;
   private static OzoneClient client;
   private static BlockInputStreamFactory blockInputStreamFactory =
@@ -127,6 +131,11 @@ public final class TestBlockTokens {
     conf.set(OZONE_SCM_CLIENT_ADDRESS_KEY, "localhost");
 
     ExitUtils.disableSystemExit();
+
+    workDir =
+        GenericTestUtils.getTestDir(TestBlockTokens.class.getSimpleName());
+    clusterId = UUID.randomUUID().toString();
+    scmId = UUID.randomUUID().toString();
 
     startMiniKdc();
     setSecureConfig();
@@ -155,6 +164,7 @@ public final class TestBlockTokens {
     if (cluster != null) {
       cluster.stop();
     }
+    DefaultConfigManager.clearDefaultConfigs();
   }
 
   @Test
@@ -194,7 +204,8 @@ public final class TestBlockTokens {
     StorageContainerException ex = assertThrows(StorageContainerException.class,
         () -> readDataWithoutRetry(keyInfo));
     assertEquals(BLOCK_TOKEN_VERIFICATION_FAILED, ex.getResult());
-    assertThat(ex).hasMessageContaining("Token can't be verified due to expired secret key");
+    assertExceptionContains(
+        "Token can't be verified due to expired secret key", ex);
   }
 
   @Test
@@ -240,7 +251,7 @@ public final class TestBlockTokens {
         assertThrows(StorageContainerException.class,
             () -> readDataWithoutRetry(keyInfo));
     assertEquals(BLOCK_TOKEN_VERIFICATION_FAILED, ex.getResult());
-    assertThat(ex).hasMessageContaining("Can't find the signing secret key");
+    assertExceptionContains("Can't find the signing secret key", ex);
   }
 
   @Test
@@ -263,7 +274,7 @@ public final class TestBlockTokens {
         assertThrows(StorageContainerException.class,
             () -> readDataWithoutRetry(keyInfo));
     assertEquals(BLOCK_TOKEN_VERIFICATION_FAILED, ex.getResult());
-    assertThat(ex).hasMessageContaining("Invalid token for user");
+    assertExceptionContains("Invalid token for user", ex);
   }
 
   private UUID extractSecretKeyId(OmKeyInfo keyInfo) throws IOException {
@@ -354,7 +365,7 @@ public final class TestBlockTokens {
     conf.set(HDDS_SCM_HTTP_KERBEROS_PRINCIPAL_KEY, "HTTP_SCM/" + hostAndRealm);
     conf.set(OZONE_OM_KERBEROS_PRINCIPAL_KEY, "scm/" + hostAndRealm);
     conf.set(OZONE_OM_HTTP_KERBEROS_PRINCIPAL_KEY, "HTTP_OM/" + hostAndRealm);
-    conf.set(HDDS_DATANODE_KERBEROS_PRINCIPAL_KEY, "scm/" + hostAndRealm);
+    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY, "scm/" + hostAndRealm);
 
     ozoneKeytab = new File(workDir, "scm.keytab");
     spnegoKeytab = new File(workDir, "http.keytab");
@@ -369,19 +380,22 @@ public final class TestBlockTokens {
         ozoneKeytab.getAbsolutePath());
     conf.set(OZONE_OM_HTTP_KERBEROS_KEYTAB_FILE,
         spnegoKeytab.getAbsolutePath());
-    conf.set(HDDS_DATANODE_KERBEROS_KEYTAB_FILE_KEY,
+    conf.set(DFS_DATANODE_KERBEROS_KEYTAB_FILE_KEY,
         ozoneKeytab.getAbsolutePath());
   }
 
   private static void startCluster()
       throws IOException, TimeoutException, InterruptedException {
     OzoneManager.setTestSecureOmFlag(true);
-    MiniOzoneHAClusterImpl.Builder builder = MiniOzoneCluster.newHABuilder(conf)
+    MiniOzoneCluster.Builder builder = MiniOzoneCluster.newHABuilder(conf)
+        .setClusterId(clusterId)
         .setSCMServiceId("TestSecretKey")
+        .setScmId(scmId)
+        .setNumDatanodes(3)
         .setNumOfStorageContainerManagers(3)
         .setNumOfOzoneManagers(1);
 
-    cluster = builder.build();
+    cluster = (MiniOzoneHAClusterImpl) builder.build();
     cluster.waitForClusterToBeReady();
   }
 

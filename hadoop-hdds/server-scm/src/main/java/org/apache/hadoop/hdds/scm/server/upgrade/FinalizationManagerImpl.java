@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,10 +21,6 @@ package org.apache.hadoop.hdds.scm.server.upgrade;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
@@ -34,11 +31,16 @@ import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.upgrade.BasicUpgradeFinalizer;
 import org.apache.hadoop.ozone.upgrade.DefaultUpgradeFinalizationExecutor;
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization;
 import org.apache.hadoop.ozone.upgrade.UpgradeFinalizationExecutor;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer;
 import org.apache.ratis.util.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Class to initiate SCM finalization and query its progress.
@@ -107,7 +109,7 @@ public class FinalizationManagerImpl implements FinalizationManager {
   }
 
   @Override
-  public UpgradeFinalization.StatusAndMessages finalizeUpgrade(
+  public UpgradeFinalizer.StatusAndMessages finalizeUpgrade(
       String upgradeClientID)
       throws IOException {
     Preconditions.checkNotNull(context, "Cannot finalize upgrade without " +
@@ -116,11 +118,11 @@ public class FinalizationManagerImpl implements FinalizationManager {
   }
 
   @Override
-  public UpgradeFinalization.StatusAndMessages queryUpgradeFinalizationProgress(
+  public UpgradeFinalizer.StatusAndMessages queryUpgradeFinalizationProgress(
       String upgradeClientID, boolean takeover, boolean readonly
   ) throws IOException {
     if (readonly) {
-      return new UpgradeFinalization.StatusAndMessages(
+      return new UpgradeFinalizer.StatusAndMessages(
           upgradeFinalizer.getStatus(), Collections.emptyList());
     }
     return upgradeFinalizer.reportStatus(upgradeClientID, takeover);
@@ -181,6 +183,7 @@ public class FinalizationManagerImpl implements FinalizationManager {
   /**
    * Builds a {@link FinalizationManagerImpl}.
    */
+  @SuppressWarnings("checkstyle:hiddenfield")
   public static class Builder {
     private OzoneConfiguration conf;
     private HDDSLayoutVersionManager versionManager;
@@ -193,14 +196,14 @@ public class FinalizationManagerImpl implements FinalizationManager {
       executor = new DefaultUpgradeFinalizationExecutor<>();
     }
 
-    public Builder setConfiguration(OzoneConfiguration configuration) {
-      this.conf = configuration;
+    public Builder setConfiguration(OzoneConfiguration conf) {
+      this.conf = conf;
       return this;
     }
 
     public Builder setLayoutVersionManager(
-        HDDSLayoutVersionManager layoutVersionManager) {
-      this.versionManager = layoutVersionManager;
+        HDDSLayoutVersionManager versionManager) {
+      this.versionManager = versionManager;
       return this;
     }
 
@@ -209,8 +212,8 @@ public class FinalizationManagerImpl implements FinalizationManager {
       return this;
     }
 
-    public Builder setHAManager(SCMHAManager haManager) {
-      this.scmHAManager = haManager;
+    public Builder setHAManager(SCMHAManager scmHAManager) {
+      this.scmHAManager = scmHAManager;
       return this;
     }
 
@@ -221,8 +224,8 @@ public class FinalizationManagerImpl implements FinalizationManager {
     }
 
     public Builder setFinalizationExecutor(
-        UpgradeFinalizationExecutor<SCMUpgradeFinalizationContext> finalizationExecutor) {
-      this.executor = finalizationExecutor;
+        UpgradeFinalizationExecutor<SCMUpgradeFinalizationContext> executor) {
+      this.executor = executor;
       return this;
     }
 

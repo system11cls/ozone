@@ -1,41 +1,22 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.container.replication;
 
-import static java.util.Collections.singletonList;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -50,9 +31,24 @@ import org.apache.hadoop.hdds.scm.pipeline.InsufficientDatanodesException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static java.util.Collections.singletonList;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 
 /**
  * Tests the ECMisReplicationHandling functionality.
@@ -63,10 +59,10 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
 
 
   @BeforeEach
-  void setup(@TempDir File testDir) throws NodeNotFoundException,
+  public void setup() throws NodeNotFoundException,
       CommandTargetOverloadedException, NotLeaderException {
     ECReplicationConfig repConfig = new ECReplicationConfig(DATA, PARITY);
-    setup(repConfig, testDir);
+    setup(repConfig);
   }
 
   @ParameterizedTest
@@ -87,14 +83,16 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
             .createReplicas(Pair.of(IN_SERVICE, 1), Pair.of(IN_SERVICE, 2),
                     Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
                     Pair.of(IN_SERVICE, 5));
-    PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
     ContainerPlacementStatus mockedContainerPlacementStatus =
-            mock(ContainerPlacementStatus.class);
-    when(mockedContainerPlacementStatus.isPolicySatisfied()).thenReturn(false);
-    when(placementPolicy.validateContainerPlacement(anyList(),
-        anyInt())).thenReturn(mockedContainerPlacementStatus);
-    when(placementPolicy.chooseDatanodes(
-        any(), any(), any(), anyInt(), anyLong(), anyLong()))
+            Mockito.mock(ContainerPlacementStatus.class);
+    Mockito.when(mockedContainerPlacementStatus.isPolicySatisfied())
+            .thenReturn(false);
+    Mockito.when(placementPolicy.validateContainerPlacement(anyList(),
+                    anyInt())).thenReturn(mockedContainerPlacementStatus);
+    Mockito.when(placementPolicy.chooseDatanodes(
+                    any(), any(), any(),
+                    Mockito.anyInt(), Mockito.anyLong(), Mockito.anyLong()))
             .thenThrow(new IOException("No nodes found"));
     assertThrows(SCMException.class, () -> testMisReplication(
             availableReplicas, placementPolicy, Collections.emptyList(),
@@ -138,11 +136,12 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
             .createReplicas(Pair.of(IN_SERVICE, 1), Pair.of(IN_SERVICE, 2),
                     Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
                     Pair.of(IN_SERVICE, 5));
-    PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
     ContainerPlacementStatus mockedContainerPlacementStatus =
-            mock(ContainerPlacementStatus.class);
-    when(mockedContainerPlacementStatus.isPolicySatisfied()).thenReturn(true);
-    when(placementPolicy.validateContainerPlacement(anyList(),
+            Mockito.mock(ContainerPlacementStatus.class);
+    Mockito.when(mockedContainerPlacementStatus.isPolicySatisfied())
+            .thenReturn(true);
+    Mockito.when(placementPolicy.validateContainerPlacement(anyList(),
                     anyInt())).thenReturn(mockedContainerPlacementStatus);
     testMisReplication(availableReplicas, placementPolicy,
             Collections.emptyList(), 0, 1, 0);
@@ -155,11 +154,12 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
             .createReplicas(Pair.of(IN_SERVICE, 1), Pair.of(IN_SERVICE, 2),
                     Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
                     Pair.of(IN_SERVICE, 5));
-    PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
     ContainerPlacementStatus mockedContainerPlacementStatus =
-            mock(ContainerPlacementStatus.class);
-    when(mockedContainerPlacementStatus.isPolicySatisfied()).thenReturn(true);
-    when(placementPolicy.validateContainerPlacement(anyList(),
+            Mockito.mock(ContainerPlacementStatus.class);
+    Mockito.when(mockedContainerPlacementStatus.isPolicySatisfied())
+            .thenReturn(true);
+    Mockito.when(placementPolicy.validateContainerPlacement(anyList(),
             anyInt())).thenReturn(mockedContainerPlacementStatus);
     List<ContainerReplicaOp> pendingOp = singletonList(
             ContainerReplicaOp.create(ContainerReplicaOp.PendingOpType.ADD,
@@ -176,7 +176,7 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
   @Test
   public void testAllSourcesOverloaded() throws IOException {
     ReplicationManager replicationManager = getReplicationManager();
-    doThrow(new CommandTargetOverloadedException("Overloaded"))
+    Mockito.doThrow(new CommandTargetOverloadedException("Overloaded"))
         .when(replicationManager).sendThrottledReplicationCommand(any(),
             anyList(), any(), anyInt());
     Set<ContainerReplica> availableReplicas = ReplicationTestUtil
@@ -206,10 +206,12 @@ public class TestECMisReplicationHandler extends TestMisReplicationHandler {
         .createReplicas(Pair.of(IN_SERVICE, 1), Pair.of(IN_SERVICE, 2),
             Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
             Pair.of(IN_SERVICE, 5));
-    PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
     List<DatanodeDetails> targetDatanodes = singletonList(
         availableReplicas.iterator().next().getDatanodeDetails());
-    when(placementPolicy.chooseDatanodes(any(), any(), any(), anyInt(), anyLong(), anyLong()))
+    Mockito.when(placementPolicy.chooseDatanodes(
+            any(), any(), any(),
+            Mockito.anyInt(), Mockito.anyLong(), Mockito.anyLong()))
         .thenReturn(targetDatanodes);
     assertThrows(InsufficientDatanodesException.class,
         () -> testMisReplication(availableReplicas, Collections.emptyList(),

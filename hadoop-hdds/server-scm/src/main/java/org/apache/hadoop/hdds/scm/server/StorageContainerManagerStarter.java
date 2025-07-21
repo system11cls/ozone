@@ -1,31 +1,31 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license
+ * agreements. See the NOTICE file distributed with this work for additional
+ * information regarding
+ * copyright ownership. The ASF licenses this file to you under the Apache
+ * License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License. You may obtain a
+ * copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * <p>http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
+ * <p>Unless required by applicable law or agreed to in writing, software
+ * distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.server;
 
-import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.DEFAULT_SHUTDOWN_HOOK_PRIORITY;
-
-import java.io.IOException;
-import java.util.concurrent.Callable;
+import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.cli.GenericCli;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
-import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdds.utils.HddsVersionInfo;
 import org.apache.hadoop.ozone.common.StorageInfo;
 import org.apache.hadoop.ozone.util.OzoneNetUtils;
@@ -36,6 +36,10 @@ import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
+import java.io.IOException;
+
+import static org.apache.hadoop.ozone.conf.OzoneServiceConfig.DEFAULT_SHUTDOWN_HOOK_PRIORITY;
+
 /**
  * This class provides a command line interface to start the SCM
  * using Picocli.
@@ -45,7 +49,7 @@ import picocli.CommandLine.Command;
     hidden = true, description = "Start or initialize the scm server.",
     versionProvider = HddsVersionProvider.class,
     mixinStandardHelpOptions = true)
-public class StorageContainerManagerStarter extends GenericCli implements Callable<Void> {
+public class StorageContainerManagerStarter extends GenericCli {
 
   private OzoneConfiguration conf;
   private SCMStarterInterface receiver;
@@ -87,8 +91,8 @@ public class StorageContainerManagerStarter extends GenericCli implements Callab
       versionProvider = HddsVersionProvider.class)
   public void generateClusterId() {
     commonInit();
-    out().println("Generating new cluster id:");
-    out().println(receiver.generateClusterId());
+    System.out.println("Generating new cluster id:");
+    System.out.println(receiver.generateClusterId());
   }
 
   /**
@@ -146,12 +150,12 @@ public class StorageContainerManagerStarter extends GenericCli implements Callab
    * is set and print the startup banner message.
    */
   private void commonInit() {
-    conf = getOzoneConf();
+    conf = createOzoneConfiguration();
     TracingUtil.initTracing("StorageContainerManager", conf);
 
     String[] originalArgs = getCmd().getParseResult().originalArgs()
         .toArray(new String[0]);
-    HddsServerUtil.startupShutdownMessage(HddsVersionInfo.HDDS_VERSION_INFO,
+    StringUtils.startupShutdownMessage(HddsVersionInfo.HDDS_VERSION_INFO,
         StorageContainerManager.class, originalArgs, LOG, conf);
   }
 

@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,45 +18,51 @@
 
 package org.apache.hadoop.ozone.om.request.key;
 
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
-
-import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.util.Map;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+
+import com.google.common.base.Preconditions;
+import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
+import org.apache.hadoop.ozone.om.request.validation.RequestFeatureValidator;
+import org.apache.hadoop.ozone.om.request.validation.RequestProcessingPhase;
+import org.apache.hadoop.ozone.om.request.validation.ValidationCondition;
+import org.apache.hadoop.ozone.om.request.validation.ValidationContext;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
+import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.OMAction;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
-import org.apache.hadoop.ozone.om.request.validation.RequestFeatureValidator;
-import org.apache.hadoop.ozone.om.request.validation.RequestProcessingPhase;
-import org.apache.hadoop.ozone.om.request.validation.ValidationCondition;
-import org.apache.hadoop.ozone.om.request.validation.ValidationContext;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.key.OMKeyRenameResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .KeyArgs;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeyRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeyResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
-import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
-import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .RenameKeyRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .RenameKeyResponse;
 import org.apache.hadoop.util.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.BUCKET_LOCK;
 
 /**
  * Handles rename key request.
@@ -71,14 +78,19 @@ public class OMKeyRenameRequest extends OMKeyRequest {
 
   @Override
   public OMRequest preExecute(OzoneManager ozoneManager) throws IOException {
-    RenameKeyRequest renameKeyRequest = super.preExecute(ozoneManager)
-        .getRenameKeyRequest();
+
+    RenameKeyRequest renameKeyRequest = getOmRequest().getRenameKeyRequest();
     Preconditions.checkNotNull(renameKeyRequest);
 
+    // Verify key name
+    final boolean checkKeyNameEnabled = ozoneManager.getConfiguration()
+         .getBoolean(OMConfigKeys.OZONE_OM_KEYNAME_CHARACTER_CHECK_ENABLED_KEY,
+                 OMConfigKeys.OZONE_OM_KEYNAME_CHARACTER_CHECK_ENABLED_DEFAULT);
+    if (checkKeyNameEnabled) {
+      OmUtils.validateKeyName(renameKeyRequest.getToKeyName());
+    }
+
     KeyArgs renameKeyArgs = renameKeyRequest.getKeyArgs();
-    ValidateKeyArgs validateArgs = new ValidateKeyArgs.Builder()
-        .setKeyName(renameKeyRequest.getToKeyName()).build();
-    validateKey(ozoneManager, validateArgs);
 
     String srcKey = extractSrcKey(renameKeyArgs);
     String dstKey = extractDstKey(renameKeyRequest);
@@ -87,36 +99,18 @@ public class OMKeyRenameRequest extends OMKeyRequest {
     KeyArgs.Builder newKeyArgs = renameKeyArgs.toBuilder()
         .setModificationTime(Time.now()).setKeyName(srcKey);
 
-    KeyArgs resolvedArgs = resolveBucketAndCheckAcls(newKeyArgs.build(),
-        ozoneManager, srcKey, dstKey);
-
     return getOmRequest().toBuilder()
         .setRenameKeyRequest(renameKeyRequest.toBuilder().setToKeyName(dstKey)
-            .setKeyArgs(resolvedArgs))
+            .setKeyArgs(newKeyArgs))
         .setUserInfo(getUserIfNotExists(ozoneManager)).build();
 
-  }
-
-  protected KeyArgs resolveBucketAndCheckAcls(KeyArgs keyArgs,
-      OzoneManager ozoneManager, String fromKeyName, String toKeyName)
-      throws IOException {
-    KeyArgs resolvedArgs = resolveBucketLink(ozoneManager, keyArgs);
-    // check Acl
-    String volumeName = resolvedArgs.getVolumeName();
-    String bucketName = resolvedArgs.getBucketName();
-
-    checkKeyAcls(ozoneManager, volumeName, bucketName, fromKeyName,
-        IAccessAuthorizer.ACLType.DELETE, OzoneObj.ResourceType.KEY);
-    checkKeyAcls(ozoneManager, volumeName, bucketName, toKeyName,
-        IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
-    return resolvedArgs;
   }
 
 
   @Override
   @SuppressWarnings("methodlength")
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
-    final long trxnLogIndex = context.getIndex();
+  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
+      long trxnLogIndex) {
 
     RenameKeyRequest renameKeyRequest = getOmRequest().getRenameKeyRequest();
     OzoneManagerProtocolProtos.KeyArgs keyArgs =
@@ -144,10 +138,22 @@ public class OMKeyRenameRequest extends OMKeyRequest {
     String toKey = null, fromKey = null;
     Result result = null;
     try {
-      if (toKeyName.isEmpty() || fromKeyName.isEmpty()) {
+      if (toKeyName.length() == 0 || fromKeyName.length() == 0) {
         throw new OMException("Key name is empty",
             OMException.ResultCodes.INVALID_KEY_NAME);
       }
+
+      keyArgs = resolveBucketLink(ozoneManager, keyArgs, auditMap);
+      volumeName = keyArgs.getVolumeName();
+      bucketName = keyArgs.getBucketName();
+
+      // check Acls to see if user has access to perform delete operation on
+      // old key and create operation on new key
+      checkKeyAcls(ozoneManager, volumeName, bucketName, fromKeyName,
+          IAccessAuthorizer.ACLType.DELETE, OzoneObj.ResourceType.KEY);
+      checkKeyAcls(ozoneManager, volumeName, bucketName, toKeyName,
+          IAccessAuthorizer.ACLType.CREATE, OzoneObj.ResourceType.KEY);
+
       mergeOmLockDetails(omMetadataManager.getLock()
           .acquireWriteLock(BUCKET_LOCK, volumeName, bucketName));
       acquiredLock = getOmLockDetails().isLockAcquired();
@@ -175,7 +181,7 @@ public class OMKeyRenameRequest extends OMKeyRequest {
         throw new OMException("Key not found " + fromKey, KEY_NOT_FOUND);
       }
 
-      fromKeyValue.setUpdateID(trxnLogIndex);
+      fromKeyValue.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
 
       fromKeyValue.setKeyName(toKeyName);
 
@@ -214,7 +220,7 @@ public class OMKeyRenameRequest extends OMKeyRequest {
       }
     }
 
-    markForAudit(auditLogger, buildAuditMessage(OMAction.RENAME_KEY, auditMap,
+    auditLog(auditLogger, buildAuditMessage(OMAction.RENAME_KEY, auditMap,
         exception, getOmRequest().getUserInfo()));
 
     switch (result) {

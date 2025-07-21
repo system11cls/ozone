@@ -1,29 +1,22 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p/>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.ha;
 
-import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
-
 import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.hadoop.hdds.scm.block.DeletedBlockLog;
 import org.apache.hadoop.hdds.scm.block.DeletedBlockLogImpl;
 import org.apache.hadoop.hdds.scm.metadata.SCMMetadataStore;
@@ -33,8 +26,13 @@ import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.ratis.statemachine.SnapshotInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
 
 /**
  * This is a transaction buffer that buffers SCM DB operations for Pipeline and
@@ -43,8 +41,6 @@ import org.slf4j.LoggerFactory;
  * operation in DB.
  */
 public class SCMHADBTransactionBufferImpl implements SCMHADBTransactionBuffer {
-
-  public static final Logger LOG = LoggerFactory.getLogger(SCMHADBTransactionBufferImpl.class);
   private final StorageContainerManager scm;
   private SCMMetadataStore metadataStore;
   private BatchOperation currentBatchOperation;
@@ -111,8 +107,6 @@ public class SCMHADBTransactionBufferImpl implements SCMHADBTransactionBuffer {
 
   @Override
   public void setLatestSnapshot(SnapshotInfo latestSnapshot) {
-    LOG.info("{}: Set latest Snapshot to {}",
-        scm.getScmHAManager().getRatisServer().getDivision().getId(), latestSnapshot);
     this.latestSnapshot.set(latestSnapshot);
   }
 
@@ -164,7 +158,12 @@ public class SCMHADBTransactionBufferImpl implements SCMHADBTransactionBuffer {
           .get(TRANSACTION_INFO_KEY);
       if (latestTrxInfo == null) {
         // transaction table is empty
-        latestTrxInfo = TransactionInfo.DEFAULT_VALUE;
+        latestTrxInfo =
+            TransactionInfo
+                .builder()
+                .setTransactionIndex(-1)
+                .setCurrentTerm(0)
+                .build();
       }
       latestSnapshot.set(latestTrxInfo.toSnapshotInfo());
     } finally {

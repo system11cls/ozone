@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,17 +18,20 @@
 
 package org.apache.hadoop.ozone.om.response.key;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateKeyResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
-import org.junit.jupiter.api.Test;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .CreateKeyResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMResponse;
+
+import java.io.IOException;
+
 
 /**
  * Tests MKeyCreateResponse.
@@ -55,13 +59,15 @@ public class TestOMKeyCreateResponse extends TestOMKeyResponse {
 
     String openKey = getOpenKeyName();
 
-    assertFalse(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
+    Assertions.assertFalse(
+        omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
     omKeyCreateResponse.addToDBBatch(omMetadataManager, batchOperation);
 
     // Do manual commit and see whether addToBatch is successful or not.
     omMetadataManager.getStore().commitBatchOperation(batchOperation);
 
-    assertTrue(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
+    Assertions.assertTrue(
+        omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
   }
 
   @Test
@@ -81,7 +87,8 @@ public class TestOMKeyCreateResponse extends TestOMKeyResponse {
 
     // Before calling addToDBBatch
     String openKey = getOpenKeyName();
-    assertFalse(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
+    Assertions.assertFalse(
+        omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
 
     omKeyCreateResponse.checkAndUpdateDB(omMetadataManager, batchOperation);
 
@@ -89,11 +96,12 @@ public class TestOMKeyCreateResponse extends TestOMKeyResponse {
     omMetadataManager.getStore().commitBatchOperation(batchOperation);
 
     // As omResponse is error it is a no-op.
-    assertFalse(omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
+    Assertions.assertFalse(
+        omMetadataManager.getOpenKeyTable(getBucketLayout()).isExist(openKey));
 
   }
 
-  @Nonnull
+  @NotNull
   protected OMKeyCreateResponse getOmKeyCreateResponse(OmKeyInfo keyInfo,
       OmBucketInfo bucketInfo, OMResponse response) throws IOException {
 

@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,11 +24,6 @@ import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_DB
 import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_OM_SNAPSHOT_DB_DIR;
 import static org.apache.hadoop.ozone.recon.ReconServerConfigKeys.OZONE_RECON_SCM_DB_DIR;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,18 +32,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
 import org.apache.hadoop.ozone.recon.persistence.AbstractReconSqlDBTest;
 import org.apache.hadoop.ozone.recon.recovery.ReconOMMetadataManager;
-import org.apache.hadoop.ozone.recon.spi.OzoneManagerServiceProvider;
 import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
 import org.apache.hadoop.ozone.recon.spi.ReconNamespaceSummaryManager;
+import org.apache.hadoop.ozone.recon.spi.OzoneManagerServiceProvider;
 import org.apache.hadoop.ozone.recon.spi.impl.ReconContainerMetadataManagerImpl;
-import org.apache.hadoop.ozone.recon.spi.impl.ReconDBProvider;
 import org.apache.hadoop.ozone.recon.spi.impl.ReconNamespaceSummaryManagerImpl;
+import org.apache.hadoop.ozone.recon.spi.impl.ReconDBProvider;
 import org.apache.ratis.util.Preconditions;
+import org.junit.rules.TemporaryFolder;
+
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Singleton;
 
 /**
  * Class to setup a recon test injector, with any combination of sub modules
@@ -69,6 +73,10 @@ public class ReconTestInjector {
   private Map<Class, Class> extraInheritedBindings = new HashMap<>();
   private Map<Class, Object> extraInstanceBindings = new HashMap<>();
   private Set<Class> extraClassBindings = new HashSet<>();
+
+  public ReconTestInjector(TemporaryFolder temporaryFolder) throws IOException {
+    this.tmpDir = temporaryFolder.newFolder();
+  }
 
   public ReconTestInjector(File tmpDir) {
     this.tmpDir = tmpDir;
@@ -200,7 +208,7 @@ public class ReconTestInjector {
     }
 
     if (withReconSqlDb) {
-      reconSqlDB = new AbstractReconSqlDBTest(tmpDir.toPath());
+      reconSqlDB = new AbstractReconSqlDBTest();
       modules.addAll(reconSqlDB.getReconSqlDBModules());
     }
 
@@ -229,6 +237,10 @@ public class ReconTestInjector {
    */
   public static class Builder {
     private ReconTestInjector reconTestInjector;
+
+    public Builder(TemporaryFolder temporaryFolder) throws IOException {
+      reconTestInjector = new ReconTestInjector(temporaryFolder);
+    }
 
     public Builder(File tmpDir) {
       reconTestInjector = new ReconTestInjector(tmpDir);

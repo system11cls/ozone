@@ -20,16 +20,7 @@
         <td>{{$ctrl.jmx.SystemProperties.java_vm_name}} {{$ctrl.jmx.SystemProperties.java_vm_version}}</td>
     </tr>
     <tr>
-        <th>
-            Input arguments:
-            <button class="toggle-btn" ng-click="toggleContent()">
-                {{ contentVisible ? 'Collapse(-)' : 'Expand(+)' }}
-            </button>
-        </th>
-        <td>
-            <div class="content" ng-show="contentVisible">
-                <pre>{{$ctrl.jmx.InputArguments.join('\n')}}</pre>
-            </div>
-        </td>
+        <th>Input arguments:</th>
+        <td>{{$ctrl.jmx.InputArguments}}</td>
     </tr>
 </table>

@@ -1,52 +1,51 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.parser;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import com.google.common.base.Preconditions;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.PrintStream;
-import java.util.UUID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ha.SCMHAUtils;
 import org.apache.hadoop.hdds.scm.ha.SCMRatisRequest;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
-import org.apache.hadoop.ozone.debug.segmentparser.OMRatisLogParser;
-import org.apache.hadoop.ozone.debug.segmentparser.SCMRatisLogParser;
 import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.segmentparser.OMRatisLogParser;
+import org.apache.hadoop.ozone.segmentparser.SCMRatisLogParser;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.PrintStream;
+import java.util.UUID;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 
 /**
  * Test Ozone OM and SCM HA Ratis log parser.
@@ -62,10 +61,14 @@ class TestOzoneHARatisLogParser {
 
   @BeforeEach
   void setup() throws Exception {
+    String clusterId = UUID.randomUUID().toString();
+    String scmId = UUID.randomUUID().toString();
     String omServiceId = "omServiceId1";
     OzoneConfiguration conf = new OzoneConfiguration();
     String scmServiceId = "scmServiceId";
-    cluster =  MiniOzoneCluster.newHABuilder(conf)
+    cluster =  (MiniOzoneHAClusterImpl) MiniOzoneCluster.newHABuilder(conf)
+        .setClusterId(clusterId)
+        .setScmId(scmId)
         .setOMServiceId(omServiceId)
         .setSCMServiceId(scmServiceId)
         .setNumOfOzoneManagers(3)
@@ -110,20 +113,20 @@ class TestOzoneHARatisLogParser {
 
     File omMetaDir = new File(ozoneConfiguration.get(OZONE_METADATA_DIRS),
         "ratis");
-    assertThat(omMetaDir).isDirectory();
+    Assertions.assertTrue(omMetaDir.isDirectory());
 
     String[] ratisDirs = omMetaDir.list();
-    assertNotNull(ratisDirs);
-    assertEquals(1, ratisDirs.length);
+    Assertions.assertNotNull(ratisDirs);
+    Assertions.assertEquals(1, ratisDirs.length);
 
     File groupDir = new File(omMetaDir, ratisDirs[0]);
 
-    assertNotNull(groupDir);
-    assertThat(groupDir).isDirectory();
+    Assertions.assertNotNull(groupDir);
+    Assertions.assertTrue(groupDir.isDirectory());
     File currentDir = new File(groupDir, "current");
     File logFile = new File(currentDir, "log_inprogress_0");
     GenericTestUtils.waitFor(logFile::exists, 100, 15000);
-    assertThat(logFile).isFile();
+    Assertions.assertTrue(logFile.isFile());
 
     OMRatisLogParser omRatisLogParser = new OMRatisLogParser();
     omRatisLogParser.setSegmentFile(logFile);
@@ -132,26 +135,27 @@ class TestOzoneHARatisLogParser {
 
     // Not checking total entry count, because of not sure of exact count of
     // metadata entry changes.
-    assertThat(out.toString(UTF_8.name())).contains("Num Total Entries:");
+    Assertions.assertTrue(out.toString(UTF_8.name())
+        .contains("Num Total Entries:"));
     out.reset();
 
     // Now check for SCM.
     File scmMetadataDir =
         new File(SCMHAUtils.getRatisStorageDir(leaderSCMConfig));
-    assertThat(scmMetadataDir).isDirectory();
+    Assertions.assertTrue(scmMetadataDir.isDirectory());
 
     ratisDirs = scmMetadataDir.list();
-    assertNotNull(ratisDirs);
-    assertEquals(1, ratisDirs.length);
+    Assertions.assertNotNull(ratisDirs);
+    Assertions.assertEquals(1, ratisDirs.length);
 
     groupDir = new File(scmMetadataDir, ratisDirs[0]);
 
-    assertNotNull(groupDir);
-    assertThat(groupDir).isDirectory();
+    Assertions.assertNotNull(groupDir);
+    Assertions.assertTrue(groupDir.isDirectory());
     currentDir = new File(groupDir, "current");
     logFile = new File(currentDir, "log_inprogress_1");
     GenericTestUtils.waitFor(logFile::exists, 100, 15000);
-    assertThat(logFile).isFile();
+    Assertions.assertTrue(logFile.isFile());
 
     SCMRatisLogParser scmRatisLogParser = new SCMRatisLogParser();
     scmRatisLogParser.setSegmentFile(logFile);
@@ -159,6 +163,7 @@ class TestOzoneHARatisLogParser {
 
     // Not checking total entry count, because of not sure of exact count of
     // metadata entry changes.
-    assertThat(out.toString(UTF_8.name())).contains("Num Total Entries:");
+    Assertions.assertTrue(out.toString(UTF_8.name())
+        .contains("Num Total Entries:"));
   }
 }

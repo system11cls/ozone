@@ -1,36 +1,27 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.keyvalue;
 
-import static org.apache.ozone.test.GenericTestUtils.toLog4j;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hdds.JsonTestUtils;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.DeletedBlocksTransaction;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.Table;
@@ -45,6 +36,20 @@ import org.apache.hadoop.ozone.container.metadata.DatanodeStoreSchemaThreeImpl;
 import org.apache.hadoop.ozone.container.metadata.DatanodeStoreSchemaTwoImpl;
 import org.apache.log4j.PatternLayout;
 import org.apache.ozone.test.GenericTestUtils;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.apache.ozone.test.GenericTestUtils.toLog4j;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link KeyValueContainerMetadataInspector}.
@@ -53,10 +58,11 @@ public class TestKeyValueContainerMetadataInspector
     extends TestKeyValueContainerIntegrityChecks {
   private static final long CONTAINER_ID = 102;
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testRunDisabled(ContainerTestVersionInfo versionInfo)
       throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     // Create incorrect container.
     KeyValueContainer container = createClosedContainer(3);
     KeyValueContainerData containerData = container.getContainerData();
@@ -78,10 +84,11 @@ public class TestKeyValueContainerMetadataInspector
     assertNull(runInspectorAndGetReport(containerData));
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testSystemPropertyAndReadOnly(
       ContainerTestVersionInfo versionInfo) throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     System.clearProperty(KeyValueContainerMetadataInspector.SYSTEM_PROPERTY);
     ContainerInspector inspector = new KeyValueContainerMetadataInspector();
     assertFalse(inspector.load());
@@ -112,10 +119,11 @@ public class TestKeyValueContainerMetadataInspector
     System.clearProperty(KeyValueContainerMetadataInspector.SYSTEM_PROPERTY);
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testIncorrectTotalsNoData(ContainerTestVersionInfo versionInfo)
       throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     int createBlocks = 0;
     int setBlocks = -3;
     int setBytes = -2;
@@ -126,10 +134,11 @@ public class TestKeyValueContainerMetadataInspector
         createBlocks, setBlocks, setBytes, 0, 0);
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testIncorrectTotalsWithData(ContainerTestVersionInfo versionInfo)
       throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     int createBlocks = 3;
     int setBlocks = 4;
     int setBytes = -2;
@@ -141,10 +150,12 @@ public class TestKeyValueContainerMetadataInspector
         createBlocks, setBlocks, setBytes, 0, 0);
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testCorrectTotalsNoData(ContainerTestVersionInfo versionInfo)
       throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
+
     int createBlocks = 0;
     int setBytes = 0;
 
@@ -154,10 +165,11 @@ public class TestKeyValueContainerMetadataInspector
     inspectThenRepairOnCorrectContainer(container.getContainerData());
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testCorrectTotalsWithData(ContainerTestVersionInfo versionInfo)
       throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     int createBlocks = 3;
     int setBytes = CHUNK_LEN * CHUNKS_PER_BLOCK * createBlocks;
 
@@ -196,10 +208,11 @@ public class TestKeyValueContainerMetadataInspector
   static final DeletedBlocksTransactionGeneratorForTesting GENERATOR
       = new DeletedBlocksTransactionGeneratorForTesting();
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testCorrectDeleteWithTransaction(
       ContainerTestVersionInfo versionInfo) throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     final int createBlocks = 4;
     final int setBytes = CHUNK_LEN * CHUNKS_PER_BLOCK * createBlocks;
     final int deleteCount = 10;
@@ -219,10 +232,11 @@ public class TestKeyValueContainerMetadataInspector
     inspectThenRepairOnCorrectContainer(container.getContainerData());
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testIncorrectDeleteWithTransaction(
       ContainerTestVersionInfo versionInfo) throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     final int createBlocks = 4;
     final int setBytes = CHUNK_LEN * CHUNKS_PER_BLOCK * createBlocks;
     final int deleteCount = 10;
@@ -243,10 +257,11 @@ public class TestKeyValueContainerMetadataInspector
         deleteCount, numDeletedLocalIds);
   }
 
-  @ContainerTestVersionInfo.ContainerTest
+  @ParameterizedTest
+  @MethodSource("data")
   public void testIncorrectDeleteWithoutTransaction(
       ContainerTestVersionInfo versionInfo) throws Exception {
-    initTestData(versionInfo);
+    setUp(versionInfo);
     final int createBlocks = 4;
     final int setBytes = CHUNK_LEN * CHUNKS_PER_BLOCK * createBlocks;
     final int deleteCount = 10;
@@ -308,7 +323,7 @@ public class TestKeyValueContainerMetadataInspector
     String containerState = containerData.getState().toString();
 
     // First inspect the container.
-    JsonNode inspectJson = runInspectorAndGetReport(containerData,
+    JsonObject inspectJson = runInspectorAndGetReport(containerData,
         KeyValueContainerMetadataInspector.Mode.INSPECT);
 
     checkJsonReportForIncorrectContainer(inspectJson,
@@ -318,7 +333,7 @@ public class TestKeyValueContainerMetadataInspector
     checkDbCounts(containerData, setBlocks, setBytes, deleteCount);
 
     // Now repair the container.
-    JsonNode repairJson = runInspectorAndGetReport(containerData,
+    JsonObject repairJson = runInspectorAndGetReport(containerData,
         KeyValueContainerMetadataInspector.Mode.REPAIR);
     checkJsonReportForIncorrectContainer(repairJson,
         containerState, createdBlocks, setBlocks, createdBytes, setBytes,
@@ -329,36 +344,38 @@ public class TestKeyValueContainerMetadataInspector
   }
 
   @SuppressWarnings("checkstyle:ParameterNumber")
-  private void checkJsonReportForIncorrectContainer(JsonNode inspectJson,
+  private void checkJsonReportForIncorrectContainer(JsonObject inspectJson,
       String expectedContainerState, long createdBlocks,
       long setBlocks, long createdBytes, long setBytes, long createdFiles,
       long setPendingDeleteCount, long createdPendingDeleteCount,
       boolean shouldRepair) {
     // Check main container properties.
-    assertEquals(inspectJson.get("containerID").asLong(), CONTAINER_ID);
-    assertEquals(inspectJson.get("containerState").asText(), expectedContainerState);
+    assertEquals(inspectJson.get("containerID").getAsLong(),
+        CONTAINER_ID);
+    assertEquals(inspectJson.get("containerState").getAsString(),
+        expectedContainerState);
 
     // Check DB metadata.
-    JsonNode jsonDbMetadata = inspectJson.get("dBMetadata");
+    JsonObject jsonDbMetadata = inspectJson.getAsJsonObject("dBMetadata");
     assertEquals(setBlocks,
-        jsonDbMetadata.get(OzoneConsts.BLOCK_COUNT).asLong());
+        jsonDbMetadata.get(OzoneConsts.BLOCK_COUNT).getAsLong());
     assertEquals(setBytes,
-        jsonDbMetadata.get(OzoneConsts.CONTAINER_BYTES_USED).asLong());
+        jsonDbMetadata.get(OzoneConsts.CONTAINER_BYTES_USED).getAsLong());
 
     // Check aggregate metadata values.
-    JsonNode jsonAggregates = inspectJson.get("aggregates");
+    JsonObject jsonAggregates = inspectJson.getAsJsonObject("aggregates");
     assertEquals(createdBlocks,
-        jsonAggregates.get("blockCount").asLong());
+        jsonAggregates.get("blockCount").getAsLong());
     assertEquals(createdBytes,
-        jsonAggregates.get("usedBytes").asLong());
+        jsonAggregates.get("usedBytes").getAsLong());
     assertEquals(createdPendingDeleteCount,
-        jsonAggregates.get("pendingDeleteBlocks").asLong());
+        jsonAggregates.get("pendingDeleteBlocks").getAsLong());
 
     // Check chunks directory.
-    JsonNode jsonChunksDir = inspectJson.get("chunksDirectory");
-    assertTrue(jsonChunksDir.get("present").asBoolean());
+    JsonObject jsonChunksDir = inspectJson.getAsJsonObject("chunksDirectory");
+    assertTrue(jsonChunksDir.get("present").getAsBoolean());
     assertEquals(createdFiles,
-        jsonChunksDir.get("fileCount").asLong());
+        jsonChunksDir.get("fileCount").getAsLong());
 
     // Check errors.
     checkJsonErrorsReport(inspectJson, "dBMetadata.#BLOCKCOUNT",
@@ -370,41 +387,48 @@ public class TestKeyValueContainerMetadataInspector
   }
 
   private void checkJsonErrorsReport(
-      JsonNode jsonReport, String propertyValue,
+      JsonObject jsonReport, String propertyValue,
       long correctExpected, long correctActual,
       boolean correctRepair) {
     if (correctExpected == correctActual) {
       return;
     }
-    JsonNode correctExpectedNode = JsonTestUtils.valueToJsonNode(correctExpected);
-    JsonNode correctActualNode = JsonTestUtils.valueToJsonNode(correctActual);
-
-    checkJsonErrorsReport(jsonReport, propertyValue, correctExpectedNode,
-        correctActualNode, correctRepair);
+    checkJsonErrorsReport(jsonReport, propertyValue,
+        new JsonPrimitive(correctExpected),
+        new JsonPrimitive(correctActual),
+        correctRepair);
   }
 
   /**
    * Checks the erorr list in the provided JsonReport for an error matching
    * the template passed in with the parameters.
    */
-  private void checkJsonErrorsReport(JsonNode jsonReport,
-      String propertyValue, JsonNode correctExpected,
-      JsonNode correctActual, boolean correctRepair) {
+  private void checkJsonErrorsReport(JsonObject jsonReport,
+      String propertyValue, JsonPrimitive correctExpected,
+      JsonPrimitive correctActual, boolean correctRepair) {
 
-    assertFalse(jsonReport.get("correct").asBoolean());
+    assertFalse(jsonReport.get("correct").getAsBoolean());
 
-    JsonNode jsonErrors = jsonReport.get("errors");
+    JsonArray jsonErrors = jsonReport.getAsJsonArray("errors");
     boolean matchFound = false;
-    for (JsonNode jsonErrorElem : jsonErrors) {
+    for (JsonElement jsonErrorElem: jsonErrors) {
+      JsonObject jsonErrorObject = jsonErrorElem.getAsJsonObject();
       String thisProperty =
-          jsonErrorElem.get("property").asText();
+          jsonErrorObject.get("property").getAsString();
 
       if (thisProperty.equals(propertyValue)) {
         matchFound = true;
-        assertEquals(correctExpected.asLong(), jsonErrorElem.get("expected").asLong());
-        assertEquals(correctActual.asLong(), jsonErrorElem.get("actual").asLong());
 
-        boolean repaired = jsonErrorElem.get("repaired").asBoolean();
+        JsonPrimitive expectedJsonPrim =
+            jsonErrorObject.get("expected").getAsJsonPrimitive();
+        assertEquals(correctExpected, expectedJsonPrim);
+
+        JsonPrimitive actualJsonPrim =
+            jsonErrorObject.get("actual").getAsJsonPrimitive();
+        assertEquals(correctActual, actualJsonPrim);
+
+        boolean repaired =
+            jsonErrorObject.get("repaired").getAsBoolean();
         assertEquals(correctRepair, repaired);
         break;
       }
@@ -412,7 +436,6 @@ public class TestKeyValueContainerMetadataInspector
 
     assertTrue(matchFound);
   }
-
 
   public void setDBBlockAndByteCounts(KeyValueContainerData containerData,
       long blockCount, long byteCount) throws Exception {
@@ -484,22 +507,20 @@ public class TestKeyValueContainerMetadataInspector
     }
   }
 
-  private JsonNode runInspectorAndGetReport(
+  private JsonObject runInspectorAndGetReport(
       KeyValueContainerData containerData,
       KeyValueContainerMetadataInspector.Mode mode) throws Exception {
     System.setProperty(KeyValueContainerMetadataInspector.SYSTEM_PROPERTY,
         mode.toString());
     ContainerInspectorUtil.load();
-
-    JsonNode json = runInspectorAndGetReport(containerData);
-
+    JsonObject json = runInspectorAndGetReport(containerData);
     ContainerInspectorUtil.unload();
     System.clearProperty(KeyValueContainerMetadataInspector.SYSTEM_PROPERTY);
 
     return json;
   }
 
-  private JsonNode runInspectorAndGetReport(
+  private JsonObject runInspectorAndGetReport(
       KeyValueContainerData containerData) throws Exception {
     // Use an empty layout so the captured log has no prefix and can be
     // parsed as json.
@@ -511,11 +532,8 @@ public class TestKeyValueContainerMetadataInspector
     capturer.stopCapturing();
     String output = capturer.getOutput();
     capturer.clearOutput();
-    // Check if the output is effectively empty
-    if (StringUtils.isBlank(output)) {
-      return null;
-    }
-    return JsonTestUtils.readTree(output);
+
+    return new Gson().fromJson(output, JsonObject.class);
   }
 
   private KeyValueContainer createClosedContainer(int normalBlocks)
@@ -527,6 +545,13 @@ public class TestKeyValueContainerMetadataInspector
 
   private KeyValueContainer createOpenContainer(int normalBlocks)
       throws Exception {
-    return super.createContainerWithBlocks(CONTAINER_ID, normalBlocks, 0, true);
+    return super.createContainerWithBlocks(CONTAINER_ID, normalBlocks, 0);
+  }
+
+  private void containsAllStrings(String logOutput, String[] expectedMessages) {
+    for (String expectedMessage : expectedMessages) {
+      assertTrue(logOutput.contains(expectedMessage),
+          "Log output did not contain \"" + expectedMessage + "\"");
+    }
   }
 }

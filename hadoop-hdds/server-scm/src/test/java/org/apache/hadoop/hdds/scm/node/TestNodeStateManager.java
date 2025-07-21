@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +18,30 @@
 
 package org.apache.hadoop.hdds.scm.node;
 
-import static org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager.maxLayoutVersion;
-import static org.apache.hadoop.ozone.container.upgrade.UpgradeUtils.defaultLayoutVersionProto;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
+import org.apache.hadoop.hdds.scm.container.ContainerID;
+import org.apache.hadoop.hdds.scm.ha.SCMContext;
+import org.apache.hadoop.hdds.scm.server.upgrade.FinalizationCheckpoint;
+import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
+import org.apache.hadoop.hdds.utils.HddsServerUtil;
+import org.apache.hadoop.hdds.scm.events.SCMEvents;
+import org.apache.hadoop.hdds.scm.node.states.NodeAlreadyExistsException;
+import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
+import org.apache.hadoop.hdds.server.events.Event;
+import org.apache.hadoop.hdds.server.events.EventPublisher;
+import org.apache.hadoop.ozone.container.upgrade.UpgradeUtils;
+import org.apache.hadoop.ozone.upgrade.LayoutVersionManager;
+import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,33 +49,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.events.SCMEvents;
-import org.apache.hadoop.hdds.scm.ha.SCMContext;
-import org.apache.hadoop.hdds.scm.node.states.NodeAlreadyExistsException;
-import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
-import org.apache.hadoop.hdds.scm.server.upgrade.FinalizationCheckpoint;
-import org.apache.hadoop.hdds.server.events.Event;
-import org.apache.hadoop.hdds.server.events.EventPublisher;
-import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
-import org.apache.hadoop.hdds.utils.HddsServerUtil;
-import org.apache.hadoop.ozone.container.upgrade.UpgradeUtils;
-import org.apache.hadoop.ozone.upgrade.LayoutVersionManager;
-import org.apache.hadoop.util.Time;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.apache.hadoop.ozone.container.upgrade.UpgradeUtils.defaultLayoutVersionProto;
+import static org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager.maxLayoutVersion;
 
 /**
  * Class to test the NodeStateManager, which is an internal class used by
  * the SCMNodeManager.
  */
+
 public class TestNodeStateManager {
 
   public static final Logger LOG =
@@ -96,9 +98,12 @@ public class TestNodeStateManager {
     eventPublisher = new MockEventPublisher();
     scmSlv = maxLayoutVersion();
     scmMlv = maxLayoutVersion();
-    LayoutVersionManager mockVersionManager = mock(HDDSLayoutVersionManager.class);
-    when(mockVersionManager.getMetadataLayoutVersion()).thenReturn(scmMlv);
-    when(mockVersionManager.getSoftwareLayoutVersion()).thenReturn(scmSlv);
+    LayoutVersionManager mockVersionManager =
+        Mockito.mock(HDDSLayoutVersionManager.class);
+    Mockito.when(mockVersionManager.getMetadataLayoutVersion())
+        .thenReturn(scmMlv);
+    Mockito.when(mockVersionManager.getSoftwareLayoutVersion())
+        .thenReturn(scmSlv);
     nsm = new NodeStateManager(conf, eventPublisher, mockVersionManager,
         scmContext);
   }
@@ -140,7 +145,8 @@ public class TestNodeStateManager {
   public void testGetNodeCount() throws NodeAlreadyExistsException {
     DatanodeDetails dn = generateDatanode();
     nsm.addNode(dn, UpgradeUtils.defaultLayoutVersionProto());
-    assertEquals(1, nsm.getNodeCount(NodeStatus.inServiceHealthy()));
+    assertEquals(1, nsm.getNodeCount(
+        NodeStatus.inServiceHealthy()));
     assertEquals(0, nsm.getNodeCount(NodeStatus.inServiceStale()));
   }
 
@@ -213,7 +219,8 @@ public class TestNodeStateManager {
     dni.updateLastHeartbeatTime();
     nsm.checkNodesHealth();
     assertEquals(NodeState.HEALTHY_READONLY, nsm.getNodeStatus(dn).getHealth());
-    assertEquals(SCMEvents.HEALTHY_READONLY_NODE, eventPublisher.getLastEvent());
+    assertEquals(SCMEvents.HEALTHY_READONLY_NODE,
+        eventPublisher.getLastEvent());
 
     // Make the node stale again, and transition to healthy.
     dni.updateLastHeartbeatTime(now - staleLimit);
@@ -223,13 +230,15 @@ public class TestNodeStateManager {
     dni.updateLastHeartbeatTime();
     nsm.checkNodesHealth();
     assertEquals(NodeState.HEALTHY_READONLY, nsm.getNodeStatus(dn).getHealth());
-    assertEquals(SCMEvents.HEALTHY_READONLY_NODE, eventPublisher.getLastEvent());
+    assertEquals(SCMEvents.HEALTHY_READONLY_NODE,
+        eventPublisher.getLastEvent());
 
     // Another health check run should move the node to healthy since its
     // metadata layout version matches SCM's.
     nsm.checkNodesHealth();
     assertEquals(NodeState.HEALTHY, nsm.getNodeStatus(dn).getHealth());
-    assertEquals(SCMEvents.HEALTHY_READONLY_TO_HEALTHY_NODE, eventPublisher.getLastEvent());
+    assertEquals(SCMEvents.HEALTHY_READONLY_TO_HEALTHY_NODE,
+        eventPublisher.getLastEvent());
     eventPublisher.clearEvents();
 
     // Test how node state manager handles datanodes with lower metadata
@@ -245,8 +254,10 @@ public class TestNodeStateManager {
       // Datanodes should not be moved to healthy readonly until the SCM has
       // finished updating its metadata layout version as part of finalization.
       if (checkpoint.hasCrossed(FinalizationCheckpoint.MLV_EQUALS_SLV)) {
-        assertEquals(NodeState.HEALTHY_READONLY, nsm.getNodeStatus(dn).getHealth());
-        assertEquals(SCMEvents.HEALTHY_READONLY_NODE, eventPublisher.getLastEvent());
+        assertEquals(NodeState.HEALTHY_READONLY,
+            nsm.getNodeStatus(dn).getHealth());
+        assertEquals(SCMEvents.HEALTHY_READONLY_NODE,
+            eventPublisher.getLastEvent());
       } else {
         assertEquals(NodeState.HEALTHY, nsm.getNodeStatus(dn).getHealth());
         assertNull(eventPublisher.getLastEvent());
@@ -264,7 +275,8 @@ public class TestNodeStateManager {
         HddsProtos.NodeOperationalState.DECOMMISSIONED);
 
     NodeStatus newStatus = nsm.getNodeStatus(dn);
-    assertEquals(HddsProtos.NodeOperationalState.DECOMMISSIONED, newStatus.getOperationalState());
+    assertEquals(HddsProtos.NodeOperationalState.DECOMMISSIONED,
+        newStatus.getOperationalState());
     assertEquals(NodeState.HEALTHY, newStatus.getHealth());
   }
 
@@ -274,19 +286,19 @@ public class TestNodeStateManager {
     DatanodeDetails dn = generateDatanode();
     nsm.addNode(dn, UpgradeUtils.defaultLayoutVersionProto());
 
-    nsm.addContainer(dn.getID(), ContainerID.valueOf(1));
-    nsm.addContainer(dn.getID(), ContainerID.valueOf(2));
+    nsm.addContainer(dn.getUuid(), ContainerID.valueOf(1));
+    nsm.addContainer(dn.getUuid(), ContainerID.valueOf(2));
 
-    Set<ContainerID> containerSet = nsm.getContainers(dn.getID());
+    Set<ContainerID> containerSet = nsm.getContainers(dn.getUuid());
     assertEquals(2, containerSet.size());
-    assertThat(containerSet).contains(ContainerID.valueOf(1));
-    assertThat(containerSet).contains(ContainerID.valueOf(2));
+    Assertions.assertTrue(containerSet.contains(ContainerID.valueOf(1)));
+    Assertions.assertTrue(containerSet.contains(ContainerID.valueOf(2)));
 
-    nsm.removeContainer(dn.getID(), ContainerID.valueOf(2));
-    containerSet = nsm.getContainers(dn.getID());
+    nsm.removeContainer(dn.getUuid(), ContainerID.valueOf(2));
+    containerSet = nsm.getContainers(dn.getUuid());
     assertEquals(1, containerSet.size());
-    assertThat(containerSet).contains(ContainerID.valueOf(1));
-    assertThat(containerSet).doesNotContain(ContainerID.valueOf(2));
+    Assertions.assertTrue(containerSet.contains(ContainerID.valueOf(1)));
+    Assertions.assertFalse(containerSet.contains(ContainerID.valueOf(2)));
   }
 
   @Test
@@ -303,7 +315,8 @@ public class TestNodeStateManager {
         HddsProtos.NodeOperationalState.values()) {
       eventPublisher.clearEvents();
       nsm.setNodeOperationalState(dn, s);
-      assertEquals(SCMEvents.HEALTHY_READONLY_TO_HEALTHY_NODE, eventPublisher.getLastEvent());
+      assertEquals(SCMEvents.HEALTHY_READONLY_TO_HEALTHY_NODE,
+          eventPublisher.getLastEvent());
     }
 
     // Now make the node stale and run through all states again ensuring the
@@ -370,7 +383,8 @@ public class TestNodeStateManager {
     DatanodeInfo updatedDn = nsm.getNode(dn);
     assertEquals(newIpAddress, updatedDn.getIpAddress());
     assertEquals(newHostName, updatedDn.getHostName());
-    assertEquals(HddsProtos.NodeOperationalState.IN_SERVICE, updatedDn.getPersistedOpState());
+    assertEquals(HddsProtos.NodeOperationalState.IN_SERVICE,
+            updatedDn.getPersistedOpState());
     assertEquals(NodeStatus.inServiceHealthy(), updatedDn.getNodeStatus());
   }
 
@@ -393,7 +407,7 @@ public class TestNodeStateManager {
     }
 
     public Event getLastEvent() {
-      if (events.isEmpty()) {
+      if (events.size() == 0) {
         return null;
       } else {
         return events.get(events.size() - 1);

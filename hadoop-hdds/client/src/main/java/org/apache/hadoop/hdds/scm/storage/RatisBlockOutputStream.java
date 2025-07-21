@@ -1,33 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
 import org.apache.hadoop.fs.Syncable;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandResponseProto;
 import org.apache.hadoop.hdds.scm.ContainerClientMetrics;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.StreamBufferArgs;
@@ -37,6 +30,17 @@ import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.ozone.common.ChunkBuffer;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 /**
  * An {@link OutputStream} used by the REST service in combination with the
@@ -56,6 +60,8 @@ import org.apache.hadoop.security.token.TokenIdentifier;
  */
 public class RatisBlockOutputStream extends BlockOutputStream
     implements Syncable {
+  public static final Logger LOG = LoggerFactory.getLogger(
+      RatisBlockOutputStream.class);
 
   // This object will maintain the commitIndexes and byteBufferList in order
   // Also, corresponding to the logIndex, the corresponding list of buffers will
@@ -71,7 +77,6 @@ public class RatisBlockOutputStream extends BlockOutputStream
   @SuppressWarnings("checkstyle:ParameterNumber")
   public RatisBlockOutputStream(
       BlockID blockID,
-      long blockSize,
       XceiverClientFactory xceiverClientManager,
       Pipeline pipeline,
       BufferPool bufferPool,
@@ -80,7 +85,7 @@ public class RatisBlockOutputStream extends BlockOutputStream
       ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
       Supplier<ExecutorService> blockOutputStreamResourceProvider
   ) throws IOException {
-    super(blockID, blockSize, xceiverClientManager, pipeline,
+    super(blockID, xceiverClientManager, pipeline,
         bufferPool, config, token, clientMetrics, streamBufferArgs, blockOutputStreamResourceProvider);
     this.commitWatcher = new CommitWatcher(bufferPool, getXceiverClient());
   }
@@ -101,8 +106,9 @@ public class RatisBlockOutputStream extends BlockOutputStream
   }
 
   @Override
-  CompletableFuture<XceiverClientReply> sendWatchForCommit(long index) {
-    return commitWatcher.watchForCommitAsync(index);
+  XceiverClientReply sendWatchForCommit(boolean bufferFull) throws IOException {
+    return bufferFull ? commitWatcher.watchOnFirstIndex()
+        : commitWatcher.watchOnLastIndex();
   }
 
   @Override
@@ -111,11 +117,13 @@ public class RatisBlockOutputStream extends BlockOutputStream
   }
 
   @Override
-  void waitOnFlushFuture() throws InterruptedException, ExecutionException {
-    CompletableFuture<Void> flushFuture = getLastFlushFuture();
-    if (flushFuture != null) {
-      flushFuture.get();
-    }
+  void putFlushFuture(long flushPos, CompletableFuture<ContainerCommandResponseProto> flushFuture) {
+    commitWatcher.putFlushFuture(flushPos, flushFuture);
+  }
+
+  @Override
+  void waitOnFlushFutures() throws InterruptedException, ExecutionException {
+    commitWatcher.waitOnFlushFutures();
   }
 
   @Override
@@ -131,7 +139,10 @@ public class RatisBlockOutputStream extends BlockOutputStream
   @Override
   public void hsync() throws IOException {
     if (!isClosed()) {
-      handleFlush(false);
+      if (getBufferPool() != null && getBufferPool().getSize() > 0) {
+        handleFlush(false);
+      }
+      waitForFlushAndCommit(false);
     }
   }
 }

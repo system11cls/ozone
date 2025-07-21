@@ -1,27 +1,24 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om;
 
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
-import org.apache.hadoop.metrics2.lib.MutableGaugeFloat;
-import org.apache.hadoop.metrics2.lib.MutableGaugeLong;
 import org.apache.hadoop.metrics2.lib.MutableRate;
 
 /**
@@ -111,16 +108,10 @@ public class OMPerformanceMetrics {
   private MutableRate createRatisRequestLatencyNs;
 
   @Metric(about = "Convert ratis response to om response nano seconds")
-  private MutableRate createOmResponseLatencyNs;
+  private MutableRate createOmResoonseLatencyNs;
 
   @Metric(about = "Ratis local command execution latency in nano seconds")
-  private MutableRate validateAndUpdateCacheLatencyNs;
-
-  @Metric(about = "average pagination for listKeys")
-  private MutableRate listKeysAveragePagination;
-
-  @Metric(about = "ops per second for listKeys")
-  private MutableGaugeFloat listKeysOpsPerSec;
+  private MutableRate validateAndUpdateCacneLatencyNs;
 
   @Metric(about = "ACLs check latency in listKeys")
   private MutableRate listKeysAclCheckLatencyNs;
@@ -128,57 +119,24 @@ public class OMPerformanceMetrics {
   @Metric(about = "resolveBucketLink latency in listKeys")
   private MutableRate listKeysResolveBucketLatencyNs;
 
-  @Metric(about = "deleteKeyFailure latency in nano seconds")
-  private MutableRate deleteKeyFailureLatencyNs;
-
-  @Metric(about = "deleteKeySuccess latency in nano seconds")
-  private MutableRate deleteKeySuccessLatencyNs;
-
-  @Metric(about = "resolveBucketLink latency in deleteKeys")
-  private MutableRate deleteKeysResolveBucketLatencyNs;
-
-  @Metric(about = "ACLs check latency in deleteKeys")
-  private MutableRate deleteKeysAclCheckLatencyNs;
-
-  @Metric(about = "resolveBucketLink and ACLs check latency in deleteKey")
-  private MutableRate deleteKeyResolveBucketAndAclCheckLatencyNs;
-  
-  @Metric(about = "readFromRockDb latency in listKeys")
-  private MutableRate listKeysReadFromRocksDbLatencyNs;
-
-  @Metric(about = "resolveBucketLink latency in getObjectTagging")
-  private MutableRate getObjectTaggingResolveBucketLatencyNs;
-
-  @Metric(about = "ACLs check in getObjectTagging")
-  private MutableRate getObjectTaggingAclCheckLatencyNs;
-
-  @Metric(about = "Latency of each iteration of DirectoryDeletingService in ms")
-  private MutableGaugeLong directoryDeletingServiceLatencyMs;
-
-  @Metric(about = "Latency of each iteration of KeyDeletingService in ms")
-  private MutableGaugeLong keyDeletingServiceLatencyMs;
-
-  @Metric(about = "Latency of each iteration of OpenKeyCleanupService in ms")
-  private MutableGaugeLong openKeyCleanupServiceLatencyMs;
-
   public void addLookupLatency(long latencyInNs) {
     lookupLatencyNs.add(latencyInNs);
   }
 
-  MutableRate getLookupRefreshLocationLatencyNs() {
+  public MutableRate getLookupRefreshLocationLatencyNs() {
     return lookupRefreshLocationLatencyNs;
   }
 
 
-  MutableRate getLookupGenerateBlockTokenLatencyNs() {
+  public MutableRate getLookupGenerateBlockTokenLatencyNs() {
     return lookupGenerateBlockTokenLatencyNs;
   }
 
-  MutableRate getLookupReadKeyInfoLatencyNs() {
+  public MutableRate getLookupReadKeyInfoLatencyNs() {
     return lookupReadKeyInfoLatencyNs;
   }
 
-  MutableRate getLookupAclCheckLatencyNs() {
+  public MutableRate getLookupAclCheckLatencyNs() {
     return lookupAclCheckLatencyNs;
   }
 
@@ -186,7 +144,7 @@ public class OMPerformanceMetrics {
     s3VolumeContextLatencyNs.add(latencyInNs);
   }
 
-  MutableRate getLookupResolveBucketLatencyNs() {
+  public MutableRate getLookupResolveBucketLatencyNs() {
     return lookupResolveBucketLatencyNs;
   }
 
@@ -194,27 +152,27 @@ public class OMPerformanceMetrics {
     getKeyInfoLatencyNs.add(value);
   }
 
-  MutableRate getGetKeyInfoAclCheckLatencyNs() {
+  public MutableRate getGetKeyInfoAclCheckLatencyNs() {
     return getKeyInfoAclCheckLatencyNs;
   }
 
-  MutableRate getGetKeyInfoGenerateBlockTokenLatencyNs() {
+  public MutableRate getGetKeyInfoGenerateBlockTokenLatencyNs() {
     return getKeyInfoGenerateBlockTokenLatencyNs;
   }
 
-  MutableRate getGetKeyInfoReadKeyInfoLatencyNs() {
+  public MutableRate getGetKeyInfoReadKeyInfoLatencyNs() {
     return getKeyInfoReadKeyInfoLatencyNs;
   }
 
-  MutableRate getGetKeyInfoRefreshLocationLatencyNs() {
+  public MutableRate getGetKeyInfoRefreshLocationLatencyNs() {
     return getKeyInfoRefreshLocationLatencyNs;
   }
 
-  MutableRate getGetKeyInfoResolveBucketLatencyNs() {
+  public MutableRate getGetKeyInfoResolveBucketLatencyNs() {
     return getKeyInfoResolveBucketLatencyNs;
   }
 
-  MutableRate getGetKeyInfoSortDatanodesLatencyNs() {
+  public MutableRate getGetKeyInfoSortDatanodesLatencyNs() {
     return getKeyInfoSortDatanodesLatencyNs;
   }
 
@@ -251,74 +209,18 @@ public class OMPerformanceMetrics {
   }
 
   public MutableRate getCreateOmResponseLatencyNs() {
-    return createOmResponseLatencyNs;
+    return createOmResoonseLatencyNs;
   }
 
-  public MutableRate getValidateAndUpdateCacheLatencyNs() {
-    return validateAndUpdateCacheLatencyNs;
+  public MutableRate getValidateAndUpdateCacneLatencyNs() {
+    return validateAndUpdateCacneLatencyNs;
   }
 
-  public void setListKeysAveragePagination(long keyCount) {
-    listKeysAveragePagination.add(keyCount);
-  }
-
-  public void setListKeysOpsPerSec(float opsPerSec) {
-    listKeysOpsPerSec.set(opsPerSec);
-  }
-
-  MutableRate getListKeysAclCheckLatencyNs() {
+  public MutableRate getListKeysAclCheckLatencyNs() {
     return listKeysAclCheckLatencyNs;
   }
 
-  MutableRate getListKeysResolveBucketLatencyNs() {
+  public MutableRate getListKeysResolveBucketLatencyNs() {
     return listKeysResolveBucketLatencyNs;
-  }
-
-  public void setDeleteKeyFailureLatencyNs(long latencyInNs) {
-    deleteKeyFailureLatencyNs.add(latencyInNs);
-  }
-
-  public void setDeleteKeySuccessLatencyNs(long latencyInNs) {
-    deleteKeySuccessLatencyNs.add(latencyInNs);
-  }
-
-  public void setDeleteKeysResolveBucketLatencyNs(long latencyInNs) {
-    deleteKeysResolveBucketLatencyNs.add(latencyInNs);
-  }
-
-  public void setDeleteKeysAclCheckLatencyNs(long latencyInNs) {
-    deleteKeysAclCheckLatencyNs.add(latencyInNs);
-  }
-
-  public MutableRate getDeleteKeyResolveBucketAndAclCheckLatencyNs() {
-    return deleteKeyResolveBucketAndAclCheckLatencyNs;
-  }
-    
-  public void addListKeysReadFromRocksDbLatencyNs(long latencyInNs) {
-    listKeysReadFromRocksDbLatencyNs.add(latencyInNs);
-  }
-
-  public MutableRate getGetObjectTaggingResolveBucketLatencyNs() {
-    return getObjectTaggingResolveBucketLatencyNs;
-  }
-
-  public MutableRate getGetObjectTaggingAclCheckLatencyNs() {
-    return getObjectTaggingAclCheckLatencyNs;
-  }
-
-  public void addGetObjectTaggingLatencyNs(long latencyInNs) {
-    getObjectTaggingAclCheckLatencyNs.add(latencyInNs);
-  }
-
-  public void setDirectoryDeletingServiceLatencyMs(long latencyInMs) {
-    directoryDeletingServiceLatencyMs.set(latencyInMs);
-  }
-
-  public void setKeyDeletingServiceLatencyMs(long latencyInMs) {
-    keyDeletingServiceLatencyMs.set(latencyInMs);
-  }
-
-  public void setOpenKeyCleanupServiceLatencyMs(long latencyInMs) {
-    openKeyCleanupServiceLatencyMs.set(latencyInMs);
   }
 }

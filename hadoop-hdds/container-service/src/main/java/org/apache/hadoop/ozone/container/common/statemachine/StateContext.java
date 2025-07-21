@@ -1,46 +1,36 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.container.common.statemachine;
 
-import static java.lang.Math.min;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getLogWarnInterval;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getReconHeartbeatInterval;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmHeartbeatInterval;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Message;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
+import java.util.Objects;
+import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -55,8 +45,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.apache.commons.collections.CollectionUtils;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CRLStatusReport;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandStatus.Status;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandStatusReportsProto;
@@ -65,8 +58,8 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.IncrementalContainerReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineAction;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReport;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReport;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.ozone.container.common.states.DatanodeState;
 import org.apache.hadoop.ozone.container.common.states.datanode.InitDatanodeState;
@@ -75,6 +68,16 @@ import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
 import org.apache.hadoop.ozone.protocol.commands.CommandStatus;
 import org.apache.hadoop.ozone.protocol.commands.DeleteBlockCommandStatus.DeleteBlockCommandStatusBuilder;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+
+import com.google.common.base.Preconditions;
+import com.google.protobuf.Message;
+import static java.lang.Math.min;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getLogWarnInterval;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getReconHeartbeatInterval;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmHeartbeatInterval;
+
+import org.apache.commons.collections.CollectionUtils;
+
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,10 +102,13 @@ public class StateContext {
   @VisibleForTesting
   static final String INCREMENTAL_CONTAINER_REPORT_PROTO_NAME =
       IncrementalContainerReportProto.getDescriptor().getFullName();
+  @VisibleForTesting
+  static final String CRL_STATUS_REPORT_PROTO_NAME =
+      CRLStatusReport.getDescriptor().getFullName();
 
   static final Logger LOG =
       LoggerFactory.getLogger(StateContext.class);
-  private final Queue<SCMCommand<?>> commandQueue;
+  private final Queue<SCMCommand> commandQueue;
   private final Map<Long, CommandStatus> cmdStatusMap;
   private final Lock lock;
   private final DatanodeStateMachine parentDatanodeStateMachine;
@@ -113,6 +119,7 @@ public class StateContext {
   private final AtomicReference<Message> containerReports;
   private final AtomicReference<Message> nodeReport;
   private final AtomicReference<Message> pipelineReports;
+  private final AtomicReference<Message> crlStatusReport;
   // Incremental reports are queued in the map below
   private final Map<InetSocketAddress, List<Message>>
       incrementalReportsQueue;
@@ -157,8 +164,6 @@ public class StateContext {
 
   private final String threadNamePrefix;
 
-  private RunningDatanodeState runningDatanodeState;
-
   /**
    * Constructs a StateContext.
    *
@@ -181,6 +186,7 @@ public class StateContext {
     containerReports = new AtomicReference<>();
     nodeReport = new AtomicReference<>();
     pipelineReports = new AtomicReference<>();
+    crlStatusReport = new AtomicReference<>(); // Certificate Revocation List
     endpoints = new HashSet<>();
     containerActions = new HashMap<>();
     pipelineActions = new ConcurrentHashMap<>();
@@ -205,6 +211,8 @@ public class StateContext {
     type2Reports.put(NODE_REPORT_PROTO_NAME, nodeReport);
     fullReportTypeList.add(PIPELINE_REPORTS_PROTO_NAME);
     type2Reports.put(PIPELINE_REPORTS_PROTO_NAME, pipelineReports);
+    fullReportTypeList.add(CRL_STATUS_REPORT_PROTO_NAME);
+    type2Reports.put(CRL_STATUS_REPORT_PROTO_NAME, crlStatusReport);
   }
 
   /**
@@ -571,11 +579,9 @@ public class StateContext {
           parentDatanodeStateMachine.getConnectionManager(),
           this);
     case RUNNING:
-      if (runningDatanodeState == null) {
-        runningDatanodeState = new RunningDatanodeState(this.conf,
-            parentDatanodeStateMachine.getConnectionManager(), this);
-      }
-      return runningDatanodeState;
+      return new RunningDatanodeState(this.conf,
+          parentDatanodeStateMachine.getConnectionManager(),
+          this);
     case SHUTDOWN:
       return null;
     default:
@@ -590,7 +596,7 @@ public class StateContext {
     }
 
     ThreadPoolExecutor ex = (ThreadPoolExecutor) executor;
-    if (ex.getQueue().isEmpty()) {
+    if (ex.getQueue().size() == 0) {
       return true;
     }
 
@@ -615,11 +621,7 @@ public class StateContext {
     // Adding not null check, in a case where datanode is still starting up, but
     // we called stop DatanodeStateMachine, this sets state to SHUTDOWN, and
     // there is a chance of getting task as null.
-    if (task == null) {
-      return;
-    }
-
-    try {
+    if (task != null) {
       if (this.isEntering()) {
         task.onEnter();
       }
@@ -656,8 +658,6 @@ public class StateContext {
         // that we can terminate the datanode.
         setShutdownOnError();
       }
-    } finally {
-      task.clear();
     }
   }
 
@@ -738,7 +738,7 @@ public class StateContext {
    *
    * @return SCMCommand or Null.
    */
-  public SCMCommand<?> getNextCommand() {
+  public SCMCommand getNextCommand() {
     lock.lock();
     try {
       initTermOfLeaderSCM();
@@ -772,7 +772,7 @@ public class StateContext {
    *
    * @param command - SCMCommand.
    */
-  public void addCommand(SCMCommand<?> command) {
+  public void addCommand(SCMCommand command) {
     lock.lock();
     try {
       if (commandQueue.size() >= maxCommandQueueLimit) {
@@ -792,7 +792,7 @@ public class StateContext {
     Map<SCMCommandProto.Type, Integer> summary = new HashMap<>();
     lock.lock();
     try {
-      for (SCMCommand<?> cmd : commandQueue) {
+      for (SCMCommand cmd : commandQueue) {
         summary.put(cmd.getType(), summary.getOrDefault(cmd.getType(), 0) + 1);
       }
     } finally {
@@ -832,7 +832,7 @@ public class StateContext {
    *
    * @param cmd - {@link SCMCommand}.
    */
-  public void addCmdStatus(SCMCommand<?> cmd) {
+  public void addCmdStatus(SCMCommand cmd) {
     if (cmd.getType() == SCMCommandProto.Type.deleteBlocksCommand) {
       addCmdStatus(cmd.getId(),
           DeleteBlockCommandStatusBuilder.newBuilder()
@@ -852,21 +852,18 @@ public class StateContext {
   }
 
   /**
-   * Updates the command status of a pending command.
+   * Updates status of a pending status command.
    * @param cmdId       command id
    * @param cmdStatusUpdater Consumer to update command status.
-   * @return true if command status updated successfully else if the command
-   * associated with the command id does not exist in the context.
+   * @return true if command status updated successfully else false.
    */
   public boolean updateCommandStatus(Long cmdId,
       Consumer<CommandStatus> cmdStatusUpdater) {
-    CommandStatus updatedCommandStatus = cmdStatusMap.computeIfPresent(cmdId,
-        (key, value) -> {
-          cmdStatusUpdater.accept(value);
-          return value;
-        }
-    );
-    return updatedCommandStatus != null;
+    if (cmdStatusMap.containsKey(cmdId)) {
+      cmdStatusUpdater.accept(cmdStatusMap.get(cmdId));
+      return true;
+    }
+    return false;
   }
 
   public void configureHeartbeatFrequency() {
@@ -910,6 +907,11 @@ public class StateContext {
   @VisibleForTesting
   public Message getPipelineReports() {
     return pipelineReports.get();
+  }
+
+  @VisibleForTesting
+  public Message getCRLStatusReport() {
+    return crlStatusReport.get();
   }
 
   public void configureReconHeartbeatFrequency() {

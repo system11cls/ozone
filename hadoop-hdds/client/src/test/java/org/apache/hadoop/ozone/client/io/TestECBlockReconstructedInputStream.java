@@ -1,25 +1,34 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.client.io;
 
-import static org.apache.hadoop.ozone.client.io.ECStreamTestUtil.generateParity;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
+import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.io.ByteBufferPool;
+import org.apache.hadoop.io.ElasticByteBufferPool;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -30,17 +39,9 @@ import java.util.SplittableRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.hadoop.hdds.client.BlockID;
-import org.apache.hadoop.hdds.client.ECReplicationConfig;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.scm.OzoneClientConfig;
-import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
-import org.apache.hadoop.io.ByteBufferPool;
-import org.apache.hadoop.io.ElasticByteBufferPool;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+
+import static org.apache.hadoop.ozone.client.io.ECStreamTestUtil.generateParity;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test for the ECBlockReconstructedInputStream class.
@@ -92,7 +93,7 @@ public class TestECBlockReconstructedInputStream {
       try (ECBlockReconstructedInputStream stream =
           new ECBlockReconstructedInputStream(repConfig, bufferPool,
               stripeStream)) {
-        assertEquals(12345L, stream.getLength());
+        Assertions.assertEquals(12345L, stream.getLength());
       }
     }
   }
@@ -106,7 +107,7 @@ public class TestECBlockReconstructedInputStream {
       try (ECBlockReconstructedInputStream stream =
           new ECBlockReconstructedInputStream(repConfig, bufferPool,
               stripeStream)) {
-        assertEquals(new BlockID(1, 1), stream.getBlockID());
+        Assertions.assertEquals(new BlockID(1, 1), stream.getBlockID());
       }
     }
   }
@@ -138,19 +139,19 @@ public class TestECBlockReconstructedInputStream {
           int expectedRead = Math.min(blockLength - totalRead, readBufferSize);
           long read = stream.read(b);
           totalRead += read;
-          assertEquals(expectedRead, read);
+          Assertions.assertEquals(expectedRead, read);
           ECStreamTestUtil.assertBufferMatches(b, dataGenerator);
           b.clear();
         }
         // Next read should be EOF
         b.clear();
         long read = stream.read(b);
-        assertEquals(-1, read);
+        Assertions.assertEquals(-1, read);
         // Seek back to zero and read again to ensure the buffers are
         // re-allocated after being freed at the end of block.
         stream.seek(0);
         read = stream.read(b);
-        assertEquals(readBufferSize, read);
+        Assertions.assertEquals(readBufferSize, read);
         dataGenerator = new SplittableRandom(randomSeed);
         ECStreamTestUtil.assertBufferMatches(b, dataGenerator);
       }
@@ -186,7 +187,7 @@ public class TestECBlockReconstructedInputStream {
           int expectedRead = Math.min(blockLength - totalRead, readBufferSize);
           long read = stream.read(b);
           totalRead += read;
-          assertEquals(expectedRead, read);
+          Assertions.assertEquals(expectedRead, read);
           ECStreamTestUtil.assertBufferMatches(b, dataGenerator);
           b.clear();
           stream.unbuffer();
@@ -194,7 +195,7 @@ public class TestECBlockReconstructedInputStream {
         // Next read should be EOF
         b.clear();
         long read = stream.read(b);
-        assertEquals(-1, read);
+        Assertions.assertEquals(-1, read);
       }
     }
   }
@@ -221,12 +222,12 @@ public class TestECBlockReconstructedInputStream {
         ByteBuffer b = ByteBuffer.allocate(readBufferSize);
         dataGenerator = new SplittableRandom(randomSeed);
         long read = stream.read(b);
-        assertEquals(blockLength, read);
+        Assertions.assertEquals(blockLength, read);
         ECStreamTestUtil.assertBufferMatches(b, dataGenerator);
         b.clear();
         // Next read should be EOF
         read = stream.read(b);
-        assertEquals(-1, read);
+        Assertions.assertEquals(-1, read);
       }
     }
   }
@@ -258,10 +259,10 @@ public class TestECBlockReconstructedInputStream {
           if (val == -1) {
             break;
           }
-          assertEquals(dataGenerator.nextInt(255), val);
+          Assertions.assertEquals(dataGenerator.nextInt(255), val);
           totalRead += 1;
         }
-        assertEquals(blockLength, totalRead);
+        Assertions.assertEquals(blockLength, totalRead);
       }
     }
   }
@@ -292,13 +293,13 @@ public class TestECBlockReconstructedInputStream {
           int expectedRead = Math.min(blockLength - totalRead, 1024);
           long read = stream.read(buf, 0, buf.length);
           totalRead += read;
-          assertEquals(expectedRead, read);
+          Assertions.assertEquals(expectedRead, read);
           ECStreamTestUtil.assertBufferMatches(
               ByteBuffer.wrap(buf, 0, (int)read), dataGenerator);
         }
         // Next read should be EOF
         long read = stream.read(buf, 0, buf.length);
-        assertEquals(-1, read);
+        Assertions.assertEquals(-1, read);
       }
     }
   }
@@ -330,7 +331,7 @@ public class TestECBlockReconstructedInputStream {
           resetAndAdvanceDataGenerator(seekPosition);
           long expectedRead = Math.min(stream.getRemaining(), readBufferSize);
           long read = stream.read(b);
-          assertEquals(expectedRead, read);
+          Assertions.assertEquals(expectedRead, read);
           ECStreamTestUtil.assertBufferMatches(b, dataGenerator);
           seekPosition = random.nextInt(blockLength);
           stream.seek(seekPosition);

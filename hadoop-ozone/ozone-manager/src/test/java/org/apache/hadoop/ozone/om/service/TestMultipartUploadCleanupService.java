@@ -1,38 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.service;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_CLEANUP_SERVICE_INTERVAL;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_PARTS_CLEANUP_LIMIT_PER_TASK;
-import static org.apache.ozone.test.GenericTestUtils.waitFor;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
@@ -52,35 +38,54 @@ import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
 import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ExpiredMultipartUploadsBucket;
-import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.util.ExitUtils;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_CLEANUP_SERVICE_INTERVAL;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_PARTS_CLEANUP_LIMIT_PER_TASK;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test Multipart Upload Cleanup Service.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Timeout(300)
-class TestMultipartUploadCleanupService {
+public class TestMultipartUploadCleanupService {
   private OzoneManagerProtocol writeClient;
   private OzoneManager om;
+  private static final Logger LOG =
+      LoggerFactory.getLogger(TestMultipartUploadCleanupService.class);
 
-  private static final Duration SERVICE_INTERVAL = Duration.ofMillis(100);
-  private static final Duration EXPIRE_THRESHOLD = Duration.ofMillis(200);
+  private static final Duration SERVICE_INTERVAL = Duration.ofMillis(500);
+  private static final Duration EXPIRE_THRESHOLD = Duration.ofMillis(1000);
   private KeyManager keyManager;
   private OMMetadataManager omMetadataManager;
 
   @BeforeAll
-  void setup(@TempDir Path tempDir) throws Exception {
+  public static void setup() {
     ExitUtils.disableSystemExit();
+  }
 
+  @BeforeEach
+  public void createConfAndInitValues(@TempDir Path tempDir) throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration();
     System.setProperty(DBConfigFromFile.CONFIG_DIR, "/");
     ServerUtils.setOzoneMetaDirPath(conf, tempDir.toString());
@@ -97,8 +102,8 @@ class TestMultipartUploadCleanupService {
     om = omTestManagers.getOzoneManager();
   }
 
-  @AfterAll
-  void cleanup() {
+  @AfterEach
+  public void cleanup() throws Exception {
     om.stop();
   }
 
@@ -106,6 +111,7 @@ class TestMultipartUploadCleanupService {
    * Create a bunch incomplete/inflight multipart upload info. Then we start
    * the MultipartUploadCleanupService. We make sure that all the multipart
    * upload info is picked up and aborted by OzoneManager.
+   * @throws Exception
    */
   @ParameterizedTest
   @CsvSource({
@@ -113,7 +119,9 @@ class TestMultipartUploadCleanupService {
       "0, 88",
       "66, 77"
   })
-  void deletesExpiredUpload(int numDEFKeys, int numFSOKeys) throws Exception {
+  @Timeout(300)
+  public void checkIfCleanupServiceIsDeletingExpiredMultipartUpload(
+      int numDEFKeys, int numFSOKeys) throws Exception {
 
     MultipartUploadCleanupService multipartUploadCleanupService =
         (MultipartUploadCleanupService)
@@ -133,27 +141,24 @@ class TestMultipartUploadCleanupService {
     // wait for MPU info to expire
     Thread.sleep(EXPIRE_THRESHOLD.toMillis());
 
-    assertThat(getExpiredMultipartUploads()).isNotEmpty();
+    assertFalse(keyManager.getExpiredMultipartUploads(EXPIRE_THRESHOLD,
+        10000).isEmpty());
 
     multipartUploadCleanupService.resume();
 
-    // wait for requests to complete
-    waitFor(() -> getExpiredMultipartUploads().isEmpty(),
+    GenericTestUtils.waitFor(() -> multipartUploadCleanupService
+            .getRunCount() > oldRunCount,
         (int) SERVICE_INTERVAL.toMillis(),
-        15 * (int) SERVICE_INTERVAL.toMillis());
+        5 * (int) SERVICE_INTERVAL.toMillis());
 
-    assertThat(multipartUploadCleanupService.getRunCount())
-        .isGreaterThan(oldRunCount);
-    assertThat(multipartUploadCleanupService.getSubmittedMpuInfoCount())
-        .isGreaterThanOrEqualTo(oldMpuInfoCount + numDEFKeys + numFSOKeys);
-  }
+    // wait for requests to complete
+    Thread.sleep(10 * SERVICE_INTERVAL.toMillis());
 
-  private List<ExpiredMultipartUploadsBucket> getExpiredMultipartUploads() {
-    try {
-      return keyManager.getExpiredMultipartUploads(EXPIRE_THRESHOLD, 10000);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    assertTrue(multipartUploadCleanupService.getSubmittedMpuInfoCount() >=
+        oldMpuInfoCount + numDEFKeys + numFSOKeys);
+    assertTrue(keyManager.getExpiredMultipartUploads(EXPIRE_THRESHOLD,
+        10000).isEmpty());
+
   }
 
   private void createIncompleteMPUKeys(int mpuKeyCount,
@@ -198,6 +203,10 @@ class TestMultipartUploadCleanupService {
 
   /**
    * Create inflight multipart upload that are not completed / aborted yet.
+   * @param volumeName
+   * @param bucketName
+   * @param keyName
+   * @throws IOException
    */
   private void createIncompleteMPUKey(String volumeName, String bucketName,
       String keyName, int numParts) throws IOException {
@@ -210,7 +219,6 @@ class TestMultipartUploadCleanupService {
             .setAcls(Collections.emptyList())
             .setReplicationConfig(StandaloneReplicationConfig.getInstance(ONE))
             .setLocationInfoList(new ArrayList<>())
-            .setOwnerName(UserGroupInformation.getCurrentUser().getShortUserName())
             .build();
 
     OmMultipartInfo omMultipartInfo = writeClient.
@@ -229,7 +237,6 @@ class TestMultipartUploadCleanupService {
               .setAcls(Collections.emptyList())
               .setReplicationConfig(
                   StandaloneReplicationConfig.getInstance(ONE))
-              .setOwnerName(UserGroupInformation.getCurrentUser().getShortUserName())
               .build();
 
       OpenKeySession openKey = writeClient.openKey(partKeyArgs);

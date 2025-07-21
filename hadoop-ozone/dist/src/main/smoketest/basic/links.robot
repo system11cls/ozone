@@ -31,20 +31,23 @@ Create volumes
     ${random} =         Generate Random String  5  [NUMBERS]
     Set Suite Variable  ${source}  ${random}-source
     Set Suite Variable  ${target}  ${random}-target
-    Ozone Shell Batch   volume create ${source}
-    ...                 volume create ${target}
+    Execute             ozone sh volume create ${source}
+    Execute             ozone sh volume create ${target}
     Run Keyword if      '${SECURITY_ENABLED}' == 'true'    Setup ACL tests
 
 Setup ACL tests
-    Ozone Shell Batch   bucket create ${source}/readable-bucket
-    ...                 key put ${source}/readable-bucket/key-in-readable-bucket /etc/passwd
-    ...                 bucket create ${source}/unreadable-bucket
-    ...                 bucket link ${source}/unreadable-bucket ${target}/link-to-unreadable-bucket
-    ...                 volume addacl --acl user:testuser2:r[DEFAULT] ${target}
-    ...                 bucket link ${source}/readable-bucket ${target}/readable-link
-    ...                 bucket link ${source}/readable-bucket ${target}/readable-link2
-    ...                 volume addacl --acl user:testuser2:rl ${source}
-    ...                 bucket addacl --acl user:testuser2:rl ${source}/readable-bucket
+    Execute             ozone sh bucket create ${source}/readable-bucket
+    Execute             ozone sh key put ${source}/readable-bucket/key-in-readable-bucket /etc/passwd
+    Execute             ozone sh bucket create ${source}/unreadable-bucket
+
+    Execute             ozone sh bucket link ${source}/unreadable-bucket ${target}/link-to-unreadable-bucket
+    Execute             ozone sh volume addacl --acl user:testuser2:r[DEFAULT] ${target}
+
+    Execute             ozone sh bucket link ${source}/readable-bucket ${target}/readable-link
+    Execute             ozone sh bucket link ${source}/readable-bucket ${target}/readable-link2
+
+    Execute             ozone sh volume addacl --acl user:testuser2:rl ${source}
+    Execute             ozone sh bucket addacl --acl user:testuser2:rl ${source}/readable-bucket
 
 Verify Bucket ACL
     [arguments]         ${source_option}   ${object}    ${type}   ${name}    ${acls}
@@ -78,14 +81,14 @@ ACL verified on source and target bucket
 
 Create link loop
     Run Keyword if      '${SECURITY_ENABLED}' == 'true'    Kinit test user     testuser     testuser.keytab
-                        Ozone Shell Batch   bucket link ${target}/loop1 ${target}/loop2
-                        ...                 bucket link ${target}/loop2 ${target}/loop3
-                        ...                 bucket link ${target}/loop3 ${target}/loop1
+                        Execute                     ozone sh bucket link ${target}/loop1 ${target}/loop2
+                        Execute                     ozone sh bucket link ${target}/loop2 ${target}/loop3
+                        Execute                     ozone sh bucket link ${target}/loop3 ${target}/loop1
 
 Delete link loop
-                        Ozone Shell Batch   bucket delete ${target}/loop1
-                        ...                 bucket delete ${target}/loop2
-                        ...                 bucket delete ${target}/loop3
+                        Execute                     ozone sh bucket delete ${target}/loop1
+                        Execute                     ozone sh bucket delete ${target}/loop2
+                        Execute                     ozone sh bucket delete ${target}/loop3
 
 *** Test Cases ***
 Link to non-existent bucket
@@ -94,9 +97,9 @@ Link to non-existent bucket
                         Should Contain              ${result}         BUCKET_NOT_FOUND
 
 Key create passthrough
-                        Ozone Shell Batch           bucket link ${source}/bucket1 ${target}/link1
-                        ...                         bucket create ${source}/bucket1
-                        ...                         key put ${target}/link1/key1 /etc/passwd
+                        Execute                     ozone sh bucket link ${source}/bucket1 ${target}/link1
+                        Execute                     ozone sh bucket create ${source}/bucket1
+                        Execute                     ozone sh key put ${target}/link1/key1 /etc/passwd
                         Key Should Match Local File     ${target}/link1/key1    /etc/passwd
 
 Key read passthrough
@@ -168,21 +171,6 @@ Source and target key have same ACLs
     Verify ACL          key    ${target}/link1/key1     GROUP   group2    READ
     Verify ACL          key    ${source}/bucket1/key1   GROUP   group2    READ
 
-Source and target prefix have same ACLs
-    Execute             ozone sh prefix addacl --acl user:user1:rwxy ${source}/bucket1/prefix1/
-    Verify ACL          prefix       ${target}/link1/prefix1/     USER    user1    READ WRITE READ_ACL WRITE_ACL
-    Verify ACL          prefix       ${source}/bucket1/prefix1/   USER    user1    READ WRITE READ_ACL WRITE_ACL
-    Execute             ozone sh prefix removeacl --acl user:user1:y ${target}/link1/prefix1/
-    Verify ACL          prefix       ${target}/link1/prefix1/     USER    user1    READ WRITE READ_ACL
-    Verify ACL          prefix       ${source}/bucket1/prefix1/   USER    user1    READ WRITE READ_ACL
-    Execute             ozone sh prefix setacl --acl user:user1:rw ${source}/bucket1/prefix1/
-    Verify ACL          prefix       ${target}/link1/prefix1/     USER    user1    READ WRITE
-    Verify ACL          prefix       ${source}/bucket1/prefix1/   USER    user1    READ WRITE
-
-    Execute             ozone sh prefix addacl --acl group:group2:r ${source}/bucket1/prefix1/
-    Verify ACL          prefix       ${target}/link1/prefix1/     GROUP   group2    READ
-    Verify ACL          prefix       ${source}/bucket1/prefix1/   GROUP   group2    READ
-
 Buckets and links share namespace
                         Execute                     ozone sh bucket link ${source}/bucket2 ${target}/link2
     ${result} =         Execute And Ignore Error    ozone sh bucket create ${target}/link2
@@ -208,8 +196,8 @@ Loop in link chain is detected
     [teardown]          Delete link loop
 
 Multiple links to same bucket are allowed
-    Ozone Shell Batch               bucket link ${source}/bucket1 ${target}/link3
-    ...                             key put ${target}/link3/key3 /etc/group
+    Execute                         ozone sh bucket link ${source}/bucket1 ${target}/link3
+    Execute                         ozone sh key put ${target}/link3/key3 /etc/group
     Key Should Match Local File     ${target}/link1/key3    /etc/group
 
 Source bucket not affected by deleting link

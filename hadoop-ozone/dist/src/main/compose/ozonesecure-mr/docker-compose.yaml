@@ -14,18 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+version: "3.8"
 services:
   kdc:
     image: ${OZONE_TESTKRB5_IMAGE}
     hostname: kdc
-    dns_search: .
     volumes:
       - ../..:/opt/hadoop
       - ../_keytabs:/etc/security/keytabs
-    command: ["/opt/hadoop/compose/common/init-kdc.sh"]
+    command: ["krb5kdc","-n"]
   kms:
-    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
-    dns_search: .
+    image: apache/hadoop:3
     ports:
       - 9600:9600
     env_file:
@@ -36,7 +35,6 @@ services:
     command: ["hadoop", "kms"]
   datanode:
     image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
-    dns_search: .
     volumes:
       - ../..:/opt/hadoop
       - ../_keytabs:/etc/security/keytabs
@@ -51,7 +49,6 @@ services:
   om:
     image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
     hostname: om
-    dns_search: .
     volumes:
       - ../..:/opt/hadoop
       - ../_keytabs:/etc/security/keytabs
@@ -68,7 +65,6 @@ services:
   s3g:
     image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
     hostname: s3g
-    dns_search: .
     volumes:
       - ../..:/opt/hadoop
       - ../_keytabs:/etc/security/keytabs
@@ -83,7 +79,6 @@ services:
   scm:
     image: ${OZONE_RUNNER_IMAGE}:${OZONE_RUNNER_VERSION}
     hostname: scm
-    dns_search: .
     volumes:
       - ../..:/opt/hadoop
       - ../_keytabs:/etc/security/keytabs

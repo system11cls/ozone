@@ -48,14 +48,8 @@
   });
   angular.module('ozone').component('jvmParameters', {
     templateUrl: 'static/templates/jvm.html',
-    controller: function($http, $scope) {
+    controller: function($http) {
       var ctrl = this;
-
-      $scope.contentVisible = false;
-      $scope.toggleContent = function() {
-        $scope.contentVisible = !$scope.contentVisible;
-      };
-
       $http.get("jmx?qry=java.lang:type=Runtime")
         .then(function(result) {
           ctrl.jmx = result.data.beans[0];
@@ -251,11 +245,7 @@
 
   angular.module('ozone').component('navmenu', {
     bindings: {
-      metrics: '<',
-      iostatus: '<',
-      ioLinkHref: '@',
-      scanner: '<',
-      scannerLinkHref: '@',
+      metrics: '<'
     },
     templateUrl: 'static/templates/menu.html',
     controller: function($http) {

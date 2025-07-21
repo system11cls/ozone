@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,37 +14,39 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.request.bucket;
 
-import static org.apache.hadoop.hdds.client.ReplicationType.EC;
-import static org.apache.hadoop.ozone.OzoneConsts.GB;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.UUID;
+
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
-import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketArgs;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
-import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketArgs;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.SetBucketPropertyRequest;
 import org.apache.ozone.test.GenericTestUtils;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hadoop.ozone.om.response.OMClientResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.
+    BucketArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .SetBucketPropertyRequest;
+
+import static org.apache.hadoop.hdds.client.ReplicationType.EC;
+import static org.apache.hadoop.ozone.OzoneConsts.GB;
 
 /**
  * Tests OMBucketSetPropertyRequest class which handles OMSetBucketProperty
@@ -72,10 +75,11 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
         .getModificationTime();
     long newModTime = preExecuteRequest.getSetBucketPropertyRequest()
         .getModificationTime();
-    assertThat(newModTime).isGreaterThan(originModTime);
+    Assertions.assertTrue(newModTime > originModTime);
 
     // As user info gets added.
-    assertNotEquals(omRequest, omBucketSetPropertyRequest.preExecute(ozoneManager));
+    Assertions.assertNotEquals(omRequest,
+        omBucketSetPropertyRequest.preExecute(ozoneManager));
   }
 
   @Test
@@ -97,11 +101,11 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse =
         omBucketSetPropertyRequest.validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omMetadataManager.getBucketTable().get(
+    Assertions.assertTrue(omMetadataManager.getBucketTable().get(
             omMetadataManager.getBucketKey(volumeName, bucketName))
         .getIsVersionEnabled());
 
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omClientResponse.getOMResponse().getStatus());
   }
 
@@ -124,12 +128,12 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse =
         omBucketSetPropertyRequest.validateAndUpdateCache(ozoneManager, 1);
 
-    assertEquals(BucketLayout.FILE_SYSTEM_OPTIMIZED,
+    Assertions.assertEquals(BucketLayout.FILE_SYSTEM_OPTIMIZED,
         omMetadataManager.getBucketTable().get(
             omMetadataManager.getBucketKey(volumeName, bucketName))
             .getBucketLayout());
 
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omClientResponse.getOMResponse().getStatus());
   }
 
@@ -148,10 +152,10 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse =
         omBucketSetPropertyRequest.validateAndUpdateCache(ozoneManager, 1);
 
-    assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.BUCKET_NOT_FOUND,
         omClientResponse.getOMResponse().getStatus());
 
-    assertNull(omMetadataManager.getBucketTable().get(
+    Assertions.assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
 
   }
@@ -194,15 +198,15 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
         .validateAndUpdateCache(ozoneManager, 1);
 
     //capture the error log
-    assertThat(logs.getOutput()).contains(
-        "Setting bucket property failed for bucket");
+    Assertions.assertTrue(logs.getOutput().contains(
+        "Setting bucket property failed for bucket"));
 
-    assertFalse(omClientResponse.getOMResponse().getSuccess());
-    assertEquals(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertFalse(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.QUOTA_EXCEEDED);
-    assertThat(omClientResponse.getOMResponse().getMessage()).
+    Assertions.assertTrue(omClientResponse.getOMResponse().getMessage().
         contains("Total buckets quota in this volume " +
-            "should not be greater than volume quota");
+            "should not be greater than volume quota"));
   }
 
   @Test
@@ -231,12 +235,13 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
         .validateAndUpdateCache(ozoneManager, 1);
 
     // THEN
-    assertFalse(omClientResponse.getOMResponse().getSuccess());
-    assertEquals(
+    Assertions.assertFalse(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(
         OzoneManagerProtocolProtos.Status.NOT_SUPPORTED_OPERATION,
         omClientResponse.getOMResponse().getStatus());
     String message = omClientResponse.getOMResponse().getMessage();
-    assertThat(message).contains("Cannot set property on link");
+    Assertions.assertTrue(message.contains("Cannot set property on link"),
+        message);
   }
 
   @Test
@@ -269,14 +274,15 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(omClientResponse.getOMResponse().getSuccess());
 
     String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
     OmBucketInfo dbBucketInfo =
         omMetadataManager.getBucketTable().get(bucketKey);
 
-    assertEquals(8 * GB, dbBucketInfo.getQuotaInBytes());
-    assertEquals(EC, dbBucketInfo.getDefaultReplicationConfig().getType());
+    Assertions.assertEquals(8 * GB, dbBucketInfo.getQuotaInBytes());
+    Assertions.assertEquals(EC,
+        dbBucketInfo.getDefaultReplicationConfig().getType());
   }
 
   @Test
@@ -315,14 +321,16 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(omClientResponse.getOMResponse().getSuccess());
 
     String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
     OmBucketInfo dbBucketInfo =
             omMetadataManager.getBucketTable().get(bucketKey);
 
-    assertEquals(TEST_KEY, dbBucketInfo.getEncryptionKeyInfo().getKeyName());
-    assertEquals(EC, dbBucketInfo.getDefaultReplicationConfig().getType());
+    Assertions.assertEquals(TEST_KEY,
+            dbBucketInfo.getEncryptionKeyInfo().getKeyName());
+    Assertions.assertEquals(EC,
+            dbBucketInfo.getDefaultReplicationConfig().getType());
   }
 
   @Test
@@ -351,16 +359,20 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(omClientResponse.getOMResponse().getSuccess());
 
     String bucketKey = omMetadataManager.getBucketKey(volumeName, bucketName);
     OmBucketInfo dbBucketInfo =
             omMetadataManager.getBucketTable().get(bucketKey);
 
-    assertEquals(TEST_KEY, dbBucketInfo.getEncryptionKeyInfo().getKeyName());
-    assertEquals(20 * GB, dbBucketInfo.getQuotaInBytes());
-    assertEquals(1000L, dbBucketInfo.getQuotaInNamespace());
-    assertEquals("testUser", dbBucketInfo.getOwner());
+    Assertions.assertEquals(TEST_KEY,
+            dbBucketInfo.getEncryptionKeyInfo().getKeyName());
+    Assertions.assertEquals(20 * GB,
+            dbBucketInfo.getQuotaInBytes());
+    Assertions.assertEquals(1000L,
+            dbBucketInfo.getQuotaInNamespace());
+    Assertions.assertEquals("testUser",
+        dbBucketInfo.getOwner());
   }
 
   @Test
@@ -386,12 +398,12 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertFalse(omClientResponse.getOMResponse().getSuccess());
-    assertEquals(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertFalse(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.QUOTA_ERROR);
-    assertThat(omClientResponse.getOMResponse().getMessage()).
+    Assertions.assertTrue(omClientResponse.getOMResponse().getMessage().
         contains("Cannot update bucket quota. Requested spaceQuota less than " +
-            "used spaceQuota");
+            "used spaceQuota"));
   }
 
   @Test
@@ -418,12 +430,12 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertFalse(omClientResponse.getOMResponse().getSuccess());
-    assertEquals(omClientResponse.getOMResponse().getStatus(),
+    Assertions.assertFalse(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(omClientResponse.getOMResponse().getStatus(),
         OzoneManagerProtocolProtos.Status.QUOTA_ERROR);
-    assertThat(omClientResponse.getOMResponse().getMessage()).
+    Assertions.assertTrue(omClientResponse.getOMResponse().getMessage().
         contains("Cannot update bucket quota. NamespaceQuota requested " +
-            "is less than used namespaceQuota");
+            "is less than used namespaceQuota"));
   }
 
   @Test
@@ -453,15 +465,17 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     OMClientResponse omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(omClientResponse.getOMResponse().getSuccess());
 
     OmBucketInfo dbBucketInfoAfter =
             omMetadataManager.getBucketTable().get(bucketKey);
 
-    assertNull(dbBucketInfoAfter.getDefaultReplicationConfig());
-    assertNull(dbBucketInfoBefore.getDefaultReplicationConfig());
-    assertEquals(20 * GB, dbBucketInfoAfter.getQuotaInBytes());
-    assertEquals(1000L, dbBucketInfoAfter.getQuotaInNamespace());
+    Assertions.assertNull(dbBucketInfoAfter.getDefaultReplicationConfig());
+    Assertions.assertNull(dbBucketInfoBefore.getDefaultReplicationConfig());
+    Assertions.assertEquals(20 * GB,
+            dbBucketInfoAfter.getQuotaInBytes());
+    Assertions.assertEquals(1000L,
+            dbBucketInfoAfter.getQuotaInNamespace());
 
     /* Bucket with EC replication */
     OmBucketInfo.Builder bucketInfo = new OmBucketInfo.Builder()
@@ -488,16 +502,19 @@ public class TestOMBucketSetPropertyRequest extends TestBucketRequest {
     omClientResponse = omBucketSetPropertyRequest
         .validateAndUpdateCache(ozoneManager, 1);
 
-    assertTrue(omClientResponse.getOMResponse().getSuccess());
+    Assertions.assertTrue(omClientResponse.getOMResponse().getSuccess());
 
     dbBucketInfoAfter =
             omMetadataManager.getBucketTable().get(bucketKey);
 
-    assertEquals(EC, dbBucketInfoAfter.getDefaultReplicationConfig().getType());
-    assertEquals(
+    Assertions.assertEquals(EC,
+            dbBucketInfoAfter.getDefaultReplicationConfig().getType());
+    Assertions.assertEquals(
             dbBucketInfoBefore.getDefaultReplicationConfig(),
             dbBucketInfoAfter.getDefaultReplicationConfig());
-    assertEquals(20 * GB, dbBucketInfoAfter.getQuotaInBytes());
-    assertEquals(1000L, dbBucketInfoAfter.getQuotaInNamespace());
+    Assertions.assertEquals(20 * GB,
+            dbBucketInfoAfter.getQuotaInBytes());
+    Assertions.assertEquals(1000L,
+            dbBucketInfoAfter.getQuotaInNamespace());
   }
 }

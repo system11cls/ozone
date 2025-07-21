@@ -1,26 +1,21 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.security.acl;
-
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_OFS_SHARED_TMP_DIR;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_OFS_SHARED_TMP_DIR_DEFAULT;
-import static org.apache.hadoop.util.ReflectionUtils.newInstance;
 
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -28,6 +23,9 @@ import org.apache.hadoop.ozone.om.KeyManager;
 import org.apache.hadoop.ozone.om.OmSnapshot;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.PrefixManager;
+
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS;
+import static org.apache.hadoop.util.ReflectionUtils.newInstance;
 
 /**
  * Creates {@link IAccessAuthorizer} instances based on configuration.
@@ -81,28 +79,16 @@ public final class OzoneAuthorizerFactory {
     }
 
     final IAccessAuthorizer authorizer = newInstance(clazz, conf);
-
-    if (authorizer instanceof OzoneNativeAuthorizer) {
-      return configure((OzoneNativeAuthorizer) authorizer, om, km, pm);
-    }
-
-    // If authorizer isn't native and shareable tmp dir is enabled,
-    // then return the shared tmp hybrid authorizer.
-    if (conf.getBoolean(OZONE_OM_ENABLE_OFS_SHARED_TMP_DIR,
-        OZONE_OM_ENABLE_OFS_SHARED_TMP_DIR_DEFAULT)) {
-      return new SharedTmpDirAuthorizer(
-          configure(new OzoneNativeAuthorizer(), om, km, pm),
-          authorizer);
-    }
-
-    return authorizer;
+    return authorizer instanceof OzoneNativeAuthorizer
+        ? configure((OzoneNativeAuthorizer) authorizer, om, km, pm)
+        : authorizer;
   }
 
   /**
    * Configure {@link OzoneNativeAuthorizer}.
    * @return same instance for convenience
    */
-  private static OzoneNativeAuthorizer configure(
+  private static IAccessAuthorizer configure(
       OzoneNativeAuthorizer authorizer,
       OzoneManager om, KeyManager km, PrefixManager pm
   ) {
@@ -112,7 +98,7 @@ public final class OzoneAuthorizerFactory {
     authorizer.setPrefixManager(pm);
     authorizer.setAdminCheck(om::isAdmin);
     authorizer.setReadOnlyAdminCheck(om::isReadOnlyAdmin);
-    authorizer.setAllowListAllVolumes(om::getAllowListAllVolumes);
+    authorizer.setAllowListAllVolumes(om.getAllowListAllVolumes());
     return authorizer;
   }
 

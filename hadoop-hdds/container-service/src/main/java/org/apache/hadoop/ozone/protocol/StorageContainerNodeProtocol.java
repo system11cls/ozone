@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,19 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.protocol;
 
-import java.util.List;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.CommandQueueReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.NodeReportProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMVersionRequestProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.LayoutVersionProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.NodeReportProto;
+import org.apache.hadoop.hdds.protocol.proto
+    .StorageContainerDatanodeProtocolProtos.SCMVersionRequestProto;
 import org.apache.hadoop.ozone.protocol.commands.RegisteredCommand;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+
+import java.util.List;
 
 /**
  * The protocol spoken between datanodes and SCM.
@@ -67,20 +72,24 @@ public interface StorageContainerNodeProtocol {
    * TODO: Cleanup and update tests, HDDS-9642.
    *
    * @param datanodeDetails - Datanode ID.
+   * @param layoutVersionInfo - Layout Version Proto.
    * @return Commands to be sent to the datanode.
    */
-  default List<SCMCommand<?>> processHeartbeat(DatanodeDetails datanodeDetails) {
-    return processHeartbeat(datanodeDetails, null);
+  default List<SCMCommand> processHeartbeat(DatanodeDetails datanodeDetails,
+                                    LayoutVersionProto layoutVersionInfo) {
+    return processHeartbeat(datanodeDetails, layoutVersionInfo, null);
   };
 
   /**
    * Send heartbeat to indicate the datanode is alive and doing well.
    * @param datanodeDetails - Datanode ID.
+   * @param layoutVersionInfo - Layout Version Proto.
    * @param queueReport - The CommandQueueReportProto report from the
    *                    heartbeating datanode.
    * @return Commands to be sent to the datanode.
    */
-  List<SCMCommand<?>> processHeartbeat(DatanodeDetails datanodeDetails,
+  List<SCMCommand> processHeartbeat(DatanodeDetails datanodeDetails,
+      LayoutVersionProto layoutVersionInfo,
       CommandQueueReportProto queueReport);
 
   /**

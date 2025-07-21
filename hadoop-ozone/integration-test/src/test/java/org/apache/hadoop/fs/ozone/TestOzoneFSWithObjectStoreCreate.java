@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,16 +18,34 @@
 
 package org.apache.hadoop.fs.ozone;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.ozone.OzoneConsts.ETAG;
-import static org.apache.hadoop.ozone.OzoneConsts.MD5_HASH;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_SCHEME;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileAlreadyExistsException;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.OmUtils;
+import org.apache.hadoop.ozone.TestDataUtil;
+import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneKey;
+import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.OzoneInputStream;
+import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -39,62 +58,55 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import javax.xml.bind.DatatypeConverter;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.ozone.OmUtils;
-import org.apache.hadoop.ozone.TestDataUtil;
-import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneClient;
-import org.apache.hadoop.ozone.client.OzoneKey;
-import org.apache.hadoop.ozone.client.OzoneVolume;
-import org.apache.hadoop.ozone.client.io.OzoneInputStream;
-import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
-import org.apache.hadoop.ozone.om.OmConfig;
-import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
-import org.apache.ozone.test.NonHATests;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.Timeout;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.ozone.OzoneConsts.ETAG;
+import static org.apache.hadoop.ozone.OzoneConsts.MD5_HASH;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_SCHEME;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_A_FILE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Class tests create with object store and getFileStatus.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Timeout(300)
-public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.TestCase {
+public class TestOzoneFSWithObjectStoreCreate {
 
-  private OzoneClient client;
+  private String rootPath;
+
+  private static MiniOzoneCluster cluster = null;
+  private static OzoneClient client;
+
   private OzoneFileSystem o3fs;
+
   private String volumeName;
+
   private String bucketName;
-  private OmConfig originalOmConfig;
 
   @BeforeAll
-  void initClass() throws IOException {
-    client = cluster().newClient();
+  public static void initClass() throws Exception {
+    OzoneConfiguration conf = new OzoneConfiguration();
 
-    OmConfig omConfig = cluster().getOzoneManager().getConfig();
-    originalOmConfig = omConfig.copy();
-    omConfig.setFileSystemPathEnabled(true);
-
+    conf.setBoolean(OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS, true);
+    conf.set(OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT,
+        BucketLayout.LEGACY.name());
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(3)
+        .build();
+    cluster.waitForClusterToBeReady();
+    client = cluster.newClient();
   }
 
   @AfterAll
-  void tearDownClass() {
+  public static void teardownClass() {
     IOUtils.closeQuietly(client);
-    cluster().getOzoneManager().getConfig().setFrom(originalOmConfig);
+    if (cluster != null) {
+      cluster.shutdown();
+    }
   }
 
   @BeforeEach
@@ -102,16 +114,18 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
     volumeName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
     bucketName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
 
-    // create a volume and a bucket to be used by OzoneFileSystem
-    TestDataUtil.createVolumeAndBucket(client, volumeName, bucketName, BucketLayout.LEGACY);
+    OzoneConfiguration conf = cluster.getConf();
 
-    String rootPath = String.format("%s://%s.%s/", OZONE_URI_SCHEME, bucketName,
+    // create a volume and a bucket to be used by OzoneFileSystem
+    TestDataUtil.createVolumeAndBucket(client, volumeName, bucketName);
+
+    rootPath = String.format("%s://%s.%s/", OZONE_URI_SCHEME, bucketName,
         volumeName);
-    o3fs = (OzoneFileSystem) FileSystem.get(new URI(rootPath), cluster().getConf());
+    o3fs = (OzoneFileSystem) FileSystem.get(new URI(rootPath), conf);
   }
 
   @AfterEach
-  void tearDown() {
+  public void teardown() {
     IOUtils.closeQuietly(o3fs);
   }
 
@@ -254,8 +268,16 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
 
     // Before close create directory with same name.
     o3fs.mkdirs(new Path("/a/b/c"));
-    OMException ex = assertThrows(OMException.class, () -> ozoneOutputStream.close());
-    assertEquals(NOT_A_FILE, ex.getResult());
+
+    try {
+      ozoneOutputStream.close();
+      fail("testKeyCreationFailDuetoDirectoryCreationBeforeCommit");
+    } catch (IOException ex) {
+      assertTrue(ex instanceof OMException);
+      assertEquals(NOT_A_FILE,
+          ((OMException) ex).getResult());
+    }
+
   }
 
 
@@ -293,10 +315,14 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
     partsMap.put(1, ozoneOutputStream.getCommitUploadPartInfo().getETag());
 
     // Should fail, as we have directory with same name.
-    OMException ex = assertThrows(OMException.class, () -> ozoneBucket.completeMultipartUpload(keyName,
-        omMultipartInfo.getUploadID(), partsMap));
-    assertEquals(NOT_A_FILE, ex.getResult());
-
+    try {
+      ozoneBucket.completeMultipartUpload(keyName,
+          omMultipartInfo.getUploadID(), partsMap);
+      fail("testMPUFailDuetoDirectoryCreationBeforeComplete failed");
+    } catch (OMException ex) {
+      assertTrue(ex instanceof OMException);
+      assertEquals(NOT_A_FILE, ex.getResult());
+    }
 
     // Delete directory
     o3fs.delete(new Path(keyName), true);
@@ -319,16 +345,25 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
   public void testCreateDirectoryFirstThenKeyAndFileWithSameName()
       throws Exception {
     o3fs.mkdirs(new Path("/t1/t2"));
-    FileAlreadyExistsException e =
-        assertThrows(FileAlreadyExistsException.class, () -> o3fs.create(new Path("/t1/t2")));
-    assertThat(e.getMessage()).contains(NOT_A_FILE.name());
+
+    try {
+      o3fs.create(new Path("/t1/t2"));
+      fail("testCreateDirectoryFirstThenFileWithSameName failed");
+    } catch (FileAlreadyExistsException ex) {
+      assertTrue(ex.getMessage().contains(NOT_A_FILE.name()));
+    }
 
     OzoneVolume ozoneVolume =
         client.getObjectStore().getVolume(volumeName);
     OzoneBucket ozoneBucket = ozoneVolume.getBucket(bucketName);
     ozoneBucket.createDirectory("t1/t2");
-    OMException ex = assertThrows(OMException.class, () -> ozoneBucket.createKey("t1/t2", 0));
-    assertEquals(NOT_A_FILE, ex.getResult());
+    try {
+      ozoneBucket.createKey("t1/t2", 0);
+      fail("testCreateDirectoryFirstThenFileWithSameName failed");
+    } catch (OMException ex) {
+      assertTrue(ex instanceof OMException);
+      assertEquals(NOT_A_FILE, ex.getResult());
+    }
   }
 
 
@@ -351,9 +386,13 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
     keys.add(OmUtils.normalizeKey(key2, false));
     keys.add(OmUtils.normalizeKey(key3, false));
 
-    createAndAssertKey(ozoneBucket, key1, 10);
-    createAndAssertKey(ozoneBucket, key2, 10);
-    createAndAssertKey(ozoneBucket, key3, 10);
+    int length = 10;
+    byte[] input = new byte[length];
+    Arrays.fill(input, (byte)96);
+
+    createKey(ozoneBucket, key1, 10, input);
+    createKey(ozoneBucket, key2, 10, input);
+    createKey(ozoneBucket, key3, 10, input);
 
     // Iterator with key name as prefix.
 
@@ -398,18 +437,18 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
     assertEquals(keys, outputKeys);
   }
 
-  private void createAndAssertKey(OzoneBucket ozoneBucket, String key, int length)
+  private void createKey(OzoneBucket ozoneBucket, String key, int length,
+      byte[] input)
       throws Exception {
-    
-    byte[] input = TestDataUtil.createStringKey(ozoneBucket, key, length);
+
+    OzoneOutputStream ozoneOutputStream =
+        ozoneBucket.createKey(key, length);
+
+    ozoneOutputStream.write(input);
+    ozoneOutputStream.write(input, 0, 10);
+    ozoneOutputStream.close();
+
     // Read the key with given key name.
-    readKey(ozoneBucket, key, length, input);
-
-  }
-
-  private void readKey(OzoneBucket ozoneBucket, String key, int length, byte[] input)
-      throws Exception {
-
     OzoneInputStream ozoneInputStream = ozoneBucket.readKey(key);
     byte[] read = new byte[length];
     ozoneInputStream.read(read, 0, length);
@@ -431,7 +470,7 @@ public abstract class TestOzoneFSWithObjectStoreCreate implements NonHATests.Tes
     FileNotFoundException ex = assertThrows(FileNotFoundException.class, () ->
         o3fs.getFileStatus(path),
         "testObjectStoreCreateWithO3fs failed for Path" + path);
-    assertThat(ex.getMessage()).contains("No such file or directory");
+    assertTrue(ex.getMessage().contains("No such file or directory"));
   }
 
   private void checkAncestors(Path p) throws Exception {

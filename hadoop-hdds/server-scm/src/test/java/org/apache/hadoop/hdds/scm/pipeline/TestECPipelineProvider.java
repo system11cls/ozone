@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,31 +18,7 @@
 
 package org.apache.hadoop.hdds.scm.pipeline;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONED;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.DEAD;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.HEALTHY;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.EC;
-import static org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState.ALLOCATED;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableSet;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
@@ -55,8 +32,29 @@ import org.apache.hadoop.hdds.scm.container.ContainerReplica;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.node.NodeStatus;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONED;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.DECOMMISSIONING;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.DEAD;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState.HEALTHY;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType.EC;
+import static org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState.ALLOCATED;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Test for the ECPipelineProvider.
@@ -65,10 +63,10 @@ public class TestECPipelineProvider {
 
   private PipelineProvider provider;
   private OzoneConfiguration conf;
-  private NodeManager nodeManager = mock(NodeManager.class);
+  private NodeManager nodeManager = Mockito.mock(NodeManager.class);
   private PipelineStateManager stateManager =
-      mock(PipelineStateManager.class);
-  private PlacementPolicy placementPolicy = mock(PlacementPolicy.class);
+      Mockito.mock(PipelineStateManager.class);
+  private PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
   private long containerSizeBytes;
   @BeforeEach
   public void setup() throws IOException, NodeNotFoundException {
@@ -80,9 +78,9 @@ public class TestECPipelineProvider {
         ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT,
         StorageUnit.BYTES);
     // Placement policy will always return EC number of random nodes.
-    when(placementPolicy.chooseDatanodes(anyList(),
-        anyList(), anyInt(), anyLong(),
-        anyLong()))
+    when(placementPolicy.chooseDatanodes(Mockito.anyList(),
+        Mockito.anyList(), Mockito.anyInt(), Mockito.anyLong(),
+        Mockito.anyLong()))
         .thenAnswer(invocation -> {
           List<DatanodeDetails> dns = new ArrayList<>();
           for (int i = 0; i < (int) invocation.getArguments()[2]; i++) {
@@ -100,13 +98,14 @@ public class TestECPipelineProvider {
   public void testSimplePipelineCanBeCreatedWithIndexes() throws IOException {
     ECReplicationConfig ecConf = new ECReplicationConfig(3, 2);
     Pipeline pipeline = provider.create(ecConf);
-    assertEquals(EC, pipeline.getType());
-    assertEquals(ecConf.getData() + ecConf.getParity(), pipeline.getNodes().size());
-    assertEquals(ALLOCATED, pipeline.getPipelineState());
+    Assertions.assertEquals(EC, pipeline.getType());
+    Assertions.assertEquals(ecConf.getData() + ecConf.getParity(),
+        pipeline.getNodes().size());
+    Assertions.assertEquals(ALLOCATED, pipeline.getPipelineState());
     List<DatanodeDetails> dns = pipeline.getNodes();
     for (int i = 0; i < ecConf.getRequiredNodes(); i++) {
       // EC DN indexes are numbered starting from 1 to N.
-      assertEquals(i + 1, pipeline.getReplicaIndex(dns.get(i)));
+      Assertions.assertEquals(i + 1, pipeline.getReplicaIndex(dns.get(i)));
     }
   }
 
@@ -117,11 +116,11 @@ public class TestECPipelineProvider {
     Set<ContainerReplica> replicas = createContainerReplicas(4);
     Pipeline pipeline = provider.createForRead(ecConf, replicas);
 
-    assertEquals(EC, pipeline.getType());
-    assertEquals(4, pipeline.getNodes().size());
-    assertEquals(ALLOCATED, pipeline.getPipelineState());
+    Assertions.assertEquals(EC, pipeline.getType());
+    Assertions.assertEquals(4, pipeline.getNodes().size());
+    Assertions.assertEquals(ALLOCATED, pipeline.getPipelineState());
     for (ContainerReplica r : replicas) {
-      assertEquals(r.getReplicaIndex(),
+      Assertions.assertEquals(r.getReplicaIndex(),
           pipeline.getReplicaIndex(r.getDatanodeDetails()));
     }
   }
@@ -146,9 +145,9 @@ public class TestECPipelineProvider {
     Pipeline pipeline = provider.createForRead(ecConf, replicas);
 
     List<DatanodeDetails> nodes = pipeline.getNodes();
-    assertEquals(replicas.size() - deadNodes.size(), nodes.size());
+    Assertions.assertEquals(replicas.size() - deadNodes.size(), nodes.size());
     for (DatanodeDetails d : deadNodes) {
-      assertThat(nodes).doesNotContain(d);
+      Assertions.assertFalse(nodes.contains(d));
     }
   }
 
@@ -179,10 +178,10 @@ public class TestECPipelineProvider {
     Pipeline pipeline = provider.createForRead(ecConf, replicas);
 
     List<DatanodeDetails> nodes = pipeline.getNodes();
-    assertEquals(replicas.size(), nodes.size());
-    assertEquals(healthyNodes, new HashSet<>(nodes.subList(0, 5)));
-    assertEquals(decomNodes, new HashSet<>(nodes.subList(5, 10)));
-    assertEquals(staleNodes, new HashSet<>(nodes.subList(10, 15)));
+    Assertions.assertEquals(replicas.size(), nodes.size());
+    Assertions.assertEquals(healthyNodes, new HashSet<>(nodes.subList(0, 5)));
+    Assertions.assertEquals(decomNodes, new HashSet<>(nodes.subList(5, 10)));
+    Assertions.assertEquals(staleNodes, new HashSet<>(nodes.subList(10, 15)));
   }
 
   @Test
@@ -197,8 +196,9 @@ public class TestECPipelineProvider {
     favoredNodes.add(MockDatanodeDetails.randomDatanodeDetails());
 
     Pipeline pipeline = provider.create(ecConf, excludedNodes, favoredNodes);
-    assertEquals(EC, pipeline.getType());
-    assertEquals(ecConf.getData() + ecConf.getParity(), pipeline.getNodes().size());
+    Assertions.assertEquals(EC, pipeline.getType());
+    Assertions.assertEquals(ecConf.getData() + ecConf.getParity(),
+        pipeline.getNodes().size());
 
     verify(placementPolicy).chooseDatanodes(excludedNodes, favoredNodes,
         ecConf.getRequiredNodes(), 0, containerSizeBytes);

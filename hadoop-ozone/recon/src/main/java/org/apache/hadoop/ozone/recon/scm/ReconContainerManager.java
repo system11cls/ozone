@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +21,6 @@ package org.apache.hadoop.ozone.recon.scm;
 import static java.util.Comparator.comparingLong;
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FINALIZE;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +29,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
 import org.apache.hadoop.conf.Configuration;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
@@ -48,10 +50,11 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
 import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.common.statemachine.InvalidStateTransitionException;
-import org.apache.hadoop.ozone.recon.persistence.ContainerHealthSchemaManager;
 import org.apache.hadoop.ozone.recon.persistence.ContainerHistory;
+import org.apache.hadoop.ozone.recon.persistence.ContainerHealthSchemaManager;
 import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
 import org.apache.hadoop.ozone.recon.spi.StorageContainerServiceProvider;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -215,32 +218,31 @@ public class ReconContainerManager extends ContainerManagerImpl {
 
   /**
    * Adds a new container to Recon's container manager.
-   *
    * @param containerWithPipeline containerInfo with pipeline info
    * @throws IOException on Error.
    */
   public void addNewContainer(ContainerWithPipeline containerWithPipeline)
       throws IOException {
-    ReconPipelineManager reconPipelineManager = (ReconPipelineManager) pipelineManager;
     ContainerInfo containerInfo = containerWithPipeline.getContainerInfo();
     try {
       if (containerInfo.getState().equals(HddsProtos.LifeCycleState.OPEN)) {
         PipelineID pipelineID = containerWithPipeline.getPipeline().getId();
-        // Check if the pipeline is present in Recon if not add it.
-        if (reconPipelineManager.addPipeline(containerWithPipeline.getPipeline())) {
-          LOG.info("Added new pipeline {} to Recon pipeline metadata from SCM.", pipelineID);
+        if (pipelineManager.containsPipeline(pipelineID)) {
+          getContainerStateManager().addContainer(containerInfo.getProtobuf());
+          pipelineManager.addContainerToPipeline(
+              containerWithPipeline.getPipeline().getId(),
+              containerInfo.containerID());
+          // update open container count on all datanodes on this pipeline
+          pipelineToOpenContainer.put(pipelineID,
+                    pipelineToOpenContainer.getOrDefault(pipelineID, 0) + 1);
+          LOG.info("Successfully added container {} to Recon.",
+              containerInfo.containerID());
+        } else {
+          // Get open container for a pipeline that Recon does not know
+          // about yet. Cannot update internal state until pipeline is synced.
+          LOG.warn("Pipeline {} not found. Cannot add container {}",
+                  pipelineID, containerInfo.containerID());
         }
-
-        getContainerStateManager().addContainer(containerInfo.getProtobuf());
-        pipelineManager.addContainerToPipeline(
-            containerWithPipeline.getPipeline().getId(),
-            containerInfo.containerID());
-        // update open container count on all datanodes on this pipeline
-        pipelineToOpenContainer.put(pipelineID,
-            pipelineToOpenContainer.getOrDefault(pipelineID, 0) + 1);
-        LOG.info("Successfully added container {} to Recon.",
-            containerInfo.containerID());
-
       } else {
         getContainerStateManager().addContainer(containerInfo.getProtobuf());
         LOG.info("Successfully added no open container {} to Recon.",

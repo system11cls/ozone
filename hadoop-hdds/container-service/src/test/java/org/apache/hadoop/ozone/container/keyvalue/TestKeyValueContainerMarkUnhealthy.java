@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,46 +18,59 @@
 
 package org.apache.hadoop.ozone.container.keyvalue;
 
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.OPEN;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.UUID;
 import org.apache.hadoop.conf.StorageUnit;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
-import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
+import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
-import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.common.volume.RoundRobinVolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.common.volume.VolumeSet;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
+import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.UUID;
+
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.OPEN;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.UNHEALTHY;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests unhealthy container functionality in the {@link KeyValueContainer}
  * class.
  */
-@Timeout(600)
+@RunWith(Parameterized.class)
 public class TestKeyValueContainerMarkUnhealthy {
   public static final Logger LOG = LoggerFactory.getLogger(
       TestKeyValueContainerMarkUnhealthy.class);
 
-  @TempDir
-  private Path folder;
+  @Rule
+  public TemporaryFolder folder = new TemporaryFolder();
+
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(600));
+
+  @Rule
+  public ExpectedException thrown = ExpectedException.none();
 
   private OzoneConfiguration conf;
   private String scmId = UUID.randomUUID().toString();
@@ -66,18 +80,22 @@ public class TestKeyValueContainerMarkUnhealthy {
   private KeyValueContainer keyValueContainer;
   private UUID datanodeId;
 
-  private ContainerLayoutVersion layout;
+  private final ContainerLayoutVersion layout;
 
-  private void initTestData(ContainerLayoutVersion layoutVersion) throws Exception {
-    this.layout = layoutVersion;
-    setup();
+  public TestKeyValueContainerMarkUnhealthy(ContainerLayoutVersion layout) {
+    this.layout = layout;
   }
 
-  public void setup() throws Exception {
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerLayoutTestInfo.containerLayoutParameters();
+  }
+
+  @Before
+  public void setUp() throws Exception {
     conf = new OzoneConfiguration();
     datanodeId = UUID.randomUUID();
-    String dataDir = Files.createDirectory(
-        folder.resolve("data")).toAbsolutePath().toString();
+    String dataDir = folder.newFolder("data").getAbsolutePath();
     HddsVolume hddsVolume = new HddsVolume.Builder(dataDir)
         .conf(conf)
         .datanodeUuid(datanodeId.toString())
@@ -87,15 +105,14 @@ public class TestKeyValueContainerMarkUnhealthy {
 
     volumeSet = mock(MutableVolumeSet.class);
     volumeChoosingPolicy = mock(RoundRobinVolumeChoosingPolicy.class);
-    when(volumeChoosingPolicy.chooseVolume(anyList(), anyLong()))
+    Mockito.when(volumeChoosingPolicy.chooseVolume(anyList(), anyLong()))
         .thenReturn(hddsVolume);
 
     keyValueContainerData = new KeyValueContainerData(1L,
         layout,
         (long) StorageUnit.GB.toBytes(5), UUID.randomUUID().toString(),
         datanodeId.toString());
-    final File metaDir = Files.createDirectory(
-        folder.resolve("meta")).toAbsolutePath().toFile();
+    final File metaDir = folder.newFolder("meta");
     keyValueContainerData.setMetadataPath(metaDir.getPath());
 
 
@@ -103,7 +120,7 @@ public class TestKeyValueContainerMarkUnhealthy {
         keyValueContainerData, conf);
   }
 
-  @AfterEach
+  @After
   public void teardown() {
     volumeSet = null;
     keyValueContainer = null;
@@ -116,71 +133,64 @@ public class TestKeyValueContainerMarkUnhealthy {
    *
    * @throws IOException
    */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testMarkContainerUnhealthy(ContainerLayoutVersion layoutVersion) throws Exception {
-    initTestData(layoutVersion);
-    assertThat(keyValueContainerData.getState()).isEqualTo(OPEN);
+  @Test
+  public void testMarkContainerUnhealthy() throws IOException {
+    assertThat(keyValueContainerData.getState(), is(OPEN));
     keyValueContainer.markContainerUnhealthy();
-    assertThat(keyValueContainerData.getState()).isEqualTo(UNHEALTHY);
+    assertThat(keyValueContainerData.getState(), is(UNHEALTHY));
 
     // Check metadata in the .container file
     File containerFile = keyValueContainer.getContainerFile();
 
     keyValueContainerData = (KeyValueContainerData) ContainerDataYaml
         .readContainerFile(containerFile);
-    assertThat(keyValueContainerData.getState()).isEqualTo(UNHEALTHY);
+    assertThat(keyValueContainerData.getState(), is(UNHEALTHY));
   }
 
   /**
    * Attempting to close an unhealthy container should fail.
-   *
    * @throws IOException
    */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testCloseUnhealthyContainer(ContainerLayoutVersion layoutVersion) throws Exception {
-    initTestData(layoutVersion);
+  @Test
+  public void testCloseUnhealthyContainer() throws IOException {
     keyValueContainer.markContainerUnhealthy();
-    assertThrows(StorageContainerException.class, () ->
-        keyValueContainer.markContainerForClose());
-
+    thrown.expect(StorageContainerException.class);
+    keyValueContainer.markContainerForClose();
   }
 
   /**
    * Attempting to mark a closed container as unhealthy should succeed.
    */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testMarkClosedContainerAsUnhealthy(ContainerLayoutVersion layoutVersion) throws Exception {
-    initTestData(layoutVersion);
+  @Test
+  public void testMarkClosedContainerAsUnhealthy() throws IOException {
     // We need to create the container so the compact-on-close operation
     // does not NPE.
     keyValueContainer.create(volumeSet, volumeChoosingPolicy, scmId);
     keyValueContainer.close();
     keyValueContainer.markContainerUnhealthy();
-    assertThat(keyValueContainerData.getState()).isEqualTo(UNHEALTHY);
+    assertThat(keyValueContainerData.getState(), is(UNHEALTHY));
   }
 
   /**
    * Attempting to mark a quasi-closed container as unhealthy should succeed.
    */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testMarkQuasiClosedContainerAsUnhealthy(ContainerLayoutVersion layoutVersion) throws Exception {
-    initTestData(layoutVersion);
+  @Test
+  public void testMarkQuasiClosedContainerAsUnhealthy() throws IOException {
     // We need to create the container so the sync-on-quasi-close operation
     // does not NPE.
     keyValueContainer.create(volumeSet, volumeChoosingPolicy, scmId);
     keyValueContainer.quasiClose();
     keyValueContainer.markContainerUnhealthy();
-    assertThat(keyValueContainerData.getState()).isEqualTo(UNHEALTHY);
+    assertThat(keyValueContainerData.getState(), is(UNHEALTHY));
   }
 
   /**
    * Attempting to mark a closing container as unhealthy should succeed.
    */
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testMarkClosingContainerAsUnhealthy(ContainerLayoutVersion layoutVersion) throws Exception {
-    initTestData(layoutVersion);
+  @Test
+  public void testMarkClosingContainerAsUnhealthy() throws IOException {
     keyValueContainer.markContainerForClose();
     keyValueContainer.markContainerUnhealthy();
-    assertThat(keyValueContainerData.getState()).isEqualTo(UNHEALTHY);
+    assertThat(keyValueContainerData.getState(), is(UNHEALTHY));
   }
 }

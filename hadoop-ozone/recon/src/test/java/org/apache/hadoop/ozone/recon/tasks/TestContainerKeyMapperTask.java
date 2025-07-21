@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,23 +18,25 @@
 
 package org.apache.hadoop.ozone.recon.tasks;
 
+import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.writeKeyToOm;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.getMockOzoneManagerServiceProvider;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.getOmKeyLocationInfo;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.getRandomPipeline;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.getTestReconOmMetadataManager;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.initializeNewOmMetadataManager;
 import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.writeDataToOm;
-import static org.apache.hadoop.ozone.recon.OMMetadataManagerTestUtils.writeKeyToOm;
-import static org.assertj.core.api.Assertions.assertThat;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -103,11 +106,11 @@ public class TestContainerKeyMapperTask {
 
     Map<ContainerKeyPrefix, Integer> keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(1);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(2);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     Pipeline pipeline = getRandomPipeline();
 
@@ -132,10 +135,10 @@ public class TestContainerKeyMapperTask {
         VOLUME_NAME,
         Collections.singletonList(omKeyLocationInfoGroup));
 
-    ContainerKeyMapperTaskOBS containerKeyMapperTaskOBS =
-        new ContainerKeyMapperTaskOBS(reconContainerMetadataManager,
+    ContainerKeyMapperTask containerKeyMapperTask =
+        new ContainerKeyMapperTask(reconContainerMetadataManager,
             omConfiguration);
-    containerKeyMapperTaskOBS.reprocess(reconOMMetadataManager);
+    containerKeyMapperTask.reprocess(reconOMMetadataManager);
 
     keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(1);
@@ -169,12 +172,12 @@ public class TestContainerKeyMapperTask {
     // Make sure the key prefixes are empty for container 1
     Map<ContainerKeyPrefix, Integer> keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(1L);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     // Make sure the key prefixes are empty for container 2
     keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(2L);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     // Create a random pipeline and a list of OmKeyLocationInfo objects
     Pipeline pipeline = getRandomPipeline();
@@ -205,10 +208,10 @@ public class TestContainerKeyMapperTask {
         KEY_ONE_SIZE);
 
     // Reprocess container key mappings
-    ContainerKeyMapperTaskFSO containerKeyMapperTaskFSO =
-        new ContainerKeyMapperTaskFSO(reconContainerMetadataManager,
+    ContainerKeyMapperTask containerKeyMapperTask =
+        new ContainerKeyMapperTask(reconContainerMetadataManager,
             omConfiguration);
-    containerKeyMapperTaskFSO.reprocess(reconOMMetadataManager);
+    containerKeyMapperTask.reprocess(reconOMMetadataManager);
 
     // Check the key prefixes for container 1
     keyPrefixesForContainer =
@@ -243,11 +246,11 @@ public class TestContainerKeyMapperTask {
   public void testKeyTableProcess() throws IOException {
     Map<ContainerKeyPrefix, Integer> keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(1);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(2);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     Pipeline pipeline = getRandomPipeline();
 
@@ -312,12 +315,12 @@ public class TestContainerKeyMapperTask {
         ArrayList<OMDBUpdateEvent>() {{
           add(keyEvent1);
           add(keyEvent2);
-        }}, 0L);
+        }});
 
-    ContainerKeyMapperTaskOBS containerKeyMapperTaskOBS =
-        new ContainerKeyMapperTaskOBS(reconContainerMetadataManager,
+    ContainerKeyMapperTask containerKeyMapperTask =
+        new ContainerKeyMapperTask(reconContainerMetadataManager,
             omConfiguration);
-    containerKeyMapperTaskOBS.reprocess(reconOMMetadataManager);
+    containerKeyMapperTask.reprocess(reconOMMetadataManager);
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(1);
@@ -325,7 +328,7 @@ public class TestContainerKeyMapperTask {
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(2);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(3);
@@ -336,7 +339,7 @@ public class TestContainerKeyMapperTask {
     assertEquals(1, reconContainerMetadataManager.getKeyCountForContainer(3L));
 
     // Process PUT & DELETE event.
-    containerKeyMapperTaskOBS.process(omUpdateEventBatch, Collections.emptyMap());
+    containerKeyMapperTask.process(omUpdateEventBatch);
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(1);
@@ -348,7 +351,7 @@ public class TestContainerKeyMapperTask {
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(3);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     assertEquals(1, reconContainerMetadataManager.getKeyCountForContainer(1L));
     assertEquals(1, reconContainerMetadataManager.getKeyCountForContainer(2L));
@@ -363,11 +366,11 @@ public class TestContainerKeyMapperTask {
     // Verify that keyPrefixesForContainer is empty for container 1 and 2
     Map<ContainerKeyPrefix, Integer> keyPrefixesForContainer =
         reconContainerMetadataManager.getKeyPrefixesForContainer(1);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(2);
-    assertThat(keyPrefixesForContainer).isEmpty();
+    assertTrue(keyPrefixesForContainer.isEmpty());
 
     // Create a random pipeline and a list of OmKeyLocationInfo objects
     Pipeline pipeline = getRandomPipeline();
@@ -384,8 +387,8 @@ public class TestContainerKeyMapperTask {
         new OmKeyLocationInfoGroup(0L, omKeyLocationInfoList);
 
     // Reprocess container key mappings
-    ContainerKeyMapperTaskFSO containerKeyMapperTaskFSO =
-        new ContainerKeyMapperTaskFSO(reconContainerMetadataManager,
+    ContainerKeyMapperTask containerKeyMapperTask =
+        new ContainerKeyMapperTask(reconContainerMetadataManager,
             omConfiguration);
 
     String bucket = BUCKET_NAME;
@@ -424,10 +427,10 @@ public class TestContainerKeyMapperTask {
             add(keyEvent1);
             add(keyEvent2);
           }
-        }, 0L);
+        });
 
     // Process PUT event for both the keys
-    containerKeyMapperTaskFSO.process(omUpdateEventBatch, Collections.emptyMap());
+    containerKeyMapperTask.process(omUpdateEventBatch);
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(1);
@@ -457,10 +460,10 @@ public class TestContainerKeyMapperTask {
           {
             add(keyEvent3);
           }
-        }, 0L);
+        });
 
     // Process DELETE event for key2
-    containerKeyMapperTaskFSO.process(omUpdateEventBatch2, Collections.emptyMap());
+    containerKeyMapperTask.process(omUpdateEventBatch2);
 
     keyPrefixesForContainer = reconContainerMetadataManager
         .getKeyPrefixesForContainer(1);

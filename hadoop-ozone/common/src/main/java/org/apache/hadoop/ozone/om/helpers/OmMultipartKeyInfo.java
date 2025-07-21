@@ -1,21 +1,28 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om.helpers;
+
+import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.utils.db.Codec;
+import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
+import org.apache.hadoop.hdds.utils.db.Proto2Codec;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartKeyInfo;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,25 +32,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import org.apache.hadoop.hdds.client.ECReplicationConfig;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.utils.db.Codec;
-import org.apache.hadoop.hdds.utils.db.CopyObject;
-import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
-import org.apache.hadoop.hdds.utils.db.Proto2Codec;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartKeyInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
 
 /**
  * This class represents multipart upload information for a key, which holds
  * upload part information of the key.
  */
-public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject<OmMultipartKeyInfo> {
+public final class OmMultipartKeyInfo extends WithObjectID {
   private static final Codec<OmMultipartKeyInfo> CODEC = new DelegatedCodec<>(
       Proto2Codec.get(MultipartKeyInfo.getDefaultInstance()),
       OmMultipartKeyInfo::getFromProto,
-      OmMultipartKeyInfo::getProto,
-      OmMultipartKeyInfo.class);
+      OmMultipartKeyInfo::getProto);
 
   public static Codec<OmMultipartKeyInfo> getCodec() {
     return CODEC;
@@ -157,32 +155,37 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
    *   multiKey1   |     1026     |     1025   |
    * ------------------------------------------|
    */
-  private final long parentID;
+  private long parentID;
 
   /**
    * Construct OmMultipartKeyInfo object which holds multipart upload
    * information for a key.
    */
-  private OmMultipartKeyInfo(Builder b) {
-    super(b);
-    this.uploadID = b.uploadID;
-    this.creationTime = b.creationTime;
-    this.replicationConfig = b.replicationConfig;
-    this.partKeyInfoMap = new PartKeyInfoMap(b.partKeyInfoList);
-    this.parentID = b.parentID;
+  @SuppressWarnings("parameternumber")
+  private OmMultipartKeyInfo(String id, long creationTime,
+      ReplicationConfig replicationConfig,
+      PartKeyInfoMap sortedMap, long objectID, long updateID,
+      long parentObjId) {
+    this.uploadID = id;
+    this.creationTime = creationTime;
+    this.replicationConfig = replicationConfig;
+    this.partKeyInfoMap = sortedMap;
+    this.objectID = objectID;
+    this.updateID = updateID;
+    this.parentID = parentObjId;
   }
 
-  /** Copy constructor. */
-  private OmMultipartKeyInfo(OmMultipartKeyInfo b) {
-    super(b);
-    this.uploadID = b.uploadID;
-    this.creationTime = b.creationTime;
-    this.replicationConfig = b.replicationConfig;
-    // PartKeyInfoMap is an immutable data structure. Whenever a PartKeyInfo
-    // is added, it returns a new shallow copy of the PartKeyInfoMap Object
-    // so here we can directly pass in partKeyInfoMap
-    this.partKeyInfoMap = b.partKeyInfoMap;
-    this.parentID = b.parentID;
+  /**
+   * Construct OmMultipartKeyInfo object which holds multipart upload
+   * information for a key.
+   */
+  @SuppressWarnings("parameternumber")
+  private OmMultipartKeyInfo(String id, long creationTime,
+      ReplicationConfig replicationConfig,
+      SortedMap<Integer, PartKeyInfo> list, long objectID, long updateID,
+      long parentObjId) {
+    this(id, creationTime, replicationConfig, new PartKeyInfoMap(list),
+        objectID, updateID, parentObjId);
   }
 
   /**
@@ -225,11 +228,13 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
   /**
    * Builder of OmMultipartKeyInfo.
    */
-  public static class Builder extends WithObjectID.Builder {
+  public static class Builder {
     private String uploadID;
     private long creationTime;
     private ReplicationConfig replicationConfig;
-    private final TreeMap<Integer, PartKeyInfo> partKeyInfoList;
+    private TreeMap<Integer, PartKeyInfo> partKeyInfoList;
+    private long objectID;
+    private long updateID;
     private long parentID;
 
     public Builder() {
@@ -265,15 +270,13 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
       return this;
     }
 
-    @Override
     public Builder setObjectID(long obId) {
-      super.setObjectID(obId);
+      this.objectID = obId;
       return this;
     }
 
-    @Override
     public Builder setUpdateID(long id) {
-      super.setUpdateID(id);
+      this.updateID = id;
       return this;
     }
 
@@ -283,7 +286,8 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     }
 
     public OmMultipartKeyInfo build() {
-      return new OmMultipartKeyInfo(this);
+      return new OmMultipartKeyInfo(uploadID, creationTime, replicationConfig,
+              partKeyInfoList, objectID, updateID, parentID);
     }
   }
 
@@ -304,15 +308,10 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
         multipartKeyInfo.getEcReplicationConfig()
     );
 
-    return new Builder()
-        .setUploadID(multipartKeyInfo.getUploadID())
-        .setCreationTime(multipartKeyInfo.getCreationTime())
-        .setReplicationConfig(replicationConfig)
-        .setPartKeyInfoList(list)
-        .setObjectID(multipartKeyInfo.getObjectID())
-        .setUpdateID(multipartKeyInfo.getUpdateID())
-        .setParentID(multipartKeyInfo.getParentID())
-        .build();
+    return new OmMultipartKeyInfo(multipartKeyInfo.getUploadID(),
+        multipartKeyInfo.getCreationTime(), replicationConfig,
+        list, multipartKeyInfo.getObjectID(),
+        multipartKeyInfo.getUpdateID(), multipartKeyInfo.getParentID());
   }
 
   /**
@@ -324,8 +323,8 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
         .setUploadID(uploadID)
         .setCreationTime(creationTime)
         .setType(replicationConfig.getReplicationType())
-        .setObjectID(getObjectID())
-        .setUpdateID(getUpdateID())
+        .setObjectID(objectID)
+        .setUpdateID(updateID)
         .setParentID(parentID);
 
     if (replicationConfig instanceof ECReplicationConfig) {
@@ -358,9 +357,12 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     return uploadID.hashCode();
   }
 
-  @Override
   public OmMultipartKeyInfo copyObject() {
-    return new OmMultipartKeyInfo(this);
+    // PartKeyInfoMap is an immutable data structure. Whenever a PartKeyInfo
+    // is added, it returns a new shallow copy of the PartKeyInfoMap Object
+    // so here we can directly pass in partKeyInfoMap
+    return new OmMultipartKeyInfo(uploadID, creationTime, replicationConfig,
+        partKeyInfoMap, objectID, updateID, parentID);
   }
 
 }

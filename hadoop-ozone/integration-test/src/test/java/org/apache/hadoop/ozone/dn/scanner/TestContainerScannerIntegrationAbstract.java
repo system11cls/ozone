@@ -1,51 +1,25 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.dn.scanner;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.client.ReplicationFactor.ONE;
-import static org.apache.hadoop.hdds.client.ReplicationType.RATIS;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State;
-import static org.apache.hadoop.ozone.container.common.interfaces.Container.ScanResult;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -73,6 +47,34 @@ import org.apache.ozone.test.GenericTestUtils.LogCapturer;
 import org.apache.ozone.test.LambdaTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Timeout;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.client.ReplicationFactor.ONE;
+import static org.apache.hadoop.hdds.client.ReplicationType.RATIS;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State;
+import static org.apache.hadoop.ozone.container.common.interfaces.Container.ScanResult;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * This class tests the data scanner functionality.
@@ -114,15 +116,6 @@ public abstract class TestContainerScannerIntegrationAbstract {
     bucket = volume.getBucket(bucketName);
   }
 
-  void pauseScanner() {
-    getOzoneContainer().pauseContainerScrub();
-  }
-
-  void resumeScanner() {
-    getOzoneContainer().resumeContainerScrub();
-  }
-
-
   @AfterAll
   static void shutdown() throws IOException {
     if (ozClient != null) {
@@ -146,18 +139,15 @@ public abstract class TestContainerScannerIntegrationAbstract {
     ContainerManager cm = cluster.getStorageContainerManager()
         .getContainerManager();
     LambdaTestUtils.await(5000, 500,
-        () -> cm.getContainer(ContainerID.valueOf(containerID)).getState()
+        () -> cm.getContainer(new ContainerID(containerID)).getState()
             != HddsProtos.LifeCycleState.OPEN);
   }
 
-  private static OzoneContainer getOzoneContainer() {
+  protected Container<?> getDnContainer(long containerID) {
     assertEquals(1, cluster.getHddsDatanodes().size());
     HddsDatanodeService dn = cluster.getHddsDatanodes().get(0);
-    return dn.getDatanodeStateMachine().getContainer();
-  }
-
-  protected Container<?> getDnContainer(long containerID) {
-    return getOzoneContainer().getContainerSet().getContainer(containerID);
+    OzoneContainer oc = dn.getDatanodeStateMachine().getContainer();
+    return oc.getContainerSet().getContainer(containerID);
   }
 
   protected long writeDataThenCloseContainer() throws Exception {
@@ -319,6 +309,7 @@ public abstract class TestContainerScannerIntegrationAbstract {
 
     private final Consumer<Container<?>> corruption;
     private final ScanResult.FailureType expectedResult;
+    private static final Random RANDOM = new Random();
 
     ContainerCorruptions(Consumer<Container<?>> corruption,
                          ScanResult.FailureType expectedResult) {
@@ -335,8 +326,8 @@ public abstract class TestContainerScannerIntegrationAbstract {
      * Check that the correct corruption type was written to the container log.
      */
     public void assertLogged(LogCapturer logCapturer) {
-      assertThat(logCapturer.getOutput())
-          .contains(expectedResult.toString());
+      assertThat(logCapturer.getOutput(),
+          containsString(expectedResult.toString()));
     }
 
     /**
@@ -355,21 +346,11 @@ public abstract class TestContainerScannerIntegrationAbstract {
      * Overwrite the file with random bytes.
      */
     private static void corruptFile(File file) {
+      byte[] corruptedBytes = new byte[(int)file.length()];
+      RANDOM.nextBytes(corruptedBytes);
       try {
-        final int length = (int) file.length();
-
-        Path path = file.toPath();
-        final byte[] original = IOUtils.readFully(Files.newInputStream(path), length);
-
-        final byte[] corruptedBytes = new byte[length];
-        ThreadLocalRandom.current().nextBytes(corruptedBytes);
-
-        Files.write(path, corruptedBytes,
-            StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.SYNC);
-
-        assertThat(IOUtils.readFully(Files.newInputStream(path), length))
-            .isEqualTo(corruptedBytes)
-            .isNotEqualTo(original);
+        Files.write(file.toPath(), corruptedBytes,
+            StandardOpenOption.TRUNCATE_EXISTING);
       } catch (IOException ex) {
         // Fail the test.
         throw new UncheckedIOException(ex);
@@ -381,10 +362,8 @@ public abstract class TestContainerScannerIntegrationAbstract {
      */
     private static void truncateFile(File file) {
       try {
-        Files.write(file.toPath(), new byte[0],
-            StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.SYNC);
-
-        assertEquals(0, file.length());
+        Files.write(file.toPath(), new byte[]{},
+            StandardOpenOption.TRUNCATE_EXISTING);
       } catch (IOException ex) {
         // Fail the test.
         throw new UncheckedIOException(ex);

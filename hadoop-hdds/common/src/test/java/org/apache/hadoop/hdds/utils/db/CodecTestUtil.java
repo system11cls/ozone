@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,17 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.utils.db;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assertions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Test {@link Codec} implementations.
@@ -55,35 +53,35 @@ public final class CodecTestUtil {
 
   public static <T> void runTest(Codec<T> codec, T original,
       Integer serializedSize, Codec<T> oldCodec) throws Exception {
-    assertTrue(codec.supportCodecBuffer());
+    Assertions.assertTrue(codec.supportCodecBuffer());
 
     // serialize to byte[]
     final byte[] array = codec.toPersistedFormat(original);
     LOG.info("encoded length = " + array.length);
     if (serializedSize != null) {
-      assertEquals(serializedSize, array.length);
+      Assertions.assertEquals(serializedSize, array.length);
     }
     if (oldCodec != null) {
       final byte[] expected = oldCodec.toPersistedFormat(original);
-      assertArrayEquals(expected, array);
+      Assertions.assertArrayEquals(expected, array);
     }
     // deserialize from byte[]
     final T fromArray = codec.fromPersistedFormat(array);
-    assertEquals(original, fromArray);
+    Assertions.assertEquals(original, fromArray);
 
     // serialize to CodecBuffer
     final CodecBuffer codecBuffer = codec.toCodecBuffer(
         original, CodecBuffer.Allocator.getHeap());
-    assertEquals(array.length, codecBuffer.readableBytes());
+    Assertions.assertEquals(array.length, codecBuffer.readableBytes());
     final ByteBuffer byteBuffer = codecBuffer.asReadOnlyByteBuffer();
-    assertEquals(array.length, byteBuffer.remaining());
+    Assertions.assertEquals(array.length, byteBuffer.remaining());
     for (int i = 0; i < array.length; i++) {
       // assert exact content
-      assertEquals(array[i], byteBuffer.get(i));
+      Assertions.assertEquals(array[i], byteBuffer.get(i));
     }
     if (oldCodec != null && oldCodec.supportCodecBuffer()) {
       try (CodecBuffer expected = oldCodec.toHeapCodecBuffer(original)) {
-        assertEquals(expected.asReadOnlyByteBuffer(),
+        Assertions.assertEquals(expected.asReadOnlyByteBuffer(),
             codecBuffer.asReadOnlyByteBuffer());
       }
     }
@@ -91,12 +89,12 @@ public final class CodecTestUtil {
     // deserialize from CodecBuffer
     final T fromBuffer = codec.fromCodecBuffer(codecBuffer);
     codecBuffer.release();
-    assertEquals(original, fromBuffer);
+    Assertions.assertEquals(original, fromBuffer);
 
     // deserialize from wrapped buffer
     final CodecBuffer wrapped = CodecBuffer.wrap(array);
     final T fromWrappedArray = codec.fromCodecBuffer(wrapped);
     wrapped.release();
-    assertEquals(original, fromWrappedArray);
+    Assertions.assertEquals(original, fromWrappedArray);
   }
 }

@@ -18,9 +18,9 @@
 
 import React from 'react';
 import { Input, Button } from 'antd';
-import { SearchOutlined, UndoOutlined } from '@ant-design/icons';
 
 import './columnSearch.less';
+import { SearchOutlined, UndoOutlined } from '@ant-design/icons';
 
 class ColumnSearch extends React.PureComponent {
   searchInput: Input | null = null;
@@ -52,7 +52,7 @@ class ColumnSearch extends React.PureComponent {
         <Button
           className='search-button'
           type='primary'
-          icon={<SearchOutlined/>}
+          icon={<SearchOutlined />}
           size='small'
           onClick={() => this.handleSearch(confirm)}
         >
@@ -60,7 +60,7 @@ class ColumnSearch extends React.PureComponent {
         </Button>
         <Button
           size='small'
-          icon={<UndoOutlined/>}
+          icon={<UndoOutlined />}
           className='reset-button'
           onClick={() => this.handleReset(clearFilters)}
         >

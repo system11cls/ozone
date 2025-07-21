@@ -1,31 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_SERVICE_IDS_KEY;
-
-import com.codahale.metrics.ConsoleReporter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.ScheduledReporter;
-import com.codahale.metrics.Slf4jReporter;
-import io.opentracing.Scope;
-import io.opentracing.Span;
-import io.opentracing.util.GlobalTracer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -43,8 +33,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.RandomStringUtils;
+
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.TimeDurationUtil;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
@@ -63,6 +52,17 @@ import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolClientSideTrans
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolPB;
 import org.apache.hadoop.ozone.util.ShutdownHookManager;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import com.codahale.metrics.ConsoleReporter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
+import com.codahale.metrics.Slf4jReporter;
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_SERVICE_IDS_KEY;
 import org.apache.ratis.protocol.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,14 +73,13 @@ import picocli.CommandLine.ParentCommand;
 /**
  * Base class for simplified performance tests.
  */
-@CommandLine.Command
 @SuppressWarnings("java:S2245") // no need for secure random
-public class BaseFreonGenerator implements FreonSubcommand {
+public class BaseFreonGenerator {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(BaseFreonGenerator.class);
 
-  private static final int CHECK_INTERVAL_MILLIS = 100;
+  private static final int CHECK_INTERVAL_MILLIS = 1000;
 
   private static final String DIGEST_ALGORITHM = "MD5";
 
@@ -266,7 +265,7 @@ public class BaseFreonGenerator implements FreonSubcommand {
    */
   private void reportAnyFailure() {
     if (failureCounter.get() > 0) {
-      throw new RuntimeException("One or more freon test is failed.");
+      throw new RuntimeException("One ore more freon test is failed.");
     }
   }
 
@@ -285,15 +284,11 @@ public class BaseFreonGenerator implements FreonSubcommand {
     failureCounter = new AtomicLong(0);
     attemptCounter = new AtomicLong(0);
 
-    if (prefix.isEmpty()) {
-      prefix = !allowEmptyPrefix() ? RandomStringUtils.randomAlphanumeric(10).toLowerCase() : "";
+    if (prefix.length() == 0) {
+      prefix = RandomStringUtils.randomAlphanumeric(10).toLowerCase();
     } else {
       //replace environment variables to support multi-node execution
       prefix = resolvePrefix(prefix);
-    }
-    if (duration != null && !allowDuration()) {
-      LOG.warn("--duration is ignored");
-      duration = null;
     }
     if (duration != null) {
       durationInSecond = TimeDurationUtil.getTimeDurationHelper(
@@ -311,8 +306,8 @@ public class BaseFreonGenerator implements FreonSubcommand {
               "Invalid command, "
                       + "the testNo must be a positive integer");
     }
-    LOG.info("Executing test with prefix {} and number-of-tests {}",
-        prefix.isEmpty() ? "''" : prefix, testNo);
+    LOG.info("Executing test with prefix {} " +
+        "and number-of-tests {}", prefix, testNo);
 
     pathSchema = new PathSchema(prefix);
 
@@ -456,7 +451,7 @@ public class BaseFreonGenerator implements FreonSubcommand {
       pipelines = pipelines
           .peek(p -> log.debug("Found pipeline {}", p.getId().getId()));
     }
-    if (pipelineId != null && !pipelineId.isEmpty()) {
+    if (pipelineId != null && pipelineId.length() > 0) {
       pipeline = pipelines
           .filter(p -> p.getId().toString().equals(pipelineId))
           .findFirst()
@@ -546,26 +541,8 @@ public class BaseFreonGenerator implements FreonSubcommand {
     return dig.digest(stream);
   }
 
-  /**
-   * When no prefix is specified,
-   * if allowEmptyPrefix is false, a random prefix will be used;
-   * if allowEmptyPrefix is true, an empty prefix will be used.
-   */
-  public boolean allowEmptyPrefix() {
-    return false;
-  }
-
   public String getPrefix() {
     return prefix;
-  }
-
-  /**
-   * Whether to enable Duration.
-   * If enabled, the command will load the --duration option.
-   * If not enabled, the command will not load the --duration option.
-   */
-  public boolean allowDuration() {
-    return true;
   }
 
   public MetricRegistry getMetrics() {
@@ -573,7 +550,7 @@ public class BaseFreonGenerator implements FreonSubcommand {
   }
 
   public OzoneConfiguration createOzoneConfiguration() {
-    return freonCommand.getOzoneConf();
+    return freonCommand.createOzoneConfiguration();
   }
 
   /**

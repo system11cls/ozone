@@ -1,37 +1,23 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.client.rpc;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_COMMAND_STATUS_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_CREATION;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
-import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -45,16 +31,43 @@ import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
+import org.apache.ozone.test.GenericTestUtils;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.HddsConfigKeys.
+    HDDS_COMMAND_STATUS_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.
+    HDDS_CONTAINER_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys
+    .HDDS_SCM_SAFEMODE_PIPELINE_CREATION;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
+
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 
 /**
  * Tests the validity BCSID of a container.
  */
-@Timeout(300)
 public class TestBCSID {
+
+  /**
+    * Set a timeout for each test.
+    */
+  @Rule
+  public TestRule timeout = new JUnit5AwareTimeout(Timeout.seconds(300));
+
   private static OzoneConfiguration conf = new OzoneConfiguration();
   private static MiniOzoneCluster cluster;
   private static OzoneClient client;
@@ -67,19 +80,22 @@ public class TestBCSID {
    *
    * @throws IOException
    */
-  @BeforeAll
+  @BeforeClass
   public static void init() throws Exception {
+    String path = GenericTestUtils
+        .getTempPath(TestBCSID.class.getSimpleName());
+    File baseDir = new File(path);
+    baseDir.mkdirs();
 
     conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_COMMAND_STATUS_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
     conf.setTimeDuration(OZONE_SCM_STALENODE_INTERVAL, 3, TimeUnit.SECONDS);
-    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 200, TimeUnit.MILLISECONDS);
     conf.setQuietMode(false);
     conf.setBoolean(HDDS_SCM_SAFEMODE_PIPELINE_CREATION, false);
     cluster =
-        MiniOzoneCluster.newBuilder(conf).setNumDatanodes(1)
+        MiniOzoneCluster.newBuilder(conf).setNumDatanodes(1).setHbInterval(200)
             .build();
     cluster.waitForClusterToBeReady();
     //the easiest way to create an open container is creating a key
@@ -94,7 +110,7 @@ public class TestBCSID {
   /**
    * Shutdown MiniDFSCluster.
    */
-  @AfterAll
+  @AfterClass
   public static void shutdown() {
     IOUtils.closeQuietly(client);
     if (cluster != null) {
@@ -106,9 +122,8 @@ public class TestBCSID {
   public void testBCSID() throws Exception {
     OzoneOutputStream key =
         objectStore.getVolume(volumeName).getBucket(bucketName)
-            .createKey("ratis", 1024,
-                ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS,
-                    ReplicationFactor.ONE), new HashMap<>());
+            .createKey("ratis", 1024, ReplicationType.RATIS,
+                ReplicationFactor.ONE, new HashMap<>());
     key.write("ratis".getBytes(UTF_8));
     key.close();
 
@@ -123,7 +138,7 @@ public class TestBCSID {
     OmKeyInfo keyInfo = cluster.getOzoneManager().lookupKey(keyArgs);
     List<OmKeyLocationInfo> keyLocationInfos =
         keyInfo.getKeyLocationVersions().get(0).getBlocksLatestVersionOnly();
-    assertEquals(1, keyLocationInfos.size());
+    Assert.assertEquals(1, keyLocationInfos.size());
     OmKeyLocationInfo omKeyLocationInfo = keyLocationInfos.get(0);
 
     long blockCommitSequenceId =
@@ -131,16 +146,16 @@ public class TestBCSID {
             .getContainer().getContainerSet()
             .getContainer(omKeyLocationInfo.getContainerID())
             .getContainerReport().getBlockCommitSequenceId();
-    assertThat(blockCommitSequenceId).isGreaterThan(0);
+    Assert.assertTrue(blockCommitSequenceId > 0);
 
     // make sure the persisted block Id in OM is same as that seen in the
     // container report to be reported to SCM.
-    assertEquals(blockCommitSequenceId,
+    Assert.assertEquals(blockCommitSequenceId,
         omKeyLocationInfo.getBlockCommitSequenceId());
 
     // verify that on restarting the datanode, it reloads the BCSID correctly.
     cluster.restartHddsDatanode(0, true);
-    assertEquals(blockCommitSequenceId,
+    Assert.assertEquals(blockCommitSequenceId,
         cluster.getHddsDatanodes().get(0).getDatanodeStateMachine()
             .getContainer().getContainerSet()
             .getContainer(omKeyLocationInfo.getContainerID())

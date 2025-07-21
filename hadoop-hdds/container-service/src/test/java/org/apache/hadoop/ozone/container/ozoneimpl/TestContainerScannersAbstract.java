@@ -1,42 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.ozoneimpl;
 
-import static org.apache.hadoop.hdds.conf.OzoneConfiguration.newInstanceOf;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.CLOSED;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.getDeletedContainerResult;
-import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.getUnhealthyScanResult;
-import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.CONTAINER_SCAN_MIN_GAP_DEFAULT;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -46,9 +26,29 @@ import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.verification.VerificationMode;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hdds.conf.OzoneConfiguration.newInstanceOf;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto.State.CLOSED;
+import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.getUnhealthyScanResult;
+import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.CONTAINER_SCAN_MIN_GAP_DEFAULT;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * General testing guidelines for the various container scanners whose tests
@@ -71,9 +71,6 @@ public abstract class TestContainerScannersAbstract {
 
   @Mock
   protected Container<ContainerData> corruptData;
-
-  @Mock
-  protected Container<ContainerData> deletedContainer;
 
   @Mock
   protected HddsVolume vol;
@@ -131,7 +128,7 @@ public abstract class TestContainerScannersAbstract {
     Instant oldLastScanTime = Instant.now()
         .minus(CONTAINER_SCAN_MIN_GAP_DEFAULT, ChronoUnit.MILLIS)
         .minus(10, ChronoUnit.MINUTES);
-    when(container.getContainerData().lastDataScanTime())
+    Mockito.when(container.getContainerData().lastDataScanTime())
         .thenReturn(Optional.of(oldLastScanTime));
   }
 
@@ -141,14 +138,14 @@ public abstract class TestContainerScannersAbstract {
     Instant recentLastScanTime = Instant.now()
         .minus(CONTAINER_SCAN_MIN_GAP_DEFAULT, ChronoUnit.MILLIS)
         .plus(1, ChronoUnit.MINUTES);
-    when(container.getContainerData().lastDataScanTime())
+    Mockito.when(container.getContainerData().lastDataScanTime())
         .thenReturn(Optional.of(recentLastScanTime));
   }
 
   protected void verifyContainerMarkedUnhealthy(
       Container<?> container, VerificationMode invocationTimes)
       throws Exception {
-    verify(controller, invocationTimes).markContainerUnhealthy(
+    Mockito.verify(controller, invocationTimes).markContainerUnhealthy(
         eq(container.getContainerData().getContainerID()), any());
   }
 
@@ -159,7 +156,7 @@ public abstract class TestContainerScannersAbstract {
    * containers.
    */
   protected Container<?> mockKeyValueContainer() {
-    KeyValueContainer unhealthy = mock(KeyValueContainer.class);
+    KeyValueContainer unhealthy = Mockito.mock(KeyValueContainer.class);
 
     KeyValueContainerData data = mock(KeyValueContainerData.class);
     when(data.getContainerID()).thenReturn(CONTAINER_SEQ_ID.incrementAndGet());
@@ -209,13 +206,7 @@ public abstract class TestContainerScannersAbstract {
         false, getUnhealthyScanResult(), ScanResult.healthy(),
         CONTAINER_SEQ_ID, vol);
 
-    // Mock container that has been deleted during scan.
-    ContainerTestUtils.setupMockContainer(deletedContainer,
-        true, ScanResult.healthy(), getDeletedContainerResult(),
-        CONTAINER_SEQ_ID, vol);
-
-    containers.addAll(Arrays.asList(healthy, corruptData, openCorruptMetadata,
-        deletedContainer));
+    containers.addAll(Arrays.asList(healthy, corruptData, openCorruptMetadata));
     ContainerController mock = mock(ContainerController.class);
     when(mock.getContainers(vol)).thenReturn(containers.iterator());
     when(mock.getContainers()).thenReturn(containers);

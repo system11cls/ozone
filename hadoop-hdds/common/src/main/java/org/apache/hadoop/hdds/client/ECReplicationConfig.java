@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,18 +19,17 @@
 package org.apache.hadoop.hdds.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import net.jcip.annotations.Immutable;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 
 /**
  * Replication configuration for EC replication.
  */
-@Immutable
 public class ECReplicationConfig implements ReplicationConfig {
 
   public static final String EC_REPLICATION_PARAMS_DELIMITER = "-";
@@ -60,16 +60,17 @@ public class ECReplicationConfig implements ReplicationConfig {
   private static final Pattern STRING_FORMAT
       = Pattern.compile("([a-zA-Z]+)-(\\d+)-(\\d+)-(\\d+)([kK])?");
 
-  private final int data;
+  private int data;
 
-  private final int parity;
+  private int parity;
 
-  private final int ecChunkSize;
+  private int ecChunkSize = 1024 * 1024;
 
-  private final EcCodec codec;
+  private EcCodec codec = EcCodec.RS;
 
   public ECReplicationConfig(int data, int parity) {
-    this(data, parity, EcCodec.RS, 1024 * 1024);
+    this.data = data;
+    this.parity = parity;
   }
 
   public ECReplicationConfig(int data, int parity, EcCodec codec,
@@ -120,7 +121,7 @@ public class ECReplicationConfig implements ReplicationConfig {
           ") be greater than zero");
     }
     if (matcher.group(5) != null) {
-      // The "k" modifier is present, so multiply by 1024
+      // The "k" modifier is present, so multiple by 1024
       chunkSize = chunkSize * 1024;
     }
     ecChunkSize = chunkSize;
@@ -214,11 +215,6 @@ public class ECReplicationConfig implements ReplicationConfig {
   public String configFormat() {
     return HddsProtos.ReplicationType.EC.name()
         + "/" + data + "-" + parity + "-" + chunkKB();
-  }
-
-  @Override
-  public int getMinimumNodes() {
-    return data;
   }
 
   private String chunkKB() {

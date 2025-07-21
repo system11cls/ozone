@@ -1,32 +1,32 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ozone.erasurecode.rawcoder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.io.IOException;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.ozone.erasurecode.ECChunk;
 import org.apache.ozone.erasurecode.TestCoderBase;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Raw coder test base with utilities.
@@ -92,9 +92,13 @@ public abstract class TestRawCoderBase extends TestCoderBase {
   protected void testCodingWithBadInput(boolean usingDirectBuffer) {
     this.usingDirectBuffer = usingDirectBuffer;
     prepareCoders(true);
-    assertThrows(Exception.class,
-        () -> performTestCoding(baseChunkSize, false, true, false),
-        "Encoding test with bad input should fail");
+
+    try {
+      performTestCoding(baseChunkSize, false, true, false);
+      Assertions.fail("Encoding test with bad input should fail");
+    } catch (Exception e) {
+      // Expected
+    }
   }
 
   /**
@@ -104,9 +108,13 @@ public abstract class TestRawCoderBase extends TestCoderBase {
   protected void testCodingWithBadOutput(boolean usingDirectBuffer) {
     this.usingDirectBuffer = usingDirectBuffer;
     prepareCoders(true);
-    assertThrows(Exception.class,
-        () -> performTestCoding(baseChunkSize, false, false, true),
-        "Decoding test with bad output should fail");
+
+    try {
+      performTestCoding(baseChunkSize, false, false, true);
+      Assertions.fail("Decoding test with bad output should fail");
+    } catch (Exception e) {
+      // Expected
+    }
   }
 
   /**
@@ -123,19 +131,30 @@ public abstract class TestRawCoderBase extends TestCoderBase {
     final ECChunk[] parity = prepareParityChunksForEncoding();
     IOException ioException = assertThrows(IOException.class,
         () -> encoder.encode(data, parity));
-    assertThat(ioException.getMessage()).contains("closed");
+    assertTrue(ioException.getMessage().contains("closed"));
     decoder.release();
     final ECChunk[] in = prepareInputChunksForDecoding(data, parity);
     final ECChunk[] out = prepareOutputChunksForDecoding();
     ioException = assertThrows(IOException.class,
         () -> decoder.decode(in, getErasedIndexesForDecoding(), out));
-    assertThat(ioException.getMessage()).contains("closed");
+    assertTrue(ioException.getMessage().contains("closed"));
   }
 
   @Test
   public void testCodingWithErasingTooMany() {
-    assertThrows(Exception.class, () -> testCoding(true), "Decoding test erasing too many should fail");
-    assertThrows(Exception.class, () -> testCoding(false), "Decoding test erasing too many should fail");
+    try {
+      testCoding(true);
+      Assertions.fail("Decoding test erasing too many should fail");
+    } catch (Exception e) {
+      // Expected
+    }
+
+    try {
+      testCoding(false);
+      Assertions.fail("Decoding test erasing too many should fail");
+    } catch (Exception e) {
+      // Expected
+    }
   }
 
   @Test
@@ -172,7 +191,7 @@ public abstract class TestRawCoderBase extends TestCoderBase {
     try {
       encoder.encode(dataChunks, parityChunks);
     } catch (IOException e) {
-      fail("Should not get IOException: " + e.getMessage());
+      Assertions.fail("Should not get IOException: " + e.getMessage());
     }
     dumpChunks("Encoded parity chunks", parityChunks);
 
@@ -209,7 +228,7 @@ public abstract class TestRawCoderBase extends TestCoderBase {
       decoder.decode(inputChunks, getErasedIndexesForDecoding(),
           recoveredChunks);
     } catch (IOException e) {
-      fail("Should not get IOException: " + e.getMessage());
+      Assertions.fail("Should not get IOException: " + e.getMessage());
     }
     dumpChunks("Decoded/recovered chunks", recoveredChunks);
 
@@ -299,7 +318,7 @@ public abstract class TestRawCoderBase extends TestCoderBase {
     try {
       encoder.encode(dataChunks, parityChunks);
     } catch (IOException e) {
-      fail("Should not get IOException: " + e.getMessage());
+      Assertions.fail("Should not get IOException: " + e.getMessage());
     }
     verifyBufferPositionAtEnd(dataChunks);
 
@@ -313,7 +332,7 @@ public abstract class TestRawCoderBase extends TestCoderBase {
       decoder.decode(inputChunks, getErasedIndexesForDecoding(),
           recoveredChunks);
     } catch (IOException e) {
-      fail("Should not get IOException: " + e.getMessage());
+      Assertions.fail("Should not get IOException: " + e.getMessage());
     }
     verifyBufferPositionAtEnd(inputChunks);
   }
@@ -321,7 +340,7 @@ public abstract class TestRawCoderBase extends TestCoderBase {
   private void verifyBufferPositionAtEnd(ECChunk[] inputChunks) {
     for (ECChunk chunk : inputChunks) {
       if (chunk != null) {
-        assertEquals(0, chunk.getBuffer().remaining());
+        Assertions.assertEquals(0, chunk.getBuffer().remaining());
       }
     }
   }

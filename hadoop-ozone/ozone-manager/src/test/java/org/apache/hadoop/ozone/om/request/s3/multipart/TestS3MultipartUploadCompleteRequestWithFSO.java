@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,22 +18,22 @@
 
 package org.apache.hadoop.ozone.om.request.s3.multipart;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.UUID;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Assertions;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Iterator;
+import java.util.UUID;
 
 /**
  * Tests S3 Multipart Upload Complete request.
@@ -66,7 +67,7 @@ public class TestS3MultipartUploadCompleteRequestWithFSO
       String keyName, long clientID) throws Exception {
     // need to initialize parentID
     String parentDir = OzoneFSUtils.getParentDir(keyName);
-    assertNotEquals("Parent doesn't exists!", parentDir, keyName);
+    Assertions.assertNotEquals("Parent doesn't exists!", parentDir, keyName);
 
     // add parentDir to dirTable
     long parentID = getParentID(volumeName, bucketName, keyName);
@@ -74,12 +75,10 @@ public class TestS3MultipartUploadCompleteRequestWithFSO
     long objectId = parentID + 1;
 
     OmKeyInfo omKeyInfoFSO =
-        OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, keyName,
-                RatisReplicationConfig.getInstance(ONE), new OmKeyLocationInfoGroup(0L, new ArrayList<>(), true))
-            .setObjectID(objectId)
-            .setParentObjectID(parentID)
-            .setUpdateID(txnId)
-            .build();
+            OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, keyName,
+                    HddsProtos.ReplicationType.RATIS,
+                    HddsProtos.ReplicationFactor.ONE, objectId, parentID, txnId,
+                    Time.now(), true);
 
     // add key to openFileTable
     String fileName = OzoneFSUtils.getFileName(keyName);
@@ -91,11 +90,13 @@ public class TestS3MultipartUploadCompleteRequestWithFSO
 
   private long getParentID(String volumeName, String bucketName,
                            String keyName) throws IOException {
+    Path keyPath = Paths.get(keyName);
+    Iterator<Path> elements = keyPath.iterator();
     final long volumeId = omMetadataManager.getVolumeId(volumeName);
     final long bucketId = omMetadataManager.getBucketId(volumeName,
             bucketName);
     return OMFileRequest.getParentID(volumeId, bucketId,
-            keyName, omMetadataManager);
+            elements, keyName, omMetadataManager);
   }
 
   @Override
@@ -112,29 +113,23 @@ public class TestS3MultipartUploadCompleteRequestWithFSO
 
   @Override
   protected S3MultipartUploadCompleteRequest getS3MultipartUploadCompleteReq(
-          OMRequest omRequest) throws IOException {
-    S3MultipartUploadCompleteRequest request = new S3MultipartUploadCompleteRequestWithFSO(omRequest,
+          OMRequest omRequest) {
+    return new S3MultipartUploadCompleteRequestWithFSO(omRequest,
         BucketLayout.FILE_SYSTEM_OPTIMIZED);
-    request.setUGI(UserGroupInformation.getCurrentUser());
-    return request;
   }
 
   @Override
   protected S3MultipartUploadCommitPartRequest getS3MultipartUploadCommitReq(
-      OMRequest omRequest) throws IOException {
-    S3MultipartUploadCommitPartRequest request = new S3MultipartUploadCommitPartRequestWithFSO(omRequest,
+      OMRequest omRequest) {
+    return new S3MultipartUploadCommitPartRequestWithFSO(omRequest,
         BucketLayout.FILE_SYSTEM_OPTIMIZED);
-    request.setUGI(UserGroupInformation.getCurrentUser());
-    return request;
   }
 
   @Override
   protected S3InitiateMultipartUploadRequest getS3InitiateMultipartUploadReq(
-      OMRequest initiateMPURequest) throws IOException {
-    S3InitiateMultipartUploadRequest request = new S3InitiateMultipartUploadRequestWithFSO(initiateMPURequest,
+      OMRequest initiateMPURequest) {
+    return new S3InitiateMultipartUploadRequestWithFSO(initiateMPURequest,
         BucketLayout.FILE_SYSTEM_OPTIMIZED);
-    request.setUGI(UserGroupInformation.getCurrentUser());
-    return request;
   }
 
   @Override

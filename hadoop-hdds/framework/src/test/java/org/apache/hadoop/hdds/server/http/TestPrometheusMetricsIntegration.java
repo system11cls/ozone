@@ -1,30 +1,29 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.server.http;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.concurrent.TimeoutException;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.metrics2.MetricsInfo;
 import org.apache.hadoop.metrics2.MetricsSource;
@@ -36,6 +35,7 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -101,9 +101,11 @@ public class TestPrometheusMetricsIntegration {
     String writtenMetrics = waitForMetricsToPublish("test_metrics_num");
 
     //THEN
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is missing from prometheus metrics output")
-        .contains("test_metrics_num_bucket_create_fails{context=\"dfs\"");
+    Assertions.assertTrue(
+        writtenMetrics.contains(
+            "test_metrics_num_bucket_create_fails{context=\"dfs\""),
+        "The expected metric line is missing from prometheus metrics output"
+    );
 
     metrics.unregisterSource("TestMetrics");
   }
@@ -123,13 +125,13 @@ public class TestPrometheusMetricsIntegration {
     String writtenMetrics = waitForMetricsToPublish("rpc_metrics_counter");
 
     // THEN
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is missing from prometheus metrics output")
-        .contains("rpc_metrics_counter{port=\"2345\"");
+    Assertions.assertTrue(
+        writtenMetrics.contains("rpc_metrics_counter{port=\"2345\""),
+        "The expected metric line is missing from prometheus metrics output");
 
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is missing from prometheus metrics output")
-        .contains("rpc_metrics_counter{port=\"1234\"");
+    Assertions.assertTrue(
+        writtenMetrics.contains("rpc_metrics_counter{port=\"1234\""),
+        "The expected metric line is missing from prometheus metrics output");
 
     metrics.unregisterSource("FooBar");
   }
@@ -150,16 +152,16 @@ public class TestPrometheusMetricsIntegration {
     String writtenMetrics = waitForMetricsToPublish("same_name_counter");
 
     // THEN
-    assertEquals(1, StringUtils.countMatches(writtenMetrics,
+    Assertions.assertEquals(1, StringUtils.countMatches(writtenMetrics,
         "# TYPE same_name_counter"));
 
     // both metrics should be present
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is present in prometheus metrics output")
-        .contains("same_name_counter{port=\"1234\"");
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is present in prometheus metrics output")
-        .contains("same_name_counter{port=\"2345\"");
+    Assertions.assertTrue(
+        writtenMetrics.contains("same_name_counter{port=\"1234\""),
+        "The expected metric line is present in prometheus metrics output");
+    Assertions.assertTrue(
+        writtenMetrics.contains("same_name_counter{port=\"2345\""),
+        "The expected metric line is present in prometheus metrics output");
 
     metrics.unregisterSource("SameName");
   }
@@ -196,12 +198,12 @@ public class TestPrometheusMetricsIntegration {
 
     // THEN
     // The first metric shouldn't be present
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is present in prometheus metrics output")
-        .doesNotContain("stale_metric_counter{port=\"1234\"");
-    assertThat(writtenMetrics)
-        .withFailMessage("The expected metric line is present in prometheus metrics output")
-        .contains("some_metric_counter{port=\"4321\"");
+    Assertions.assertFalse(
+        writtenMetrics.contains("stale_metric_counter{port=\"1234\""),
+        "The expected metric line is present in prometheus metrics output");
+    Assertions.assertTrue(
+        writtenMetrics.contains("some_metric_counter{port=\"4321\""),
+        "The expected metric line is present in prometheus metrics output");
 
     metrics.unregisterSource("SomeMetric");
   }

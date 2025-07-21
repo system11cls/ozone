@@ -1,28 +1,40 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.client.io;
 
-import static java.util.Collections.emptySortedSet;
-import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toSet;
-import static java.util.stream.IntStream.range;
-
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
+import org.apache.hadoop.hdds.scm.XceiverClientFactory;
+import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
+import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
+import org.apache.hadoop.io.ByteBufferPool;
+import org.apache.ozone.erasurecode.rawcoder.RawErasureDecoder;
+import org.apache.ozone.erasurecode.rawcoder.util.CodecUtil;
+import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -42,22 +54,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.hadoop.hdds.client.BlockID;
-import org.apache.hadoop.hdds.client.ECReplicationConfig;
-import org.apache.hadoop.hdds.protocol.DatanodeDetails;
-import org.apache.hadoop.hdds.scm.OzoneClientConfig;
-import org.apache.hadoop.hdds.scm.XceiverClientFactory;
-import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
-import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
-import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
-import org.apache.hadoop.io.ByteBufferPool;
-import org.apache.ozone.erasurecode.rawcoder.RawErasureDecoder;
-import org.apache.ozone.erasurecode.rawcoder.util.CodecUtil;
-import org.apache.ratis.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static java.util.Collections.emptySortedSet;
+import static java.util.stream.Collectors.toCollection;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.IntStream.range;
 
 /**
  * Class to read EC encoded data from blocks a stripe at a time, when some of
@@ -84,7 +85,7 @@ import org.slf4j.LoggerFactory;
  * Parity elements long. Missing or not needed elements should be set to null
  * in the array. The elements should be assigned to the array in EC index order.
  *
- * Assuming we have n missing data locations, where n {@literal <=} parity locations, the
+ * Assuming we have n missing data locations, where n <= parity locations, the
  * ByteBuffers passed in from the client are either assigned to the decoder
  * input array, or they are assigned to the decoder output array, where
  * reconstructed data is written. The required number of parity buffers will be

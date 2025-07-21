@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,25 +14,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.security.x509.certificate.client;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BACKUP_KEY_CERT_DIR_NAME_SUFFIX;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_NEW_KEY_CERT_DIR_NAME_SUFFIX;
-import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.FAILURE;
-import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.GETCERT;
-import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.SUCCESS;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.BOOTSTRAP_ERROR;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CERTIFICATE_ERROR;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CRYPTO_SIGNATURE_VERIFICATION_ERROR;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CRYPTO_SIGN_ERROR;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.RENEW_ERROR;
-import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.ROLLBACK_ERROR;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -40,11 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
@@ -61,6 +46,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -73,26 +59,45 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.protocol.proto.SCMSecurityProtocolProtos.SCMGetCertResponseProto;
 import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
-import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
 import org.apache.hadoop.hdds.security.SecurityConfig;
-import org.apache.hadoop.hdds.security.exception.SCMSecurityException;
-import org.apache.hadoop.hdds.security.ssl.ReloadingX509KeyManager;
-import org.apache.hadoop.hdds.security.ssl.ReloadingX509TrustManager;
+import org.apache.hadoop.hdds.security.ssl.KeyStoresFactory;
 import org.apache.hadoop.hdds.security.x509.certificate.authority.CAType;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateSignRequest;
 import org.apache.hadoop.hdds.security.x509.exception.CertificateException;
 import org.apache.hadoop.hdds.security.x509.keys.HDDSKeyGenerator;
-import org.apache.hadoop.hdds.security.x509.keys.KeyStorage;
+import org.apache.hadoop.hdds.security.x509.keys.KeyCodec;
+import org.apache.hadoop.hdds.security.x509.keys.SecurityUtil;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
+
+import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.RandomStringUtils;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_BACKUP_KEY_CERT_DIR_NAME_SUFFIX;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_NEW_KEY_CERT_DIR_NAME_SUFFIX;
+import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.FAILURE;
+import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.GETCERT;
+import static org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient.InitResponse.SUCCESS;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.BOOTSTRAP_ERROR;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CERTIFICATE_ERROR;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CRYPTO_SIGNATURE_VERIFICATION_ERROR;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.CRYPTO_SIGN_ERROR;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.RENEW_ERROR;
+import static org.apache.hadoop.hdds.security.x509.exception.CertificateException.ErrorCode.ROLLBACK_ERROR;
+
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.slf4j.Logger;
 
 /**
@@ -107,7 +112,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
 
   private final Logger logger;
   private final SecurityConfig securityConfig;
-  private KeyStorage keyStorage;
+  private final KeyCodec keyCodec;
   private PrivateKey privateKey;
   private PublicKey publicKey;
   private CertPath certPath;
@@ -119,8 +124,10 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   private String rootCaCertId;
   private String component;
   private final String threadNamePrefix;
-  private ReloadingX509KeyManager keyManager;
-  private ReloadingX509TrustManager trustManager;
+  private List<String> pemEncodedCACerts = null;
+  private Lock pemEncodedCACertsLock = new ReentrantLock();
+  private KeyStoresFactory serverKeyStoresFactory;
+  private KeyStoresFactory clientKeyStoresFactory;
 
   private ScheduledExecutorService executorService;
   private Consumer<String> certIdSaveCallback;
@@ -142,6 +149,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     Objects.requireNonNull(securityConfig);
     this.securityConfig = securityConfig;
     this.scmSecurityClient = scmSecurityClient;
+    keyCodec = new KeyCodec(securityConfig, component);
     this.logger = log;
     this.certificateMap = new ConcurrentHashMap<>();
     this.component = component;
@@ -153,13 +161,6 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     this.caCertificates = ConcurrentHashMap.newKeySet();
 
     updateCertSerialId(certSerialId);
-  }
-  
-  private KeyStorage keyStorage() throws IOException {
-    if (keyStorage == null) {
-      keyStorage = new KeyStorage(securityConfig, component);
-    }
-    return keyStorage;
   }
 
   /**
@@ -244,11 +245,8 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       updateCachedData(fileName, CAType.SUBORDINATE, this::updateCachedSubCAId);
       updateCachedData(fileName, CAType.ROOT, this::updateCachedRootCAId);
 
-      getLogger().info("Added certificate {} from file: {}.", readCertSerialId,
+      getLogger().info("Added certificate {} from file: {}.", cert,
           filePath.toAbsolutePath());
-      if (getLogger().isDebugEnabled()) {
-        getLogger().debug("Certificate: {}", cert);
-      }
     } catch (java.security.cert.CertificateException
              | IOException | IndexOutOfBoundsException e) {
       getLogger().error("Error reading certificate from file: {}.",
@@ -318,8 +316,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     if (OzoneSecurityUtil.checkIfFileExist(keyPath,
         securityConfig.getPrivateKeyFileName())) {
       try {
-        privateKey = keyStorage().readPrivateKey();
-      } catch (IOException e) {
+        privateKey = keyCodec.readPrivateKey();
+      } catch (InvalidKeySpecException | NoSuchAlgorithmException
+          | IOException e) {
         getLogger().error("Error while getting private key.", e);
       }
     }
@@ -341,8 +340,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     if (OzoneSecurityUtil.checkIfFileExist(keyPath,
         securityConfig.getPublicKeyFileName())) {
       try {
-        publicKey = keyStorage().readPublicKey();
-      } catch (IOException e) {
+        publicKey = keyCodec.readPublicKey();
+      } catch (InvalidKeySpecException | NoSuchAlgorithmException
+          | IOException e) {
         getLogger().error("Error while getting public key.", e);
       }
     }
@@ -428,7 +428,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       if (cert != null) {
         chain.add(cert);
       }
-      Preconditions.checkState(!chain.isEmpty(), "Empty trust chain");
+      Preconditions.checkState(chain.size() > 0, "Empty trust chain");
     }
     return chain;
   }
@@ -487,6 +487,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    * @param data - Data to sign.
    * @throws CertificateException - on Error.
    */
+  @Override
   public byte[] signData(byte[] data) throws CertificateException {
     try {
       Signature sign = Signature.getInstance(securityConfig.getSignatureAlgo(),
@@ -562,12 +563,15 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    * @return CertificateSignRequest.Builder
    */
   @Override
-  public CertificateSignRequest.Builder configureCSRBuilder() throws SCMSecurityException {
-    return new CertificateSignRequest.Builder()
-        .setConfiguration(securityConfig)
-        .addInetAddresses()
-        .setDigitalEncryption(true)
-        .setDigitalSignature(true);
+  public CertificateSignRequest.Builder getCSRBuilder()
+      throws CertificateException {
+    CertificateSignRequest.Builder builder =
+        new CertificateSignRequest.Builder()
+            .setConfiguration(securityConfig)
+            .addInetAddresses()
+            .setDigitalEncryption(true)
+            .setDigitalSignature(true);
+    return builder;
   }
 
   /**
@@ -578,6 +582,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    * @param caType         - Is CA certificate.
    * @throws CertificateException - on Error.
    */
+  @Override
   public void storeCertificate(String pemEncodedCert,
       CAType caType) throws CertificateException {
     CertificateCodec certificateCodec = new CertificateCodec(securityConfig,
@@ -662,8 +667,6 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    *    certificate.
    *
    * Truth table:
-   * <pre>
-   * {@code
    *  +--------------+---------------+--------------+---------------------+
    *  | Private Key  | Public Keys   | Certificate  |   Result            |
    *  +--------------+---------------+--------------+---------------------+
@@ -676,8 +679,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    *  | True   (1)   | True    (1)   | False  (0)   |   GETCERT->SUCCESS  |
    *  | True   (1)   | True    (1)   | True   (1)   |   SUCCESS           |
    *  +--------------+-----------------+--------------+----------------+
-   * }
-   * </pre>
+   *
    * Success in following cases:
    * 1. If keypair as well certificate is available.
    * 2. If private key and certificate is available and public key is
@@ -729,7 +731,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    * Default handling of each {@link InitCase}.
    */
   protected InitResponse handleCase(InitCase init)
-      throws IOException {
+      throws CertificateException {
     switch (init) {
     case NONE:
       getLogger().info("Creating keypair for client as keypair and " +
@@ -800,8 +802,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       getLogger().info("Initialization successful, case:{}.", state);
       break;
     case GETCERT:
-      Path certLocation = securityConfig.getCertificateLocation(getComponentName());
-      String certId = signAndStoreCertificate(configureCSRBuilder().build(), certLocation, false);
+      String certId = signAndStoreCertificate(getCSRBuilder().build());
       if (certIdSaveCallback != null) {
         certIdSaveCallback.accept(certId);
       } else {
@@ -853,7 +854,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     try {
 
       if (validateKeyPair(pubKey)) {
-        keyStorage().storePublicKey(pubKey);
+        keyCodec.writePublicKey(pubKey);
         publicKey = pubKey;
       } else {
         getLogger().error("Can't recover public key " +
@@ -883,7 +884,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
         PublicKey pubKey = KeyFactory.getInstance(securityConfig.getKeyAlgo())
             .generatePublic(rsaPublicKeySpec);
         if (validateKeyPair(pubKey)) {
-          keyStorage().storePublicKey(pubKey);
+          keyCodec.writePublicKey(pubKey);
           publicKey = pubKey;
           getLogger().info("Public key is recovered from the private key.");
           return true;
@@ -916,8 +917,8 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   /**
    * Bootstrap the client by creating keypair and storing it in configured
    * location.
-   */
-  protected void bootstrapClientKeys() throws IOException {
+   * */
+  protected void bootstrapClientKeys() throws CertificateException {
     Path keyPath = securityConfig.getKeyLocation(component);
     if (Files.notExists(keyPath)) {
       try {
@@ -927,20 +928,20 @@ public abstract class DefaultCertificateClient implements CertificateClient {
             "for certificate storage.", BOOTSTRAP_ERROR);
       }
     }
-    KeyPair keyPair = createKeyPair(keyStorage());
+    KeyPair keyPair = createKeyPair(keyCodec);
     privateKey = keyPair.getPrivate();
     publicKey = keyPair.getPublic();
   }
 
-  protected KeyPair createKeyPair(KeyStorage storage) throws CertificateException {
+  protected KeyPair createKeyPair(KeyCodec codec) throws CertificateException {
     HDDSKeyGenerator keyGenerator = new HDDSKeyGenerator(securityConfig);
-    KeyPair keyPair;
+    KeyPair keyPair = null;
     try {
-      KeyStorage keyStorageToUse = storage == null ? keyStorage() : storage;
       keyPair = keyGenerator.generateKey();
-      keyStorageToUse.storeKeyPair(keyPair);
+      codec.writePublicKey(keyPair.getPublic());
+      codec.writePrivateKey(keyPair.getPrivate());
     } catch (NoSuchProviderException | NoSuchAlgorithmException
-             | IOException e) {
+        | IOException e) {
       getLogger().error("Error while bootstrapping certificate client.", e);
       throw new CertificateException("Error while bootstrapping certificate.",
           BOOTSTRAP_ERROR);
@@ -952,7 +953,6 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     return logger;
   }
 
-  @Override
   public String getComponentName() {
     return component;
   }
@@ -983,48 +983,65 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   }
 
   @Override
-  public ReloadingX509TrustManager getTrustManager() throws CertificateException {
+  public List<String> getCAList() {
+    pemEncodedCACertsLock.lock();
     try {
-      if (trustManager == null) {
-        Set<X509Certificate> newRootCaCerts = rootCaCertificates.isEmpty() ?
-            caCertificates : rootCaCertificates;
-        trustManager = new ReloadingX509TrustManager(KeyStore.getDefaultType(), new ArrayList<>(newRootCaCerts));
-        notificationReceivers.add(trustManager);
-      }
-      return trustManager;
-    } catch (IOException | GeneralSecurityException e) {
-      throw new CertificateException("Failed to init trustManager", e, CertificateException.ErrorCode.KEYSTORE_ERROR);
+      return pemEncodedCACerts;
+    } finally {
+      pemEncodedCACertsLock.unlock();
     }
   }
 
   @Override
-  public ReloadingX509KeyManager getKeyManager() throws CertificateException {
+  public List<String> listCA() throws IOException {
+    pemEncodedCACertsLock.lock();
     try {
-      if (keyManager == null) {
-        keyManager = new ReloadingX509KeyManager(
-            KeyStore.getDefaultType(), getComponentName(), getPrivateKey(), getTrustChain());
-        notificationReceivers.add(keyManager);
+      if (pemEncodedCACerts == null) {
+        updateCAList();
       }
-      return keyManager;
-    } catch (IOException | GeneralSecurityException e) {
-      throw new CertificateException("Failed to init keyManager", e, CertificateException.ErrorCode.KEYSTORE_ERROR);
+      return pemEncodedCACerts;
+    } finally {
+      pemEncodedCACertsLock.unlock();
     }
   }
 
   @Override
-  public ClientTrustManager createClientTrustManager() throws IOException {
-    CACertificateProvider caCertificateProvider = () -> {
-      List<X509Certificate> caCerts = new ArrayList<>();
-      caCerts.addAll(getAllCaCerts());
-      caCerts.addAll(getAllRootCaCerts());
-      return caCerts;
-    };
-    return new ClientTrustManager(caCertificateProvider, caCertificateProvider);
+  public List<String> updateCAList() throws IOException {
+    pemEncodedCACertsLock.lock();
+    try {
+      pemEncodedCACerts = getScmSecureClient().listCACertificate();
+      return pemEncodedCACerts;
+    } catch (Exception e) {
+      getLogger().error("Error during updating CA list", e);
+      throw new CertificateException("Error during updating CA list", e,
+          CERTIFICATE_ERROR);
+    } finally {
+      pemEncodedCACertsLock.unlock();
+    }
+  }
+
+  @Override
+  public synchronized KeyStoresFactory getServerKeyStoresFactory()
+      throws CertificateException {
+    if (serverKeyStoresFactory == null) {
+      serverKeyStoresFactory = SecurityUtil.getServerKeyStoresFactory(
+          securityConfig, this, true);
+    }
+    return serverKeyStoresFactory;
+  }
+
+  @Override
+  public KeyStoresFactory getClientKeyStoresFactory()
+      throws CertificateException {
+    if (clientKeyStoresFactory == null) {
+      clientKeyStoresFactory = SecurityUtil.getClientKeyStoresFactory(
+          securityConfig, this, true);
+    }
+    return clientKeyStoresFactory;
   }
 
   /**
    * Register a receiver that will be called after the certificate renewed.
-   *
    * @param receiver
    */
   @Override
@@ -1056,6 +1073,14 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     if (rootCaRotationPoller != null) {
       rootCaRotationPoller.close();
     }
+
+    if (serverKeyStoresFactory != null) {
+      serverKeyStoresFactory.destroy();
+    }
+
+    if (clientKeyStoresFactory != null) {
+      clientKeyStoresFactory.destroy();
+    }
   }
 
   /**
@@ -1081,7 +1106,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    * Renew keys and certificate. Save the keys are certificate to disk in new
    * directories, swap the current key directory and certs directory with the
    * new directories.
-   * @param force check certificate expiry time again if force is false.
+   * @param force, check certificate expiry time again if force is false.
    * @return String, new certificate ID
    * */
   public String renewAndStoreKeyAndCertificate(boolean force)
@@ -1112,11 +1137,11 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     }
 
     // Generate key
+    KeyCodec newKeyCodec = new KeyCodec(securityConfig, newKeyDir.toPath());
     KeyPair newKeyPair;
     try {
-      KeyStorage newKeyStorage = new KeyStorage(securityConfig, component, HDDS_NEW_KEY_CERT_DIR_NAME_SUFFIX);
-      newKeyPair = createKeyPair(newKeyStorage);
-    } catch (IOException e) {
+      newKeyPair = createKeyPair(newKeyCodec);
+    } catch (CertificateException e) {
       throw new CertificateException("Error while creating new key pair.",
           e, RENEW_ERROR);
     }
@@ -1124,7 +1149,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     // Get certificate signed
     String newCertSerialId;
     try {
-      CertificateSignRequest.Builder csrBuilder = configureCSRBuilder();
+      CertificateSignRequest.Builder csrBuilder = getCSRBuilder();
       csrBuilder.setKey(newKeyPair);
       newCertSerialId = signAndStoreCertificate(csrBuilder.build(),
           Paths.get(newCertPath), true);
@@ -1292,12 +1317,20 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     return certSerialId;
   }
 
-  protected abstract SCMGetCertResponseProto sign(CertificateSignRequest request) throws IOException;
+  protected String signAndStoreCertificate(
+      PKCS10CertificationRequest request, Path certificatePath)
+      throws CertificateException {
+    return signAndStoreCertificate(request, certificatePath, false);
+  }
 
-  protected String signAndStoreCertificate(CertificateSignRequest csr, Path certificatePath, boolean renew)
+  protected abstract SCMGetCertResponseProto getCertificateSignResponse(
+      PKCS10CertificationRequest request) throws IOException;
+
+  protected String signAndStoreCertificate(
+      PKCS10CertificationRequest request, Path certificatePath, boolean renew)
       throws CertificateException {
     try {
-      SCMGetCertResponseProto response = sign(csr);
+      SCMGetCertResponseProto response = getCertificateSignResponse(request);
 
       // Persist certificates.
       if (response.hasX509CACertificate()) {
@@ -1333,6 +1366,12 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       storeCertificate(rootCAPem, CAType.ROOT, certCodec,
           false, !renew);
     }
+  }
+
+  public String signAndStoreCertificate(
+      PKCS10CertificationRequest request) throws CertificateException {
+    return updateCertSerialId(signAndStoreCertificate(request,
+        securityConfig.getCertificateLocation(getComponentName())));
   }
 
   public SCMSecurityProtocolClientSideTranslatorPB getScmSecureClient() {
@@ -1429,7 +1468,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
               CertificateException.ErrorCode.ROLLBACK_ERROR) {
             if (shutdownCallback != null) {
               getLogger().error("Failed to rollback key and cert after an " +
-                  "unsuccessful renew try.", e);
+                  " unsuccessful renew try.", e);
               shutdownCallback.run();
             }
           }
@@ -1461,5 +1500,6 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     String pemCert = CertificateCodec.getPEMEncodedString(cert);
     certificateMap.put(caCertId,
         CertificateCodec.getCertPathFromPemEncodedString(pemCert));
+    pemEncodedCACerts = Arrays.asList(pemCert);
   }
 }

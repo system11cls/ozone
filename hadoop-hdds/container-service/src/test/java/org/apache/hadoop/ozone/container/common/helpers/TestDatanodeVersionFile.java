@@ -1,26 +1,30 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.container.common.helpers;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.hadoop.ozone.common.InconsistentStorageStateException;
+import org.apache.hadoop.ozone.container.common.HDDSVolumeLayoutVersion;
+import org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil;
+import org.apache.ozone.test.GenericTestUtils;
+import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,13 +32,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.UUID;
-import org.apache.hadoop.ozone.common.InconsistentStorageStateException;
-import org.apache.hadoop.ozone.container.common.HDDSVolumeLayoutVersion;
-import org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil;
-import org.apache.hadoop.util.Time;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * This class tests {@link DatanodeVersionFile}.
@@ -91,11 +92,15 @@ public class TestDatanodeVersionFile {
   }
 
   @Test
-  public void testIncorrectClusterId() {
-    String randomClusterID = UUID.randomUUID().toString();
-    InconsistentStorageStateException exception = assertThrows(InconsistentStorageStateException.class,
-        () -> StorageVolumeUtil.getClusterID(properties, versionFile, randomClusterID));
-    assertThat(exception).hasMessageContaining("Mismatched ClusterIDs");
+  public void testIncorrectClusterId() throws IOException {
+    try {
+      String randomClusterID = UUID.randomUUID().toString();
+      StorageVolumeUtil.getClusterID(properties, versionFile,
+          randomClusterID);
+      fail("Test failure in testIncorrectClusterId");
+    } catch (InconsistentStorageStateException ex) {
+      GenericTestUtils.assertExceptionContains("Mismatched ClusterIDs", ex);
+    }
   }
 
   @Test
@@ -106,9 +111,13 @@ public class TestDatanodeVersionFile {
     dnVersionFile.createVersionFile(versionFile);
     properties = dnVersionFile.readFrom(versionFile);
 
-    InconsistentStorageStateException exception = assertThrows(InconsistentStorageStateException.class,
-        () -> StorageVolumeUtil.getCreationTime(properties, versionFile));
-    assertThat(exception).hasMessageContaining("Invalid Creation time in Version File : " + versionFile);
+    try {
+      StorageVolumeUtil.getCreationTime(properties, versionFile);
+      fail("Test failure in testVerifyCTime");
+    } catch (InconsistentStorageStateException ex) {
+      GenericTestUtils.assertExceptionContains("Invalid Creation time in " +
+          "Version File : " + versionFile, ex);
+    }
   }
 
   @Test
@@ -118,8 +127,12 @@ public class TestDatanodeVersionFile {
         storageID, clusterID, datanodeUUID, cTime, invalidLayOutVersion);
     dnVersionFile.createVersionFile(versionFile);
     Properties props = dnVersionFile.readFrom(versionFile);
-    InconsistentStorageStateException exception = assertThrows(InconsistentStorageStateException.class,
-        () -> StorageVolumeUtil.getLayOutVersion(props, versionFile));
-    assertThat(exception).hasMessageContaining("Invalid layOutVersion.");
+
+    try {
+      StorageVolumeUtil.getLayOutVersion(props, versionFile);
+      fail("Test failure in testVerifyLayOut");
+    } catch (InconsistentStorageStateException ex) {
+      GenericTestUtils.assertExceptionContains("Invalid layOutVersion.", ex);
+    }
   }
 }

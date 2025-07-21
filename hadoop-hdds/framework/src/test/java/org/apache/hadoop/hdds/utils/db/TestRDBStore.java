@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,21 +14,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.utils.db;
 
-import static org.apache.hadoop.ozone.OzoneConsts.ROCKSDB_SST_SUFFIX;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,18 +32,23 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.commons.lang3.RandomStringUtils;
+
 import org.apache.hadoop.hdds.StringUtils;
+
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedDBOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteOptions;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.rocksdb.RocksDB;
 import org.rocksdb.Statistics;
 import org.rocksdb.StatsLevel;
+
+import static org.apache.hadoop.ozone.OzoneConsts.ROCKSDB_SST_SUFFIX;
 
 /**
  * RDBStore Tests.
@@ -62,7 +60,7 @@ public class TestRDBStore {
       throws IOException {
     return new RDBStore(dbFile, options, null, new ManagedWriteOptions(), families,
         CodecRegistry.newBuilder().build(), false, 1000, null, false,
-        maxDbUpdatesSizeThreshold, true, null, true);
+        maxDbUpdatesSizeThreshold, true, null, "");
   }
 
   public static final int MAX_DB_UPDATES_SIZE_THRESHOLD = 80;
@@ -108,7 +106,7 @@ public class TestRDBStore {
       throws IOException {
     try (Table<byte[], byte[]> firstTable = dbStore.getTable(families.
         get(familyIndex))) {
-      assertNotNull(firstTable, "Table cannot be null");
+      Assertions.assertNotNull(firstTable, "Table cannot be null");
       for (int x = 0; x < 100; x++) {
         byte[] key =
           RandomStringUtils.random(10).getBytes(StandardCharsets.UTF_8);
@@ -123,7 +121,7 @@ public class TestRDBStore {
 
   @Test
   public void compactDB() throws Exception {
-    assertNotNull(rdbStore, "DB Store cannot be null");
+    Assertions.assertNotNull(rdbStore, "DB Store cannot be null");
     for (int i = 0; i < 2; i++) {
       for (int j = 0; j <= 10; j++) {
         insertRandomData(rdbStore, i);
@@ -135,25 +133,25 @@ public class TestRDBStore {
     rdbStore.compactDB();
     int metaSizeAfterCompact = rdbStore.getDb().getLiveFilesMetaDataSize();
 
-    assertThat(metaSizeAfterCompact).isLessThan(metaSizeBeforeCompact);
-    assertEquals(metaSizeAfterCompact, 2);
+    Assertions.assertTrue(metaSizeAfterCompact < metaSizeBeforeCompact);
+    Assertions.assertEquals(metaSizeAfterCompact, 2);
 
   }
 
   @Test
   public void close() throws Exception {
-    assertNotNull(rdbStore, "DBStore cannot be null");
+    Assertions.assertNotNull(rdbStore, "DBStore cannot be null");
     // This test does not assert anything if there is any error this test
     // will throw and fail.
     rdbStore.close();
-    assertTrue(rdbStore.isClosed());
+    Assertions.assertTrue(rdbStore.isClosed());
   }
 
   @Test
   public void closeUnderlyingDB() throws Exception {
-    assertNotNull(rdbStore, "DBStore cannot be null");
+    Assertions.assertNotNull(rdbStore, "DBStore cannot be null");
     rdbStore.getDb().close();
-    assertTrue(rdbStore.isClosed());
+    Assertions.assertTrue(rdbStore.isClosed());
   }
 
   @Test
@@ -170,12 +168,12 @@ public class TestRDBStore {
         rdbStore.move(key, firstTable, secondTable);
         byte[] newvalue = secondTable.get(key);
         // Make sure we have value in the second table
-        assertNotNull(newvalue);
+        Assertions.assertNotNull(newvalue);
         //and it is same as what we wrote to the FirstTable
-        assertArrayEquals(value, newvalue);
+        Assertions.assertArrayEquals(value, newvalue);
       }
       // After move this key must not exist in the first table.
-      assertNull(firstTable.get(key));
+      Assertions.assertNull(firstTable.get(key));
     }
   }
 
@@ -195,10 +193,10 @@ public class TestRDBStore {
         rdbStore.move(key, nextValue, firstTable, secondTable);
         byte[] newvalue = secondTable.get(key);
         // Make sure we have value in the second table
-        assertNotNull(newvalue);
+        Assertions.assertNotNull(newvalue);
         //and it is not same as what we wrote to the FirstTable, and equals
         // the new value.
-        assertArrayEquals(nextValue, newvalue);
+        Assertions.assertArrayEquals(nextValue, newvalue);
       }
     }
 
@@ -206,7 +204,7 @@ public class TestRDBStore {
 
   @Test
   public void getEstimatedKeyCount() throws Exception {
-    assertNotNull(rdbStore, "DB Store cannot be null");
+    Assertions.assertNotNull(rdbStore, "DB Store cannot be null");
 
     // Write 100 keys to the first table.
     insertRandomData(rdbStore, 1);
@@ -215,7 +213,7 @@ public class TestRDBStore {
     insertRandomData(rdbStore, 2);
 
     // Let us make sure that our estimate is not off by 10%
-    assertTrue(rdbStore.getEstimatedKeyCount() > 180
+    Assertions.assertTrue(rdbStore.getEstimatedKeyCount() > 180
         || rdbStore.getEstimatedKeyCount() < 220);
   }
 
@@ -223,17 +221,17 @@ public class TestRDBStore {
   public void getTable() throws Exception {
     for (String tableName : families) {
       try (Table table = rdbStore.getTable(tableName)) {
-        assertNotNull(table, tableName + "is null");
+        Assertions.assertNotNull(table, tableName + "is null");
       }
     }
-    assertThrows(IOException.class,
+    Assertions.assertThrows(IOException.class,
         () -> rdbStore.getTable("ATableWithNoName"));
   }
 
   @Test
   public void listTables() throws Exception {
     List<Table> tableList = rdbStore.listTables();
-    assertNotNull(tableList, "Table list cannot be null");
+    Assertions.assertNotNull(tableList, "Table list cannot be null");
     Map<String, Table> hashTable = new HashMap<>();
 
     for (Table t : tableList) {
@@ -243,27 +241,27 @@ public class TestRDBStore {
     int count = families.size();
     // Assert that we have all the tables in the list and no more.
     for (String name : families) {
-      assertThat(hashTable).containsKey(name);
+      Assertions.assertTrue(hashTable.containsKey(name));
       count--;
     }
-    assertEquals(0, count);
+    Assertions.assertEquals(0, count);
   }
 
   @Test
   public void testRocksDBCheckpoint() throws Exception {
-    assertNotNull(rdbStore, "DB Store cannot be null");
+    Assertions.assertNotNull(rdbStore, "DB Store cannot be null");
 
     insertRandomData(rdbStore, 1);
     DBCheckpoint checkpoint =
         rdbStore.getCheckpoint(true);
-    assertNotNull(checkpoint);
+    Assertions.assertNotNull(checkpoint);
 
     RDBStore restoredStoreFromCheckPoint =
         newRDBStore(checkpoint.getCheckpointLocation().toFile(),
             options, configSet, MAX_DB_UPDATES_SIZE_THRESHOLD);
 
     // Let us make sure that our estimate is not off by 10%
-    assertTrue(
+    Assertions.assertTrue(
         restoredStoreFromCheckPoint.getEstimatedKeyCount() > 90
         || restoredStoreFromCheckPoint.getEstimatedKeyCount() < 110);
     checkpoint.cleanupCheckpoint();
@@ -271,17 +269,17 @@ public class TestRDBStore {
 
   @Test
   public void testRocksDBCheckpointCleanup() throws Exception {
-    assertNotNull(rdbStore, "DB Store cannot be null");
+    Assertions.assertNotNull(rdbStore, "DB Store cannot be null");
 
     insertRandomData(rdbStore, 1);
     DBCheckpoint checkpoint =
         rdbStore.getCheckpoint(true);
-    assertNotNull(checkpoint);
+    Assertions.assertNotNull(checkpoint);
 
-    assertTrue(Files.exists(
+    Assertions.assertTrue(Files.exists(
         checkpoint.getCheckpointLocation()));
     checkpoint.cleanupCheckpoint();
-    assertFalse(Files.exists(
+    Assertions.assertFalse(Files.exists(
         checkpoint.getCheckpointLocation()));
   }
 
@@ -298,10 +296,10 @@ public class TestRDBStore {
           org.apache.commons.codec.binary.StringUtils
               .getBytesUtf16("Value2"));
     }
-    assertEquals(2, rdbStore.getDb().getLatestSequenceNumber());
+    Assertions.assertEquals(2, rdbStore.getDb().getLatestSequenceNumber());
 
     DBUpdatesWrapper dbUpdatesSince = rdbStore.getUpdatesSince(0);
-    assertEquals(2, dbUpdatesSince.getData().size());
+    Assertions.assertEquals(2, dbUpdatesSince.getData().size());
   }
 
   @Test
@@ -329,11 +327,11 @@ public class TestRDBStore {
           org.apache.commons.codec.binary.StringUtils
               .getBytesUtf16("Value5"));
     }
-    assertEquals(5, rdbStore.getDb().getLatestSequenceNumber());
+    Assertions.assertEquals(5, rdbStore.getDb().getLatestSequenceNumber());
 
     DBUpdatesWrapper dbUpdatesSince = rdbStore.getUpdatesSince(0, 5);
-    assertEquals(2, dbUpdatesSince.getData().size());
-    assertEquals(2, dbUpdatesSince.getCurrentSequenceNumber());
+    Assertions.assertEquals(2, dbUpdatesSince.getData().size());
+    Assertions.assertEquals(2, dbUpdatesSince.getCurrentSequenceNumber());
   }
 
   @Test
@@ -367,9 +365,9 @@ public class TestRDBStore {
         MAX_DB_UPDATES_SIZE_THRESHOLD);
     for (String family : familiesMinusOne) {
       try (Table table = rdbStore.getTable(family)) {
-        assertNotNull(table, family + "is null");
+        Assertions.assertNotNull(table, family + "is null");
         Object val = table.get(family.getBytes(StandardCharsets.UTF_8));
-        assertNotNull(val);
+        Assertions.assertNotNull(val);
       }
     }
 
@@ -377,9 +375,9 @@ public class TestRDBStore {
     // we do not use it.
     String extraFamily = families.get(families.size() - 1);
     try (Table table = rdbStore.getTable(extraFamily)) {
-      assertNotNull(table, extraFamily + "is null");
+      Assertions.assertNotNull(table, extraFamily + "is null");
       Object val = table.get(extraFamily.getBytes(StandardCharsets.UTF_8));
-      assertNotNull(val);
+      Assertions.assertNotNull(val);
     }
   }
 
@@ -427,15 +425,15 @@ public class TestRDBStore {
       File fileInCk2 = new File(checkpoint2.getAbsoluteFile(), name);
       long length1 = fileInCk1.length();
       long length2 = fileInCk2.length();
-      assertEquals(length1, length2, name);
+      Assertions.assertEquals(length1, length2, name);
 
-      try (InputStream fileStream1 = Files.newInputStream(fileInCk1.toPath());
-           InputStream fileStream2 = Files.newInputStream(fileInCk2.toPath())) {
+      try (InputStream fileStream1 = new FileInputStream(fileInCk1);
+           InputStream fileStream2 = new FileInputStream(fileInCk2)) {
         byte[] content1 = new byte[fileStream1.available()];
         byte[] content2 = new byte[fileStream2.available()];
         fileStream1.read(content1);
         fileStream2.read(content2);
-        assertArrayEquals(content1, content2);
+        Assertions.assertArrayEquals(content1, content2);
       }
     }
   }

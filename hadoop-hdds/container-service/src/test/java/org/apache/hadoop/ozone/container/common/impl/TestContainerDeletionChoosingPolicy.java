@@ -1,60 +1,58 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.container.common.impl;
-
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
-import org.apache.hadoop.ozone.container.common.impl.BlockDeletingService.ContainerBlockInfo;
 import org.apache.hadoop.ozone.container.common.interfaces.ContainerDeletionChoosingPolicy;
 import org.apache.hadoop.ozone.container.keyvalue.ContainerLayoutTestInfo;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
+import org.apache.hadoop.ozone.container.common.impl.BlockDeletingService.ContainerBlockInfo;
 import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.io.TempDir;
+import org.apache.ozone.test.GenericTestUtils;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
 
 /**
  * The class for testing container deletion choosing policy.
  */
+@RunWith(Parameterized.class)
 public class TestContainerDeletionChoosingPolicy {
-  @TempDir
-  private File tempFile;
   private String path;
   private OzoneContainer ozoneContainer;
   private ContainerSet containerSet;
@@ -64,25 +62,38 @@ public class TestContainerDeletionChoosingPolicy {
   private static final int SERVICE_TIMEOUT_IN_MILLISECONDS = 0;
   private static final int SERVICE_INTERVAL_IN_MILLISECONDS = 1000;
 
-  @BeforeEach
-  public void init() throws Throwable {
-    conf = new OzoneConfiguration();
-    path = tempFile.getPath();
+  private final ContainerLayoutVersion layout;
+
+  public TestContainerDeletionChoosingPolicy(ContainerLayoutVersion layout) {
+    this.layout = layout;
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testRandomChoosingPolicy(ContainerLayoutVersion layout)
-      throws IOException {
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerLayoutTestInfo.containerLayoutParameters();
+  }
+
+  @Before
+  public void init() throws Throwable {
+    conf = new OzoneConfiguration();
+    path = GenericTestUtils
+        .getTempPath(TestContainerDeletionChoosingPolicy.class.getSimpleName());
+  }
+
+  @Test
+  public void testRandomChoosingPolicy() throws IOException {
     File containerDir = new File(path);
     if (containerDir.exists()) {
       FileUtils.deleteDirectory(new File(path));
     }
-    assertTrue(containerDir.mkdirs());
+    Assert.assertTrue(containerDir.mkdirs());
 
     conf.set(
         ScmConfigKeys.OZONE_SCM_KEY_VALUE_CONTAINER_DELETION_CHOOSING_POLICY,
         RandomContainerDeletionChoosingPolicy.class.getName());
-    containerSet = newContainerSet();
+    List<StorageLocation> pathLists = new LinkedList<>();
+    pathLists.add(StorageLocation.parse(containerDir.getAbsolutePath()));
+    containerSet = new ContainerSet(1000);
 
     int numContainers = 10;
     for (int i = 0; i < numContainers; i++) {
@@ -94,9 +105,9 @@ public class TestContainerDeletionChoosingPolicy {
       data.closeContainer();
       KeyValueContainer container = new KeyValueContainer(data, conf);
       containerSet.addContainer(container);
-      assertThat(
-          containerSet.getContainerMapCopy())
-              .containsKey(data.getContainerID());
+      Assert.assertTrue(
+          containerSet.getContainerMapCopy()
+              .containsKey(data.getContainerID()));
     }
     blockDeletingService = getBlockDeletingService();
 
@@ -110,7 +121,7 @@ public class TestContainerDeletionChoosingPolicy {
     for (ContainerBlockInfo pr : result0) {
       totPendingBlocks += pr.getNumBlocksToDelete();
     }
-    assertThat(totPendingBlocks).isGreaterThanOrEqualTo(blockLimitPerInterval);
+    Assert.assertTrue(totPendingBlocks >= blockLimitPerInterval);
 
     // test random choosing. We choose 100 times the 3 datanodes twice.
     //We expect different order at least once.
@@ -122,28 +133,29 @@ public class TestContainerDeletionChoosingPolicy {
       boolean hasShuffled = false;
       for (int i = 0; i < result1.size(); i++) {
         if (result1.get(i).getContainerData().getContainerID() != result2.get(i)
-            .getContainerData().getContainerID()) {
+                .getContainerData().getContainerID()) {
           return;
         }
       }
     }
-    fail("Chosen container results were same 100 times");
+    Assert.fail("Chosen container results were same 100 times");
 
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testTopNOrderedChoosingPolicy(ContainerLayoutVersion layout)
-      throws IOException {
+  @Test
+  public void testTopNOrderedChoosingPolicy() throws IOException {
     File containerDir = new File(path);
     if (containerDir.exists()) {
       FileUtils.deleteDirectory(new File(path));
     }
-    assertTrue(containerDir.mkdirs());
+    Assert.assertTrue(containerDir.mkdirs());
 
     conf.set(
         ScmConfigKeys.OZONE_SCM_KEY_VALUE_CONTAINER_DELETION_CHOOSING_POLICY,
         TopNOrderedContainerDeletionChoosingPolicy.class.getName());
-    containerSet = newContainerSet();
+    List<StorageLocation> pathLists = new LinkedList<>();
+    pathLists.add(StorageLocation.parse(containerDir.getAbsolutePath()));
+    containerSet = new ContainerSet(1000);
 
     int numContainers = 10;
     Random random = new Random();
@@ -167,7 +179,8 @@ public class TestContainerDeletionChoosingPolicy {
       KeyValueContainer container = new KeyValueContainer(data, conf);
       data.closeContainer();
       containerSet.addContainer(container);
-      assertThat(containerSet.getContainerMapCopy()).containsKey(containerId);
+      Assert.assertTrue(
+          containerSet.getContainerMapCopy().containsKey(containerId));
     }
     numberOfBlocks.sort(Collections.reverseOrder());
     int blockLimitPerInterval = 5;
@@ -180,7 +193,7 @@ public class TestContainerDeletionChoosingPolicy {
     for (ContainerBlockInfo pr : result0) {
       totPendingBlocks += pr.getNumBlocksToDelete();
     }
-    assertThat(totPendingBlocks).isGreaterThanOrEqualTo(blockLimitPerInterval);
+    Assert.assertTrue(totPendingBlocks >= blockLimitPerInterval);
 
 
     List<ContainerBlockInfo> result1 = blockDeletingService
@@ -188,14 +201,14 @@ public class TestContainerDeletionChoosingPolicy {
     // the empty deletion blocks container should not be chosen
     int containerCount = 0;
     int c = 0;
-    for (Integer numberOfBlock : numberOfBlocks) {
+    for (int i = 0; i < numberOfBlocks.size(); i++) {
       containerCount++;
-      c = c + numberOfBlock;
+      c = c + numberOfBlocks.get(i);
       if (c >= (numContainers + 1)) {
         break;
       }
     }
-    assertEquals(containerCount, result1.size());
+    Assert.assertEquals(containerCount, result1.size());
 
     // verify the order of return list
     int initialName2CountSize = name2Count.size();
@@ -204,18 +217,18 @@ public class TestContainerDeletionChoosingPolicy {
       int currentCount =
           name2Count.remove(data.getContainerData().getContainerID());
       // previous count should not smaller than next one
-      assertThat(currentCount).isGreaterThan(0).isLessThanOrEqualTo(lastCount);
+      Assert.assertTrue(currentCount > 0 && currentCount <= lastCount);
       lastCount = currentCount;
     }
     // ensure all the container data are compared
-    assertEquals(result1.size(),
+    Assert.assertEquals(result1.size(),
         initialName2CountSize - name2Count.size());
   }
 
   private BlockDeletingService getBlockDeletingService() {
-    ozoneContainer = mock(OzoneContainer.class);
-    when(ozoneContainer.getContainerSet()).thenReturn(containerSet);
-    when(ozoneContainer.getWriteChannel()).thenReturn(null);
+    ozoneContainer = Mockito.mock(OzoneContainer.class);
+    Mockito.when(ozoneContainer.getContainerSet()).thenReturn(containerSet);
+    Mockito.when(ozoneContainer.getWriteChannel()).thenReturn(null);
     blockDeletingService = new BlockDeletingService(ozoneContainer,
         SERVICE_INTERVAL_IN_MILLISECONDS, SERVICE_TIMEOUT_IN_MILLISECONDS,
         TimeUnit.MILLISECONDS, 10, conf);

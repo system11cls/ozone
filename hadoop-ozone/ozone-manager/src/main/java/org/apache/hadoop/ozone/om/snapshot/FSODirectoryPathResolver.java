@@ -1,26 +1,28 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.om.snapshot;
 
-import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
-import static org.apache.hadoop.ozone.OzoneConsts.ROOT_PATH;
-
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -30,10 +32,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
+
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.OzoneConsts.ROOT_PATH;
 
 /**
  * Class to resolve absolute paths for FSO DirectoryInfo Objects.
@@ -83,13 +84,13 @@ public class FSODirectoryPathResolver implements ObjectPathResolver {
     objectIdPathVals.add(root);
     addToPathMap(root, objIds, objectIdPathMap);
 
-    while (!objectIdPathVals.isEmpty() && !objIds.isEmpty()) {
+    while (!objectIdPathVals.isEmpty() && objIds.size() > 0) {
       Pair<Long, Path> parent = objectIdPathVals.poll();
       try (TableIterator<String,
               ? extends Table.KeyValue<String, OmDirectoryInfo>>
               subDirIter = dirInfoTable.iterator(
                   prefix + parent.getKey() + OM_KEY_PREFIX)) {
-        while (!objIds.isEmpty() && subDirIter.hasNext()) {
+        while (objIds.size() > 0 && subDirIter.hasNext()) {
           OmDirectoryInfo childDir = subDirIter.next().getValue();
           Pair<Long, Path> pathVal = Pair.of(childDir.getObjectID(),
               parent.getValue().resolve(childDir.getName()));
@@ -99,7 +100,7 @@ public class FSODirectoryPathResolver implements ObjectPathResolver {
       }
     }
     // Invalid directory objectId which does not exist in the given bucket.
-    if (!objIds.isEmpty() && !skipUnresolvedObjs) {
+    if (objIds.size() > 0 && !skipUnresolvedObjs) {
       throw new IllegalArgumentException(
           "Dir object Ids required but not found in bucket: " + objIds);
     }

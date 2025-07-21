@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,15 +14,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.response.snapshot;
-
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.ozone.om.OmSnapshotManager.getSnapshotPath;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,27 +25,35 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.utils.TransactionInfo;
-import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.apache.hadoop.ozone.om.OMConfigKeys;
-import org.apache.hadoop.ozone.om.OMMetadataManager;
-import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateSnapshotResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.apache.hadoop.ozone.om.snapshot.SnapshotUtils;
 import org.apache.hadoop.util.Time;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.OMMetadataManager;
+import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .CreateSnapshotResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMResponse;
+import org.apache.hadoop.hdds.utils.db.BatchOperation;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.apache.hadoop.ozone.om.OmSnapshotManager.getSnapshotPath;
 
 /**
  * This class tests OMSnapshotCreateResponse.
@@ -92,11 +96,11 @@ public class TestOMSnapshotCreateResponse {
         snapshotName,
         snapshotId,
         Time.now());
-    snapshotInfo.setLastTransactionInfo(
-        TransactionInfo.valueOf(TransactionInfo.getTermIndex(1L)).toByteString());
+
     // confirm table is empty
-    assertEquals(0, omMetadataManager
-        .countRowsInTable(omMetadataManager.getSnapshotInfoTable()));
+    Assertions.assertEquals(0,
+        omMetadataManager
+            .countRowsInTable(omMetadataManager.getSnapshotInfoTable()));
 
     // Populate deletedTable and deletedDirectoryTable
     Set<String> dtSentinelKeys =
@@ -118,10 +122,10 @@ public class TestOMSnapshotCreateResponse {
 
     // Confirm snapshot directory was created
     String snapshotDir = getSnapshotPath(ozoneConfiguration, snapshotInfo);
-    assertTrue((new File(snapshotDir)).exists());
+    Assertions.assertTrue((new File(snapshotDir)).exists());
 
     // Confirm table has 1 entry
-    assertEquals(1, omMetadataManager
+    Assertions.assertEquals(1, omMetadataManager
         .countRowsInTable(omMetadataManager.getSnapshotInfoTable()));
 
     // Check contents of entry
@@ -130,9 +134,9 @@ public class TestOMSnapshotCreateResponse {
              it = omMetadataManager.getSnapshotInfoTable().iterator()) {
       Table.KeyValue<String, SnapshotInfo> keyValue = it.next();
       storedInfo = keyValue.getValue();
-      assertEquals(snapshotInfo.getTableKey(), keyValue.getKey());
+      Assertions.assertEquals(snapshotInfo.getTableKey(), keyValue.getKey());
     }
-    assertEquals(snapshotInfo, storedInfo);
+    Assertions.assertEquals(snapshotInfo, storedInfo);
 
     // Check deletedTable and deletedDirectoryTable clean up work as expected
     verifyEntriesLeftInDeletedTable(dtSentinelKeys);
@@ -210,7 +214,8 @@ public class TestOMSnapshotCreateResponse {
     // Add deletedDirectoryTable key entries that "surround" the snapshot scope
     Set<String> sentinelKeys = new HashSet<>();
 
-    final String dbKeyPfx = omMetadataManager.getBucketKeyPrefixFSO(volumeName, bucketName);
+    final String dbKeyPfx = SnapshotUtils.getOzonePathKeyForFso(
+            omMetadataManager, volumeName, bucketName);
 
     // Calculate offset to bucketId's last character in dbKeyPfx.
     // First -1 for offset, second -1 for second to last char (before '/')
@@ -266,12 +271,13 @@ public class TestOMSnapshotCreateResponse {
       while (keyIter.hasNext()) {
         Table.KeyValue<String, ?> entry = keyIter.next();
         String dbKey = entry.getKey();
-        assertThat(expectedKeys).contains(dbKey);
+        Assertions.assertTrue(expectedKeys.contains(dbKey),
+            table.getName() + " should contain key");
         expectedKeys.remove(dbKey);
       }
     }
 
-    assertTrue(expectedKeys.isEmpty(),
+    Assertions.assertTrue(expectedKeys.isEmpty(),
         table.getName() + " is missing keys that should be there");
   }
 }

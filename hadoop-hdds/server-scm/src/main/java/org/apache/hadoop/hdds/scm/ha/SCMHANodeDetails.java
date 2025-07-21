@@ -1,21 +1,45 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.scm.ha;
+
+import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hdds.conf.ConfigurationException;
+import org.apache.hadoop.hdds.conf.DefaultConfigManager;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.ScmUtils;
+import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
+import org.apache.hadoop.hdds.utils.HddsServerUtil;
+import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.ozone.common.Storage;
+import org.apache.hadoop.ozone.ha.ConfUtils;
+import org.apache.hadoop.ozone.util.OzoneNetUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_ADDRESS_KEY;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_CLIENT_ADDRESS_KEY;
@@ -43,26 +67,6 @@ import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SECURITY_SERVIC
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_SERVICE_IDS_KEY;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_FLEXIBLE_FQDN_RESOLUTION_ENABLED;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_FLEXIBLE_FQDN_RESOLUTION_ENABLED_DEFAULT;
-
-import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import org.apache.hadoop.hdds.HddsUtils;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.scm.ScmConfigKeys;
-import org.apache.hadoop.hdds.scm.ScmUtils;
-import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
-import org.apache.hadoop.hdds.utils.HddsServerUtil;
-import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.ozone.ha.ConfUtils;
-import org.apache.hadoop.ozone.util.OzoneNetUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * SCM HA node details.
@@ -145,6 +149,50 @@ public class SCMHANodeDetails {
     return new SCMHANodeDetails(scmNodeDetails, Collections.emptyList());
   }
 
+  /** Validates SCM HA Config.
+    For Non Initialized SCM the value is taken directly based on the config
+   {@link org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY}
+   which defaults to
+   {@link org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HA_ENABLE_DEFAULT}
+   For Previously Initialized SCM the values are taken from the version file
+   Ratis SCM -> Non Ratis SCM & vice versa is not supported
+   This values is validated with the config provided.
+  **/
+  private static void validateSCMHAConfig(SCMStorageConfig scmStorageConfig,
+                                          OzoneConfiguration conf) {
+    Storage.StorageState state = scmStorageConfig.getState();
+    boolean scmHAEnableDefault = state == Storage.StorageState.INITIALIZED
+        ? scmStorageConfig.isSCMHAEnabled()
+        : SCMHAUtils.isSCMHAEnabled(conf);
+    boolean scmHAEnabled = SCMHAUtils.isSCMHAEnabled(conf);
+
+    if (Storage.StorageState.INITIALIZED.equals(state) &&
+            scmHAEnabled != scmHAEnableDefault) {
+      String errorMessage = String.format("Current State of SCM: %s",
+              scmHAEnableDefault ? "Ratis SCM is enabled "
+              : "SCM is running in Non-HA without Ratis")
+              + " Ratis SCM -> Non Ratis SCM or " +
+              "Non HA SCM -> HA SCM is not supported";
+      if (StringUtils.isNotEmpty(
+          conf.get(ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY))) {
+        throw new ConfigurationException(String.format("Invalid Config %s " +
+                "Provided ConfigValue: %s, Expected Config Value: %s. %s",
+            ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY, scmHAEnabled,
+            scmHAEnableDefault, errorMessage));
+      } else {
+        LOG.warn("Invalid config {}. The config was not specified, " +
+                        "but the default value {} conflicts with " +
+                        "the expected config value {}. " +
+                        "Falling back to the expected value. {}",
+                ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY,
+                ScmConfigKeys.OZONE_SCM_HA_ENABLE_DEFAULT,
+                scmHAEnableDefault, errorMessage);
+      }
+    }
+    DefaultConfigManager.setConfigValue(ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY,
+        scmHAEnableDefault);
+  }
+
   public static SCMHANodeDetails loadSCMHAConfig(OzoneConfiguration conf,
                                                  SCMStorageConfig storageConfig)
       throws IOException {
@@ -160,6 +208,7 @@ public class SCMHANodeDetails {
         ScmConfigKeys.OZONE_SCM_DEFAULT_SERVICE_ID);
 
     LOG.info("ServiceID for StorageContainerManager is {}", localScmServiceId);
+    validateSCMHAConfig(storageConfig, conf);
     if (localScmServiceId == null) {
       // There is no internal scm service id is being set, fall back to ozone
       // .scm.service.ids.
@@ -179,11 +228,11 @@ public class SCMHANodeDetails {
     boolean isSCMddressSet = false;
 
     for (String serviceId : scmServiceIds) {
-      Collection<String> scmNodeIds = HddsUtils.getSCMNodeIds(conf, serviceId);
+      Collection<String> scmNodeIds = SCMHAUtils.getSCMNodeIds(conf, serviceId);
 
       // TODO: need to fall back to ozone.scm.names in case scm node ids are
       // not defined.
-      if (scmNodeIds.isEmpty()) {
+      if (scmNodeIds.size() == 0) {
         throw new IllegalArgumentException(
             String.format("Configuration does not have any value set for %s " +
                 "for the service %s. List of SCM Node ID's should be " +

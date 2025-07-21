@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,13 +18,17 @@
 
 package org.apache.hadoop.hdds.scm.client;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import java.text.ParseException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -33,6 +38,9 @@ import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.NotReplicatedException;
@@ -48,6 +56,10 @@ import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
 public final class HddsClientUtils {
+
+  private HddsClientUtils() {
+  }
+
   private static final List<Class<? extends Exception>> EXCEPTION_LIST =
       ImmutableList.<Class<? extends Exception>>builder()
           .add(TimeoutException.class)
@@ -60,29 +72,58 @@ public final class HddsClientUtils {
           .add(NotReplicatedException.class)
           .build();
 
-  private HddsClientUtils() {
+  /**
+   * Date format that used in ozone. Here the format is thread safe to use.
+   */
+  private static final ThreadLocal<DateTimeFormatter> DATE_FORMAT =
+      ThreadLocal.withInitial(() -> {
+        DateTimeFormatter format =
+            DateTimeFormatter.ofPattern(OzoneConsts.OZONE_DATE_FORMAT);
+        return format.withZone(ZoneId.of(OzoneConsts.OZONE_TIME_ZONE));
+      });
+
+
+  /**
+   * Convert time in millisecond to a human readable format required in ozone.
+   * @return a human readable string for the input time
+   */
+  public static String formatDateTime(long millis) {
+    ZonedDateTime dateTime = ZonedDateTime.ofInstant(
+        Instant.ofEpochMilli(millis), DATE_FORMAT.get().getZone());
+    return DATE_FORMAT.get().format(dateTime);
   }
 
-  private static void doNameChecks(String resName, String resType) {
+  /**
+   * Convert time in ozone date format to millisecond.
+   * @return time in milliseconds
+   */
+  public static long formatDateTime(String date) throws ParseException {
+    Preconditions.checkNotNull(date, "Date string should not be null.");
+    return ZonedDateTime.parse(date, DATE_FORMAT.get())
+        .toInstant().toEpochMilli();
+  }
+
+  private static void doNameChecks(String resName) {
     if (resName == null) {
-      throw new IllegalArgumentException(resType + " name is null");
+      throw new IllegalArgumentException("Bucket or Volume name is null");
     }
 
     if (resName.length() < OzoneConsts.OZONE_MIN_BUCKET_NAME_LENGTH ||
         resName.length() > OzoneConsts.OZONE_MAX_BUCKET_NAME_LENGTH) {
-      throw new IllegalArgumentException(resType +
-          " length is illegal, " + "valid length is 3-63 characters");
+      throw new IllegalArgumentException(
+          "Bucket or Volume length is illegal, "
+              + "valid length is 3-63 characters");
     }
 
     if (resName.charAt(0) == '.' || resName.charAt(0) == '-') {
-      throw new IllegalArgumentException(resType +
-          " name cannot start with a period or dash");
+      throw new IllegalArgumentException(
+          "Bucket or Volume name cannot start with a period or dash");
     }
 
     if (resName.charAt(resName.length() - 1) == '.' ||
         resName.charAt(resName.length() - 1) == '-') {
-      throw new IllegalArgumentException(resType +
-          " name cannot end with a period or dash");
+      throw new IllegalArgumentException("Bucket or Volume name "
+          + "cannot end with a period or dash");
     }
   }
 
@@ -103,27 +144,27 @@ public final class HddsClientUtils {
     return false;
   }
 
-  private static void doCharacterChecks(char currChar, char prev, String resType,
+  private static void doCharacterChecks(char currChar, char prev,
       boolean isStrictS3) {
     if (Character.isUpperCase(currChar)) {
-      throw new IllegalArgumentException(resType +
-          " name does not support uppercase characters");
+      throw new IllegalArgumentException(
+          "Bucket or Volume name does not support uppercase characters");
     }
     if (!isSupportedCharacter(currChar, isStrictS3)) {
-      throw new IllegalArgumentException(resType +
-          " name has an unsupported character : " + currChar);
+      throw new IllegalArgumentException("Bucket or Volume name has an " +
+          "unsupported character : " + currChar);
     }
     if (prev == '.' && currChar == '.') {
-      throw new IllegalArgumentException(resType +
-          " name should not have two contiguous periods");
+      throw new IllegalArgumentException("Bucket or Volume name should not " +
+          "have two contiguous periods");
     }
     if (prev == '-' && currChar == '.') {
-      throw new IllegalArgumentException(resType +
-          " name should not have period after dash");
+      throw new IllegalArgumentException(
+          "Bucket or Volume name should not have period after dash");
     }
     if (prev == '.' && currChar == '-') {
-      throw new IllegalArgumentException(resType +
-          " name should not have dash after period");
+      throw new IllegalArgumentException(
+          "Bucket or Volume name should not have dash after period");
     }
   }
 
@@ -135,11 +176,7 @@ public final class HddsClientUtils {
    * @throws IllegalArgumentException
    */
   public static void verifyResourceName(String resName) {
-    verifyResourceName(resName, "resource", true);
-  }
-
-  public static void verifyResourceName(String resName, String resType) {
-    verifyResourceName(resName, resType, true);
+    verifyResourceName(resName, true);
   }
 
   /**
@@ -149,9 +186,9 @@ public final class HddsClientUtils {
    *
    * @throws IllegalArgumentException
    */
-  public static void verifyResourceName(String resName, String resType, boolean isStrictS3) {
+  public static void verifyResourceName(String resName, boolean isStrictS3) {
 
-    doNameChecks(resName, resType);
+    doNameChecks(resName);
 
     boolean isIPv4 = true;
     char prev = (char) 0;
@@ -161,13 +198,24 @@ public final class HddsClientUtils {
       if (currChar != '.') {
         isIPv4 = ((currChar >= '0') && (currChar <= '9')) && isIPv4;
       }
-      doCharacterChecks(currChar, prev, resType, isStrictS3);
+      doCharacterChecks(currChar, prev, isStrictS3);
       prev = currChar;
     }
 
     if (isIPv4) {
-      throw new IllegalArgumentException(resType +
-          " name cannot be an IPv4 address or all numeric");
+      throw new IllegalArgumentException(
+          "Bucket or Volume name cannot be an IPv4 address or all numeric");
+    }
+  }
+
+  /**
+   * verifies that bucket / volume name is a valid DNS name.
+   *
+   * @param resourceNames Array of bucket / volume names to be verified.
+   */
+  public static void verifyResourceName(String... resourceNames) {
+    for (String resourceName : resourceNames) {
+      HddsClientUtils.verifyResourceName(resourceName);
     }
   }
 
@@ -250,8 +298,9 @@ public final class HddsClientUtils {
 
   // This will return the underlying expected exception if it exists
   // in an exception trace. Otherwise, returns null.
-  public static Throwable containsException(Throwable t,
+  public static Throwable containsException(Exception e,
             Class<? extends Exception> expectedExceptionClass) {
+    Throwable t = e;
     while (t != null) {
       if (expectedExceptionClass.isInstance(t)) {
         return t;

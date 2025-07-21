@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,28 +18,6 @@
 
 package org.apache.hadoop.hdds.conf;
 
-import static java.util.Collections.unmodifiableSortedSet;
-import static java.util.stream.Collectors.toCollection;
-import static org.apache.hadoop.hdds.ratis.RatisHelper.HDDS_DATANODE_RATIS_PREFIX_KEY;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CONTAINER_COPY_WORKDIR;
-
-import com.google.common.base.Preconditions;
-import java.io.IOException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
@@ -46,13 +25,34 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hdds.HddsConfigKeys;
+import org.apache.hadoop.hdds.DFSConfigKeysLegacy;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.utils.LegacyHadoopConfigurationSource;
+
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys;
+
+import static java.util.Collections.unmodifiableSortedSet;
+import static java.util.stream.Collectors.toCollection;
+import static org.apache.hadoop.hdds.ratis.RatisHelper.HDDS_DATANODE_RATIS_PREFIX_KEY;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CONTAINER_COPY_WORKDIR;
 
 /**
  * Configuration for ozone.
@@ -99,6 +99,16 @@ public class OzoneConfiguration extends Configuration
   public static <T> T newInstanceOf(Class<T> configurationClass) {
     OzoneConfiguration conf = new OzoneConfiguration();
     return conf.getObject(configurationClass);
+  }
+
+  /**
+   * @return a new {@code OzoneConfiguration} instance set from the given
+   * {@code configObject}
+   */
+  public static <T> OzoneConfiguration fromObject(T configObject) {
+    OzoneConfiguration conf = new OzoneConfiguration();
+    conf.setFromObject(configObject);
+    return conf;
   }
 
   public OzoneConfiguration() {
@@ -162,11 +172,15 @@ public class OzoneConfiguration extends Configuration
     }
 
     public XMLConfiguration(List<Property> properties) {
-      this.properties = new ArrayList<>(properties);
+      this.properties = properties;
     }
 
     public List<Property> getProperties() {
-      return Collections.unmodifiableList(properties);
+      return properties;
+    }
+
+    public void setProperties(List<Property> properties) {
+      this.properties = properties;
     }
   }
 
@@ -315,7 +329,7 @@ public class OzoneConfiguration extends Configuration
            HDDS_DATANODE_RATIS_PREFIX_KEY + "."
            + RaftServerConfigKeys.PREFIX + "." + "rpc.slowness.timeout"),
         new DeprecationDelta("dfs.datanode.keytab.file",
-            HddsConfigKeys.HDDS_DATANODE_KERBEROS_KEYTAB_FILE_KEY),
+            DFSConfigKeysLegacy.DFS_DATANODE_KERBEROS_KEYTAB_FILE_KEY),
         new DeprecationDelta("ozone.scm.chunk.layout",
             ScmConfigKeys.OZONE_SCM_CONTAINER_LAYOUT_KEY),
         new DeprecationDelta("hdds.datanode.replication.work.dir",
@@ -379,106 +393,7 @@ public class OzoneConfiguration extends Configuration
         new DeprecationDelta("dfs.ratis.server.retry-cache.timeout.duration",
             ScmConfigKeys.HDDS_RATIS_SERVER_RETRY_CACHE_TIMEOUT_DURATION_KEY),
         new DeprecationDelta("dfs.ratis.snapshot.threshold",
-            ScmConfigKeys.HDDS_RATIS_SNAPSHOT_THRESHOLD_KEY),
-        new DeprecationDelta("dfs.datanode.dns.interface",
-            HddsConfigKeys.HDDS_DATANODE_DNS_INTERFACE_KEY),
-        new DeprecationDelta("dfs.datanode.dns.nameserver",
-            HddsConfigKeys.HDDS_DATANODE_DNS_NAMESERVER_KEY),
-        new DeprecationDelta("dfs.datanode.hostname",
-            HddsConfigKeys.HDDS_DATANODE_HOST_NAME_KEY),
-        new DeprecationDelta("dfs.datanode.data.dir",
-            ScmConfigKeys.HDDS_DATANODE_DIR_KEY),
-        new DeprecationDelta("dfs.datanode.use.datanode.hostname",
-            HddsConfigKeys.HDDS_DATANODE_USE_DN_HOSTNAME),
-        new DeprecationDelta("dfs.xframe.enabled",
-            HddsConfigKeys.HDDS_XFRAME_OPTION_ENABLED),
-        new DeprecationDelta("dfs.xframe.value",
-            HddsConfigKeys.HDDS_XFRAME_OPTION_VALUE),
-        new DeprecationDelta("dfs.metrics.session-id",
-            HddsConfigKeys.HDDS_METRICS_SESSION_ID_KEY),
-        new DeprecationDelta("dfs.client.https.keystore.resource",
-            OzoneConfigKeys.OZONE_CLIENT_HTTPS_KEYSTORE_RESOURCE_KEY),
-        new DeprecationDelta("dfs.https.server.keystore.resource",
-            OzoneConfigKeys.OZONE_SERVER_HTTPS_KEYSTORE_RESOURCE_KEY),
-        new DeprecationDelta("dfs.http.policy",
-            OzoneConfigKeys.OZONE_HTTP_POLICY_KEY),
-        new DeprecationDelta("dfs.datanode.kerberos.principal",
-            HddsConfigKeys.HDDS_DATANODE_KERBEROS_PRINCIPAL_KEY),
-        new DeprecationDelta("dfs.datanode.kerberos.keytab.file",
-            HddsConfigKeys.HDDS_DATANODE_KERBEROS_KEYTAB_FILE_KEY),
-        new DeprecationDelta("dfs.metrics.percentiles.intervals",
-            HddsConfigKeys.HDDS_METRICS_PERCENTILES_INTERVALS_KEY),
+            ScmConfigKeys.HDDS_RATIS_SNAPSHOT_THRESHOLD_KEY)
     });
-  }
-
-  /**
-   * Gets backwards-compatible configuration property values.
-   * @param name Primary configuration attribute key name.
-   * @param fallbackName The key name of the configuration property that needs
-   *                     to be backward compatible.
-   * @param defaultValue The default value to be returned.
-   */
-  public int getInt(String name, String fallbackName, int defaultValue,
-      Consumer<String> log) {
-    String value = this.getTrimmed(name);
-    if (value == null) {
-      value = this.getTrimmed(fallbackName);
-      if (log != null) {
-        log.accept(name + " is not set.  Fallback to " + fallbackName +
-            ", which is set to " + value);
-      }
-    }
-    if (value == null) {
-      return defaultValue;
-    }
-    return Integer.parseInt(value);
-  }
-
-  private Properties delegatingProps;
-
-  @Override
-  public synchronized void reloadConfiguration() {
-    super.reloadConfiguration();
-    delegatingProps = null;
-  }
-
-  @Override
-  protected final synchronized Properties getProps() {
-    if (delegatingProps == null) {
-      String complianceMode = getPropertyUnsafe(OzoneConfigKeys.OZONE_SECURITY_CRYPTO_COMPLIANCE_MODE,
-          OzoneConfigKeys.OZONE_SECURITY_CRYPTO_COMPLIANCE_MODE_UNRESTRICTED);
-      Properties cryptoProperties = getCryptoProperties();
-      delegatingProps = new DelegatingProperties(super.getProps(), complianceMode, cryptoProperties);
-    }
-    return delegatingProps;
-  }
-
-  /**
-   * Get a property value without the compliance check. It's needed to get the compliance
-   * mode from the configuration.
-   *
-   * @param key property name
-   * @param defaultValue default value
-   * @return property value, without compliance check
-   */
-  private String getPropertyUnsafe(String key, String defaultValue) {
-    return super.getProps().getProperty(key, defaultValue);
-  }
-
-  private Properties getCryptoProperties() {
-    try {
-      return super.getAllPropertiesByTag(ConfigTag.CRYPTO_COMPLIANCE.toString());
-    } catch (NoSuchMethodError e) {
-      // We need to handle NoSuchMethodError, because in Hadoop 2 we don't have the
-      // getAllPropertiesByTag method. We won't be supporting the compliance mode with
-      // that version, so we are safe to catch the exception and return a new Properties object.
-      return new Properties();
-    }
-  }
-
-  @Override
-  public Iterator<Map.Entry<String, String>> iterator() {
-    DelegatingProperties properties = (DelegatingProperties) getProps();
-    return properties.iterator();
   }
 }

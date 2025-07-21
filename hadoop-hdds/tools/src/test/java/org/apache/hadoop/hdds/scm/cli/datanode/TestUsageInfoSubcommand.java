@@ -1,33 +1,35 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli.datanode;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.codec.CharEncoding;
+import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.scm.client.ScmClient;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import picocli.CommandLine;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -35,14 +37,9 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.commons.codec.CharEncoding;
-import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.scm.client.ScmClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
+
+import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
+import static org.mockito.Mockito.mock;
 
 /**
  * Test for the UsageInfoSubCommand class.
@@ -72,7 +69,9 @@ public class TestUsageInfoSubcommand {
   @Test
   public void testCorrectJsonValuesInReport() throws IOException {
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.getDatanodeUsageInfo(anyBoolean(), anyInt())).thenAnswer(invocation -> getUsageProto());
+    Mockito.when(scmClient.getDatanodeUsageInfo(
+        Mockito.anyBoolean(), Mockito.anyInt()))
+        .thenAnswer(invocation -> getUsageProto());
 
     CommandLine c = new CommandLine(cmd);
     c.parseArgs("-m", "--json");
@@ -81,26 +80,30 @@ public class TestUsageInfoSubcommand {
     ObjectMapper mapper = new ObjectMapper();
     JsonNode json = mapper.readTree(outContent.toString("UTF-8"));
 
-    assertEquals(ARRAY, json.getNodeType());
-    assertNotNull(json.get(0).get("datanodeDetails"));
-    assertEquals(10, json.get(0).get("ozoneUsed").longValue());
-    assertEquals(100, json.get(0).get("capacity").longValue());
-    assertEquals(80, json.get(0).get("remaining").longValue());
-    assertEquals(20, json.get(0).get("totalUsed").longValue());
+    Assertions.assertEquals(ARRAY, json.getNodeType());
+    Assertions.assertNotNull(json.get(0).get("datanodeDetails"));
+    Assertions.assertEquals(10, json.get(0).get("ozoneUsed").longValue());
+    Assertions.assertEquals(100, json.get(0).get("capacity").longValue());
+    Assertions.assertEquals(80, json.get(0).get("remaining").longValue());
+    Assertions.assertEquals(20, json.get(0).get("totalUsed").longValue());
 
-    assertEquals(20.00, json.get(0).get("totalUsedPercent").doubleValue(), 0.001);
-    assertEquals(10.00, json.get(0).get("ozoneUsedPercent").doubleValue(), 0.001);
-    assertEquals(80.00, json.get(0).get("remainingPercent").doubleValue(), 0.001);
+    Assertions.assertEquals(20.00,
+        json.get(0).get("totalUsedPercent").doubleValue(), 0.001);
+    Assertions.assertEquals(10.00,
+        json.get(0).get("ozoneUsedPercent").doubleValue(), 0.001);
+    Assertions.assertEquals(80.00,
+        json.get(0).get("remainingPercent").doubleValue(), 0.001);
 
-    assertEquals(5, json.get(0).get("containerCount").longValue());
-    assertEquals(10, json.get(0).get("pipelineCount").longValue());
+    Assertions.assertEquals(5,
+            json.get(0).get("containerCount").longValue());
   }
 
   @Test
   public void testOutputDataFieldsAligning() throws IOException {
     // given
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.getDatanodeUsageInfo(anyBoolean(), anyInt()))
+    Mockito.when(scmClient.getDatanodeUsageInfo(
+            Mockito.anyBoolean(), Mockito.anyInt()))
         .thenAnswer(invocation -> getUsageProto());
 
     CommandLine c = new CommandLine(cmd);
@@ -111,21 +114,20 @@ public class TestUsageInfoSubcommand {
 
     // then
     String output = outContent.toString(CharEncoding.UTF_8);
-    assertThat(output).contains("UUID         :");
-    assertThat(output).contains("IP Address   :");
-    assertThat(output).contains("Hostname     :");
-    assertThat(output).contains("Capacity     :");
-    assertThat(output).contains("Total Used   :");
-    assertThat(output).contains("Total Used % :");
-    assertThat(output).contains("Ozone Used   :");
-    assertThat(output).contains("Ozone Used % :");
-    assertThat(output).contains("Remaining    :");
-    assertThat(output).contains("Remaining %  :");
-    assertThat(output).contains("Container(s) :");
-    assertThat(output).contains("Pipeline(s)  :");
-    assertThat(output).contains("Container Pre-allocated :");
-    assertThat(output).contains("Remaining Allocatable   :");
-    assertThat(output).contains("Free Space To Spare     :");
+    Assertions.assertTrue(output.contains("UUID         :"));
+    Assertions.assertTrue(output.contains("IP Address   :"));
+    Assertions.assertTrue(output.contains("Hostname     :"));
+    Assertions.assertTrue(output.contains("Capacity     :"));
+    Assertions.assertTrue(output.contains("Total Used   :"));
+    Assertions.assertTrue(output.contains("Total Used % :"));
+    Assertions.assertTrue(output.contains("Ozone Used   :"));
+    Assertions.assertTrue(output.contains("Ozone Used % :"));
+    Assertions.assertTrue(output.contains("Remaining    :"));
+    Assertions.assertTrue(output.contains("Remaining %  :"));
+    Assertions.assertTrue(output.contains("Container(s) :"));
+    Assertions.assertTrue(output.contains("Container Pre-allocated :"));
+    Assertions.assertTrue(output.contains("Remaining Allocatable   :"));
+    Assertions.assertTrue(output.contains("Free Space To Spare     :"));
   }
 
   private List<HddsProtos.DatanodeUsageInfoProto> getUsageProto() {
@@ -136,7 +138,6 @@ public class TestUsageInfoSubcommand {
         .setRemaining(80)
         .setUsed(10)
         .setContainerCount(5)
-        .setPipelineCount(10)
         .build());
     return result;
   }

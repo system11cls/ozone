@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,36 +18,41 @@
 
 package org.apache.hadoop.ozone.om.ratis;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.BUCKET_TABLE;
-import static org.apache.ozone.test.GenericTestUtils.waitFor;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+
 import org.apache.hadoop.hdds.utils.TransactionInfo;
-import org.apache.hadoop.hdds.utils.db.BatchOperation;
+import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .CreateBucketResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMResponse;
+import org.apache.hadoop.ozone.om.ratis.metrics.OzoneManagerDoubleBufferMetrics;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
-import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateBucketResponse;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.util.Time;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
+import org.apache.hadoop.hdds.utils.db.BatchOperation;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
+import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.BUCKET_TABLE;
+import static org.apache.ozone.test.GenericTestUtils.waitFor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * This class tests OzoneManagerDoubleBuffer implementation with
@@ -58,6 +64,7 @@ public class TestOzoneManagerDoubleBufferWithDummyResponse {
   private OMMetadataManager omMetadataManager;
   private OzoneManagerDoubleBuffer doubleBuffer;
   private final AtomicLong trxId = new AtomicLong(0);
+  private long lastAppliedIndex;
   private long term = 1L;
   @TempDir
   private Path folder;
@@ -69,11 +76,16 @@ public class TestOzoneManagerDoubleBufferWithDummyResponse {
         folder.toAbsolutePath().toString());
     omMetadataManager =
         new OmMetadataManagerImpl(configuration, null);
-    doubleBuffer = OzoneManagerDoubleBuffer.newBuilder()
+    OzoneManagerRatisSnapshot ozoneManagerRatisSnapshot = index -> {
+      lastAppliedIndex = index.get(index.size() - 1);
+    };
+    doubleBuffer = new OzoneManagerDoubleBuffer.Builder()
         .setOmMetadataManager(omMetadataManager)
-        .setMaxUnFlushedTransactionCount(10000)
-        .build()
-        .start();
+        .setOzoneManagerRatisSnapShot(ozoneManagerRatisSnapshot)
+        .setmaxUnFlushedTransactionCount(10000)
+        .enableRatis(true)
+        .setIndexToTerm((val) -> term)
+        .build();
   }
 
   @AfterEach
@@ -90,7 +102,8 @@ public class TestOzoneManagerDoubleBufferWithDummyResponse {
   public void testDoubleBufferWithDummyResponse() throws Exception {
     String volumeName = UUID.randomUUID().toString();
     int bucketCount = 100;
-    final OzoneManagerDoubleBufferMetrics metrics = doubleBuffer.getMetrics();
+    OzoneManagerDoubleBufferMetrics metrics =
+        doubleBuffer.getOzoneManagerDoubleBufferMetrics();
 
     // As we have not flushed/added any transactions, all metrics should have
     // value zero.
@@ -100,33 +113,38 @@ public class TestOzoneManagerDoubleBufferWithDummyResponse {
 
     for (int i = 0; i < bucketCount; i++) {
       doubleBuffer.add(createDummyBucketResponse(volumeName),
-          TermIndex.valueOf(term, trxId.incrementAndGet()));
+          trxId.incrementAndGet());
     }
     waitFor(() -> metrics.getTotalNumOfFlushedTransactions() == bucketCount,
         100, 60000);
 
-    assertThat(metrics.getTotalNumOfFlushOperations()).isGreaterThan(0);
-    assertEquals(bucketCount, doubleBuffer.getFlushedTransactionCountForTesting());
-    assertThat(metrics.getMaxNumberOfTransactionsFlushedInOneIteration()).isGreaterThan(0);
+    assertTrue(metrics.getTotalNumOfFlushOperations() > 0);
+    assertEquals(bucketCount, doubleBuffer.getFlushedTransactionCount());
+    assertTrue(metrics.getMaxNumberOfTransactionsFlushedInOneIteration() > 0);
     assertEquals(bucketCount, omMetadataManager.countRowsInTable(
         omMetadataManager.getBucketTable()));
-    assertThat(doubleBuffer.getFlushIterationsForTesting()).isGreaterThan(0);
-    assertThat(metrics.getFlushTime().lastStat().numSamples()).isGreaterThan(0);
-    assertThat(metrics.getAvgFlushTransactionsInOneIteration()).isGreaterThan(0);
+    assertTrue(doubleBuffer.getFlushIterations() > 0);
+    assertTrue(metrics.getFlushTime().lastStat().numSamples() > 0);
+    assertTrue(metrics.getAvgFlushTransactionsInOneIteration() > 0);
     assertEquals(bucketCount, (long) metrics.getQueueSize().lastStat().total());
-    assertThat(metrics.getQueueSize().lastStat().numSamples()).isGreaterThan(0);
+    assertTrue(metrics.getQueueSize().lastStat().numSamples() > 0);
 
     // Assert there is only instance of OM Double Metrics.
     OzoneManagerDoubleBufferMetrics metricsCopy =
         OzoneManagerDoubleBufferMetrics.create();
     assertEquals(metrics, metricsCopy);
 
+    // Check lastAppliedIndex is updated correctly or not.
+    assertEquals(bucketCount, lastAppliedIndex);
+
+
     TransactionInfo transactionInfo =
         omMetadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY);
-    // Check lastAppliedIndex is updated correctly or not.
     assertNotNull(transactionInfo);
-    assertEquals(bucketCount, transactionInfo.getTransactionIndex());
-    assertEquals(term, transactionInfo.getTerm());
+
+    Assertions.assertEquals(lastAppliedIndex,
+        transactionInfo.getTransactionIndex());
+    Assertions.assertEquals(term, transactionInfo.getTerm());
   }
 
   /**

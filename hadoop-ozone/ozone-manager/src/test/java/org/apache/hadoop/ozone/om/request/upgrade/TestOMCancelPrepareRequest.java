@@ -1,37 +1,33 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.om.request.upgrade;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.UUID;
 import org.apache.hadoop.ozone.om.OzoneManagerPrepareState;
 import org.apache.hadoop.ozone.om.request.key.OMOpenKeysDeleteRequest;
 import org.apache.hadoop.ozone.om.request.key.TestOMKeyRequest;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse.PrepareStatus;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse.PrepareStatus;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 /**
  * Unit testing of cancel prepare request. Cancel prepare response does not
@@ -57,21 +53,21 @@ public class TestOMCancelPrepareRequest extends TestOMKeyRequest {
     OzoneManagerPrepareState prepareState = ozoneManager.getPrepareState();
     OzoneManagerPrepareState.State state = prepareState.getState();
 
-    assertEquals(state.getStatus(), PrepareStatus.PREPARE_COMPLETED);
-    assertEquals(state.getIndex(), logIndex);
-    assertTrue(prepareState.getPrepareMarkerFile().exists());
-    assertFalse(prepareState.requestAllowed(Type.CreateVolume));
+    Assertions.assertEquals(state.getStatus(), PrepareStatus.PREPARE_COMPLETED);
+    Assertions.assertEquals(state.getIndex(), logIndex);
+    Assertions.assertTrue(prepareState.getPrepareMarkerFile().exists());
+    Assertions.assertFalse(prepareState.requestAllowed(Type.CreateVolume));
   }
 
   private void assertNotPrepared() {
     OzoneManagerPrepareState prepareState = ozoneManager.getPrepareState();
     OzoneManagerPrepareState.State state = prepareState.getState();
 
-    assertEquals(state.getStatus(), PrepareStatus.NOT_PREPARED);
-    assertEquals(state.getIndex(),
+    Assertions.assertEquals(state.getStatus(), PrepareStatus.NOT_PREPARED);
+    Assertions.assertEquals(state.getIndex(),
         OzoneManagerPrepareState.NO_PREPARE_INDEX);
-    assertFalse(prepareState.getPrepareMarkerFile().exists());
-    assertTrue(prepareState.requestAllowed(Type.CreateVolume));
+    Assertions.assertFalse(prepareState.getPrepareMarkerFile().exists());
+    Assertions.assertTrue(prepareState.requestAllowed(Type.CreateVolume));
   }
 
   private void submitCancelPrepareRequest() throws Exception {
@@ -84,7 +80,7 @@ public class TestOMCancelPrepareRequest extends TestOMKeyRequest {
     OMClientResponse omClientResponse =
         cancelPrepareRequest.validateAndUpdateCache(ozoneManager, LOG_INDEX);
 
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omClientResponse.getOMResponse().getStatus());
   }
 
@@ -96,7 +92,7 @@ public class TestOMCancelPrepareRequest extends TestOMKeyRequest {
         omOpenKeysDeleteRequest.preExecute(ozoneManager);
 
     // Will not be equal, as UserInfo will be set.
-    assertNotEquals(originalOmRequest, modifiedOmRequest);
+    Assertions.assertNotEquals(originalOmRequest, modifiedOmRequest);
 
     return modifiedOmRequest;
   }

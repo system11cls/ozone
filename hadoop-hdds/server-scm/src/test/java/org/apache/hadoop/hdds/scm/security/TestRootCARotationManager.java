@@ -1,56 +1,23 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.security;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_ACK_TIMEOUT;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_CHECK_INTERNAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_TIME_OF_DAY;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_EXPIRED_CERTIFICATE_CHECK_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_GRACE_DURATION_TOKEN_CHECKS_ENABLED;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_RENEW_GRACE_DURATION;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_ROOTCA_CERTIFICATE_POLLING_INTERVAL;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.slf4j.event.Level.INFO;
-
-import java.io.File;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
@@ -69,10 +36,42 @@ import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.SelfSignedCertificate;
 import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
 import org.apache.ozone.test.GenericTestUtils;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
+
+import java.io.File;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_ACK_TIMEOUT;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_CHECK_INTERNAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_CA_ROTATION_TIME_OF_DAY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_EXPIRED_CERTIFICATE_CHECK_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_GRACE_DURATION_TOKEN_CHECKS_ENABLED;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_RENEW_GRACE_DURATION;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_X509_ROOTCA_CERTIFICATE_POLLING_INTERVAL;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.slf4j.event.Level.INFO;
 
 /**
  * Test for root CA rotation manager.
@@ -92,7 +91,6 @@ public class TestRootCARotationManager {
   private SCMSecurityProtocolServer scmSecurityProtocolServer;
   private RootCARotationHandlerImpl handler;
   private StatefulServiceStateManager statefulServiceStateManager;
-  @TempDir
   private File testDir;
   private String cID = UUID.randomUUID().toString();
   private String scmID = UUID.randomUUID().toString();
@@ -102,40 +100,47 @@ public class TestRootCARotationManager {
   public void init() throws IOException, TimeoutException,
       CertificateException {
     ozoneConfig = new OzoneConfiguration();
+    testDir = GenericTestUtils.getTestDir(
+        TestRootCARotationManager.class.getSimpleName() + UUID.randomUUID());
     ozoneConfig
         .set(HddsConfigKeys.OZONE_METADATA_DIRS, testDir.getAbsolutePath());
     ozoneConfig
         .setBoolean(HDDS_X509_GRACE_DURATION_TOKEN_CHECKS_ENABLED, false);
     ozoneConfig.setBoolean(HDDS_X509_CA_ROTATION_ENABLED, true);
-    scm = mock(StorageContainerManager.class);
+    scm = Mockito.mock(StorageContainerManager.class);
     securityConfig = new SecurityConfig(ozoneConfig);
     scmCertClient = new SCMCertificateClient(securityConfig, null, scmID, cID,
         certID.toString(), "localhost");
     scmServiceManager = new SCMServiceManager();
-    scmContext = mock(SCMContext.class);
-    scmhaManager = mock(SCMHAManager.class);
-    sequenceIdGenerator = mock(SequenceIdGenerator.class);
+    scmContext = Mockito.mock(SCMContext.class);
+    scmhaManager = Mockito.mock(SCMHAManager.class);
+    sequenceIdGenerator = Mockito.mock(SequenceIdGenerator.class);
     scmStorageConfig = new SCMStorageConfig(ozoneConfig);
     scmStorageConfig.setScmId(scmID);
     scmStorageConfig.setClusterId(cID);
-    scmSecurityProtocolServer = mock(SCMSecurityProtocolServer.class);
-    handler = mock(RootCARotationHandlerImpl.class);
-    statefulServiceStateManager = mock(StatefulServiceStateManager.class);
+    scmSecurityProtocolServer = Mockito.mock(SCMSecurityProtocolServer.class);
+    handler = Mockito.mock(RootCARotationHandlerImpl.class);
+    statefulServiceStateManager =
+        Mockito.mock(StatefulServiceStateManager.class);
     when(scmContext.isLeader()).thenReturn(true);
     when(scm.getConfiguration()).thenReturn(ozoneConfig);
     when(scm.getScmCertificateClient()).thenReturn(scmCertClient);
     when(scm.getScmContext()).thenReturn(scmContext);
     when(scm.getSCMServiceManager()).thenReturn(scmServiceManager);
     when(scm.getScmHAManager()).thenReturn(scmhaManager);
-    when(scmhaManager.getRatisServer()).thenReturn(mock(SCMRatisServerImpl.class));
+    when(scmhaManager.getRatisServer())
+        .thenReturn(Mockito.mock(SCMRatisServerImpl.class));
     when(scm.getSequenceIdGen()).thenReturn(sequenceIdGenerator);
-    when(sequenceIdGenerator.getNextId(anyString())).thenReturn(2L);
+    when(sequenceIdGenerator.getNextId(Mockito.anyString())).thenReturn(2L);
     when(scm.getScmStorageConfig()).thenReturn(scmStorageConfig);
     when(scm.getSecurityProtocolServer()).thenReturn(scmSecurityProtocolServer);
-    doNothing().when(scmSecurityProtocolServer).setRootCertificateServer(any());
-    doNothing().when(handler).rotationPrepare(anyString());
-    when(scm.getStatefulServiceStateManager()).thenReturn(statefulServiceStateManager);
-    when(statefulServiceStateManager.readConfiguration(anyString())).thenReturn(null);
+    Mockito.doNothing().when(scmSecurityProtocolServer)
+        .setRootCertificateServer(Mockito.anyObject());
+    Mockito.doNothing().when(handler).rotationPrepare(Mockito.anyString());
+    when(scm.getStatefulServiceStateManager())
+        .thenReturn(statefulServiceStateManager);
+    when(statefulServiceStateManager.readConfiguration(Mockito.anyString()))
+        .thenReturn(null);
   }
 
   @AfterEach
@@ -143,37 +148,61 @@ public class TestRootCARotationManager {
     if (rootCARotationManager != null) {
       rootCARotationManager.stop();
     }
+
+    FileUtil.fullyDelete(testDir);
   }
 
   @Test
-  void testProperties() throws Exception {
+  public void testProperties() {
     // invalid check interval
     ozoneConfig.set(HDDS_X509_CA_ROTATION_CHECK_INTERNAL, "P28");
-    assertThrows(DateTimeParseException.class, () -> rootCARotationManager = new RootCARotationManager(scm));
+    try {
+      rootCARotationManager = new RootCARotationManager(scm);
+      fail("Should fail");
+    } catch (Exception e) {
+      Assertions.assertTrue(e instanceof DateTimeParseException);
+    }
 
     // check interval should be less than grace period
     ozoneConfig.set(HDDS_X509_CA_ROTATION_CHECK_INTERNAL, "P28D");
-    IllegalArgumentException ex =
-        assertThrows(IllegalArgumentException.class, () -> rootCARotationManager = new RootCARotationManager(scm));
-    assertThat(ex.getMessage()).contains("should be smaller than");
+    try {
+      rootCARotationManager = new RootCARotationManager(scm);
+      fail("Should fail");
+    } catch (Exception e) {
+      Assertions.assertTrue(e instanceof IllegalArgumentException);
+      Assertions.assertTrue(e.getMessage().contains("should be smaller than"));
+    }
 
     // invalid time of day format
     ozoneConfig.set(HDDS_X509_CA_ROTATION_CHECK_INTERNAL, "P1D");
     ozoneConfig.set(HDDS_X509_CA_ROTATION_TIME_OF_DAY, "01:00");
-    ex = assertThrows(IllegalArgumentException.class, () -> rootCARotationManager = new RootCARotationManager(scm));
-    assertThat(ex.getMessage()).contains("should follow the hh:mm:ss format");
+    try {
+      rootCARotationManager = new RootCARotationManager(scm);
+      fail("Should fail");
+    } catch (Exception e) {
+      Assertions.assertTrue(e instanceof IllegalArgumentException);
+      Assertions.assertTrue(
+          e.getMessage().contains("should follow the hh:mm:ss format"));
+    }
 
     // valid properties
     ozoneConfig.set(HDDS_X509_CA_ROTATION_CHECK_INTERNAL, "P1D");
     ozoneConfig.set(HDDS_X509_CA_ROTATION_TIME_OF_DAY, "01:00:00");
 
-    rootCARotationManager = new RootCARotationManager(scm);
+    try {
+      rootCARotationManager = new RootCARotationManager(scm);
+    } catch (Exception e) {
+      fail("Should succeed");
+    }
 
     // invalid property value is ignored when auto rotation is disabled.
     ozoneConfig.setBoolean(HDDS_X509_CA_ROTATION_ENABLED, false);
     ozoneConfig.set(HDDS_X509_CA_ROTATION_CHECK_INTERNAL, "P28D");
-
-    rootCARotationManager = new RootCARotationManager(scm);
+    try {
+      rootCARotationManager = new RootCARotationManager(scm);
+    } catch (Exception e) {
+      fail("Should succeed");
+    }
   }
 
   @Test
@@ -259,7 +288,7 @@ public class TestRootCARotationManager {
     scmCertClient.setCACertificate(cert);
     CertificateCodec certCodec = new CertificateCodec(securityConfig,
         "scm/sub-ca");
-    certCodec.writeCertificate(cert);
+    certCodec.writeCertificate(CertificateCodec.getCertificateHolder(cert));
     rootCARotationManager = new RootCARotationManager(scm);
     rootCARotationManager.setRootCARotationHandler(handler);
     GenericTestUtils.LogCapturer logs =
@@ -273,7 +302,7 @@ public class TestRootCARotationManager {
                 "configuration found in stateful storage"),
         100, 10000);
 
-    when(statefulServiceStateManager.readConfiguration(anyString()))
+    when(statefulServiceStateManager.readConfiguration(Mockito.anyString()))
         .thenReturn(new CertInfo.Builder().setX509Certificate(cert)
             .setTimestamp(cert.getNotBefore().getTime())
             .build().getProtobuf().toByteString());
@@ -301,12 +330,14 @@ public class TestRootCARotationManager {
         () -> logs.getOutput().contains("isPostProcessing is true for"),
         100, 20000);
 
-    doNothing().when(statefulServiceStateManager).deleteConfiguration(anyString());
+    doNothing().when(statefulServiceStateManager)
+        .deleteConfiguration(Mockito.anyString());
     GenericTestUtils.waitFor(
         () -> logs.getOutput().contains("isPostProcessing is false") &&
             logs.getOutput().contains("Stateful configuration is deleted"),
         100, 20000);
-    verify(statefulServiceStateManager, times(1)).deleteConfiguration(anyString());
+    verify(statefulServiceStateManager, times(1))
+        .deleteConfiguration(Mockito.anyString());
   }
 
   private X509Certificate generateX509Cert(
@@ -315,7 +346,7 @@ public class TestRootCARotationManager {
     KeyPair keyPair = KeyStoreTestUtil.generateKeyPair("RSA");
     LocalDateTime start = startDate == null ? LocalDateTime.now() : startDate;
     LocalDateTime end = start.plus(certLifetime);
-    return
+    return new JcaX509CertificateConverter().getCertificate(
         SelfSignedCertificate.newBuilder()
             .setBeginDate(start)
             .setEndDate(end)
@@ -325,6 +356,6 @@ public class TestRootCARotationManager {
             .setConfiguration(new SecurityConfig(conf))
             .setKey(keyPair)
             .makeCA(certID)
-            .build();
+            .build());
   }
 }

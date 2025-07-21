@@ -1,31 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.audit;
 
-import static org.apache.hadoop.ozone.audit.AuditEventStatus.FAILURE;
-import static org.apache.hadoop.ozone.audit.AuditEventStatus.SUCCESS;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.junit.jupiter.api.AfterAll;
@@ -33,6 +24,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.ozone.audit.AuditEventStatus.FAILURE;
+import static org.apache.hadoop.ozone.audit.AuditEventStatus.SUCCESS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.hamcrest.Matcher;
+import org.hamcrest.collection.IsIterableContainingInOrder;
+
 
 /**
  * Test Ozone Audit Logger.
@@ -174,11 +183,11 @@ public class TestOzoneAuditLogger {
   @Test
   public void messageIncludesAllParts() {
     String message = WRITE_FAIL_MSG.getFormattedMessage();
-    assertThat(message).contains(USER);
-    assertThat(message).contains(IP_ADDRESS);
-    assertThat(message).contains(DummyAction.CREATE_VOLUME.name());
-    assertThat(message).contains(PARAMS.toString());
-    assertThat(message).contains(FAILURE.getStatus());
+    assertTrue(message.contains(USER), message);
+    assertTrue(message.contains(IP_ADDRESS), message);
+    assertTrue(message.contains(DummyAction.CREATE_VOLUME.name()), message);
+    assertTrue(message.contains(PARAMS.toString()), message);
+    assertTrue(message.contains(FAILURE.getStatus()), message);
   }
 
   /**
@@ -226,7 +235,8 @@ public class TestOzoneAuditLogger {
     File file = new File("audit.log");
     List<String> lines = FileUtils.readLines(file, (String)null);
     final int retry = 5;
-    for (int i = 0; lines.isEmpty() && i < retry; i++) {
+    int i = 0;
+    while (lines.isEmpty() && i < retry) {
       lines = FileUtils.readLines(file, (String)null);
       try {
         Thread.sleep(500 * (i + 1));
@@ -234,12 +244,13 @@ public class TestOzoneAuditLogger {
         Thread.currentThread().interrupt();
         break;
       }
+      i++;
     }
     //check if every expected string can be found in the log entry
-    for (int i = 0; i < expectedStrings.length; i++) {
-      String line = lines.get(i);
-      assertThat(line).contains(expectedStrings[i]);
-    }
+    assertThat(
+        lines.subList(0, expectedStrings.length),
+        containsInOrder(expectedStrings)
+    );
     //empty the file
     lines.clear();
     FileUtils.writeLines(file, lines, false);
@@ -249,12 +260,21 @@ public class TestOzoneAuditLogger {
     File file = new File("audit.log");
     List<String> lines = FileUtils.readLines(file, (String)null);
     // When no log entry is expected, the log file must be empty
-    assertThat(lines).isEmpty();
+    assertEquals(0, lines.size());
   }
 
   private static class TestException extends Exception {
     TestException(String message) {
       super(message);
     }
+  }
+
+  private Matcher<Iterable<? extends String>> containsInOrder(
+      String[] expectedStrings) {
+    return IsIterableContainingInOrder.contains(
+        Arrays.stream(expectedStrings)
+            .map(str -> containsString(str))
+            .collect(Collectors.toList())
+    );
   }
 }

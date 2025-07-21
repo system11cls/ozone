@@ -1,55 +1,31 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.replication;
 
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.ENTERING_MAINTENANCE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority.LOW;
-import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority.NORMAL;
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.apache.hadoop.ozone.container.replication.AbstractReplicationTask.Status.DONE;
-import static org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand.fromSources;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import com.google.protobuf.Proto2Utils;
-import jakarta.annotation.Nonnull;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CountDownLatch;
@@ -60,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -67,35 +44,51 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority;
-import org.apache.hadoop.hdds.security.symmetric.SecretKeySignerClient;
-import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
 import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
-import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
-import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
+import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
+import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCommandInfo;
-import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCoordinator;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCoordinatorTask;
-import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionMetrics;
 import org.apache.hadoop.ozone.container.keyvalue.ContainerLayoutTestInfo;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
+
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
 import org.apache.hadoop.ozone.protocol.commands.ReconstructECContainersCommand;
 import org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.TestClock;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.Mockito;
+
+import javax.annotation.Nonnull;
+
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.ENTERING_MAINTENANCE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_MAINTENANCE;
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeOperationalState.IN_SERVICE;
+import static org.apache.hadoop.ozone.container.replication.AbstractReplicationTask.Status.DONE;
+import static org.apache.hadoop.ozone.protocol.commands.ReplicateContainerCommand.fromSources;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority.LOW;
+import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority.NORMAL;
 
 /**
  * Test the replication supervisor.
  */
+@RunWith(Parameterized.class)
 public class TestReplicationSupervisor {
 
   private static final long CURRENT_TERM = 1;
@@ -112,40 +105,46 @@ public class TestReplicationSupervisor {
   };
   private final AtomicReference<ContainerReplicator> replicatorRef =
       new AtomicReference<>();
-  private final AtomicReference<ECReconstructionCoordinator> ecReplicatorRef =
-      new AtomicReference<>();
 
   private ContainerSet set;
 
-  private ContainerLayoutVersion layoutVersion;
+  private final ContainerLayoutVersion layout;
 
   private StateContext context;
   private TestClock clock;
   private DatanodeDetails datanode;
 
-  @BeforeEach
+  public TestReplicationSupervisor(ContainerLayoutVersion layout) {
+    this.layout = layout;
+  }
+
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerLayoutTestInfo.containerLayoutParameters();
+  }
+
+  @Before
   public void setUp() throws Exception {
     clock = new TestClock(Instant.now(), ZoneId.systemDefault());
-    set = newContainerSet();
-    DatanodeStateMachine stateMachine = mock(DatanodeStateMachine.class);
+    set = new ContainerSet(1000);
+    DatanodeStateMachine stateMachine =
+        Mockito.mock(DatanodeStateMachine.class);
     context = new StateContext(
         new OzoneConfiguration(),
         DatanodeStateMachine.DatanodeStates.getInitState(),
         stateMachine, "");
     context.setTermOfLeaderSCM(CURRENT_TERM);
     datanode = MockDatanodeDetails.randomDatanodeDetails();
-    when(stateMachine.getDatanodeDetails()).thenReturn(datanode);
+    Mockito.when(stateMachine.getDatanodeDetails()).thenReturn(datanode);
   }
 
-  @AfterEach
+  @After
   public void cleanup() {
     replicatorRef.set(null);
-    ecReplicatorRef.set(null);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void normal(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void normal() {
     // GIVEN
     ReplicationSupervisor supervisor =
         supervisorWithReplicator(FakeReplicator::new);
@@ -158,25 +157,24 @@ public class TestReplicationSupervisor {
       supervisor.addTask(createTask(2L));
       supervisor.addTask(createTask(5L));
 
-      assertEquals(3, supervisor.getReplicationRequestCount());
-      assertEquals(3, supervisor.getReplicationSuccessCount());
-      assertEquals(0, supervisor.getReplicationFailureCount());
-      assertEquals(0, supervisor.getTotalInFlightReplications());
-      assertEquals(0, supervisor.getQueueSize());
-      assertEquals(3, set.containerCount());
+      Assert.assertEquals(3, supervisor.getReplicationRequestCount());
+      Assert.assertEquals(3, supervisor.getReplicationSuccessCount());
+      Assert.assertEquals(0, supervisor.getReplicationFailureCount());
+      Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(0, supervisor.getQueueSize());
+      Assert.assertEquals(3, set.containerCount());
 
       MetricsCollectorImpl metricsCollector = new MetricsCollectorImpl();
       metrics.getMetrics(metricsCollector, true);
-      assertEquals(1, metricsCollector.getRecords().size());
+      Assert.assertEquals(1, metricsCollector.getRecords().size());
     } finally {
       metrics.unRegister();
       supervisor.stop();
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void duplicateMessage(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void duplicateMessage() {
     // GIVEN
     ReplicationSupervisor supervisor = supervisorWithReplicator(
         FakeReplicator::new);
@@ -189,21 +187,20 @@ public class TestReplicationSupervisor {
       supervisor.addTask(createTask(6L));
 
       //THEN
-      assertEquals(4, supervisor.getReplicationRequestCount());
-      assertEquals(1, supervisor.getReplicationSuccessCount());
-      assertEquals(0, supervisor.getReplicationFailureCount());
-      assertEquals(3, supervisor.getReplicationSkippedCount());
-      assertEquals(0, supervisor.getTotalInFlightReplications());
-      assertEquals(0, supervisor.getQueueSize());
-      assertEquals(1, set.containerCount());
+      Assert.assertEquals(4, supervisor.getReplicationRequestCount());
+      Assert.assertEquals(1, supervisor.getReplicationSuccessCount());
+      Assert.assertEquals(0, supervisor.getReplicationFailureCount());
+      Assert.assertEquals(3, supervisor.getReplicationSkippedCount());
+      Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(0, supervisor.getQueueSize());
+      Assert.assertEquals(1, set.containerCount());
     } finally {
       supervisor.stop();
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void failureHandling(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void failureHandling() {
     // GIVEN
     ReplicationSupervisor supervisor = supervisorWith(
         __ -> throwingReplicator, newDirectExecutorService());
@@ -214,19 +211,19 @@ public class TestReplicationSupervisor {
       supervisor.addTask(task);
 
       //THEN
-      assertEquals(1, supervisor.getReplicationRequestCount());
-      assertEquals(0, supervisor.getReplicationSuccessCount());
-      assertEquals(1, supervisor.getReplicationFailureCount());
-      assertEquals(0, supervisor.getTotalInFlightReplications());
-      assertEquals(0, supervisor.getQueueSize());
-      assertEquals(0, set.containerCount());
-      assertEquals(ReplicationTask.Status.FAILED, task.getStatus());
+      Assert.assertEquals(1, supervisor.getReplicationRequestCount());
+      Assert.assertEquals(0, supervisor.getReplicationSuccessCount());
+      Assert.assertEquals(1, supervisor.getReplicationFailureCount());
+      Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(0, supervisor.getQueueSize());
+      Assert.assertEquals(0, set.containerCount());
+      Assert.assertEquals(ReplicationTask.Status.FAILED, task.getStatus());
     } finally {
       supervisor.stop();
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
+  @Test
   public void stalledDownload() {
     // GIVEN
     ReplicationSupervisor supervisor = supervisorWith(__ -> noopReplicator,
@@ -241,22 +238,22 @@ public class TestReplicationSupervisor {
       supervisor.addTask(createECTask(5L));
 
       //THEN
-      assertEquals(0, supervisor.getReplicationRequestCount());
-      assertEquals(0, supervisor.getReplicationSuccessCount());
-      assertEquals(0, supervisor.getReplicationFailureCount());
-      assertEquals(5, supervisor.getTotalInFlightReplications());
-      assertEquals(3, supervisor.getInFlightReplications(
+      Assert.assertEquals(0, supervisor.getReplicationRequestCount());
+      Assert.assertEquals(0, supervisor.getReplicationSuccessCount());
+      Assert.assertEquals(0, supervisor.getReplicationFailureCount());
+      Assert.assertEquals(5, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(3, supervisor.getInFlightReplications(
           ReplicationTask.class));
-      assertEquals(2, supervisor.getInFlightReplications(
+      Assert.assertEquals(2, supervisor.getInFlightReplications(
           ECReconstructionCoordinatorTask.class));
-      assertEquals(0, supervisor.getQueueSize());
-      assertEquals(0, set.containerCount());
+      Assert.assertEquals(0, supervisor.getQueueSize());
+      Assert.assertEquals(0, set.containerCount());
     } finally {
       supervisor.stop();
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
+  @Test
   public void slowDownload() {
     // GIVEN
     ReplicationSupervisor supervisor = supervisorWith(__ -> slowReplicator,
@@ -270,23 +267,22 @@ public class TestReplicationSupervisor {
       supervisor.addTask(createTask(3L));
 
       //THEN
-      assertEquals(3, supervisor.getTotalInFlightReplications());
-      assertEquals(2, supervisor.getQueueSize());
+      Assert.assertEquals(3, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(2, supervisor.getQueueSize());
       // Sleep 4s, wait all tasks processed
       try {
         Thread.sleep(4000);
       } catch (InterruptedException e) {
       }
-      assertEquals(0, supervisor.getTotalInFlightReplications());
-      assertEquals(0, supervisor.getQueueSize());
+      Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(0, supervisor.getQueueSize());
     } finally {
       supervisor.stop();
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testDownloadAndImportReplicatorFailure(ContainerLayoutVersion layout,
-      @TempDir File tempFile) throws IOException {
+  @Test
+  public void testDownloadAndImportReplicatorFailure() throws IOException {
     OzoneConfiguration conf = new OzoneConfiguration();
 
     ReplicationSupervisor supervisor = ReplicationSupervisor.newBuilder()
@@ -297,20 +293,22 @@ public class TestReplicationSupervisor {
 
     // Mock to fetch an exception in the importContainer method.
     SimpleContainerDownloader moc =
-        mock(SimpleContainerDownloader.class);
+        Mockito.mock(SimpleContainerDownloader.class);
     Path res = Paths.get("file:/tmp/no-such-file");
-    when(
-        moc.getContainerDataFromReplicas(anyLong(), anyList(),
-            any(Path.class), any()))
+    Mockito.when(
+        moc.getContainerDataFromReplicas(Mockito.anyLong(), Mockito.anyList(),
+            Mockito.any(Path.class), Mockito.any()))
         .thenReturn(res);
 
-    final String testDir = tempFile.getPath();
-    MutableVolumeSet volumeSet = mock(MutableVolumeSet.class);
-    when(volumeSet.getVolumesList())
+    final String testDir = GenericTestUtils.getTempPath(
+        TestReplicationSupervisor.class.getSimpleName() +
+            "-" + UUID.randomUUID());
+    MutableVolumeSet volumeSet = Mockito.mock(MutableVolumeSet.class);
+    Mockito.when(volumeSet.getVolumesList())
         .thenReturn(singletonList(
             new HddsVolume.Builder(testDir).conf(conf).build()));
     ContainerController mockedCC =
-        mock(ContainerController.class);
+        Mockito.mock(ContainerController.class);
     ContainerImporter importer =
         new ContainerImporter(conf, set, mockedCC, volumeSet);
     ContainerReplicator replicator =
@@ -322,15 +320,14 @@ public class TestReplicationSupervisor {
         .captureLogs(DownloadAndImportReplicator.LOG);
 
     supervisor.addTask(createTask(1L));
-    assertEquals(1, supervisor.getReplicationFailureCount());
-    assertEquals(0, supervisor.getReplicationSuccessCount());
-    assertThat(logCapturer.getOutput())
-        .contains("Container 1 replication was unsuccessful.");
+    Assert.assertEquals(1, supervisor.getReplicationFailureCount());
+    Assert.assertEquals(0, supervisor.getReplicationSuccessCount());
+    Assert.assertTrue(logCapturer.getOutput()
+        .contains("Container 1 replication was unsuccessful."));
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testTaskBeyondDeadline(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void testTaskBeyondDeadline() {
     ReplicationSupervisor supervisor =
         supervisorWithReplicator(FakeReplicator::new);
 
@@ -351,19 +348,18 @@ public class TestReplicationSupervisor {
     supervisor.addTask(task2);
     supervisor.addTask(task3);
 
-    assertEquals(3, supervisor.getReplicationRequestCount());
-    assertEquals(2, supervisor.getReplicationSuccessCount());
-    assertEquals(0, supervisor.getReplicationFailureCount());
-    assertEquals(0, supervisor.getTotalInFlightReplications());
-    assertEquals(0, supervisor.getQueueSize());
-    assertEquals(1, supervisor.getReplicationTimeoutCount());
-    assertEquals(2, set.containerCount());
+    Assert.assertEquals(3, supervisor.getReplicationRequestCount());
+    Assert.assertEquals(2, supervisor.getReplicationSuccessCount());
+    Assert.assertEquals(0, supervisor.getReplicationFailureCount());
+    Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+    Assert.assertEquals(0, supervisor.getQueueSize());
+    Assert.assertEquals(1, supervisor.getReplicationTimeoutCount());
+    Assert.assertEquals(2, set.containerCount());
 
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testDatanodeOutOfService(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void testDatanodeOutOfService() {
     ReplicationSupervisor supervisor =
         supervisorWithReplicator(FakeReplicator::new);
     datanode.setPersistedOpState(
@@ -377,18 +373,17 @@ public class TestReplicationSupervisor {
     supervisor.addTask(new ReplicationTask(pushCmd, replicatorRef.get()));
     supervisor.addTask(new ReplicationTask(pullCmd, replicatorRef.get()));
 
-    assertEquals(2, supervisor.getReplicationRequestCount());
-    assertEquals(1, supervisor.getReplicationSuccessCount());
-    assertEquals(0, supervisor.getReplicationFailureCount());
-    assertEquals(0, supervisor.getTotalInFlightReplications());
-    assertEquals(0, supervisor.getQueueSize());
-    assertEquals(0, supervisor.getReplicationTimeoutCount());
-    assertEquals(1, set.containerCount());
+    Assert.assertEquals(2, supervisor.getReplicationRequestCount());
+    Assert.assertEquals(1, supervisor.getReplicationSuccessCount());
+    Assert.assertEquals(0, supervisor.getReplicationFailureCount());
+    Assert.assertEquals(0, supervisor.getTotalInFlightReplications());
+    Assert.assertEquals(0, supervisor.getQueueSize());
+    Assert.assertEquals(0, supervisor.getReplicationTimeoutCount());
+    Assert.assertEquals(1, set.containerCount());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void taskWithObsoleteTermIsDropped(ContainerLayoutVersion layout) {
-    this.layoutVersion = layout;
+  @Test
+  public void taskWithObsoleteTermIsDropped() {
     final long newTerm = 2;
     ReplicationSupervisor supervisor =
         supervisorWithReplicator(FakeReplicator::new);
@@ -396,124 +391,12 @@ public class TestReplicationSupervisor {
     context.setTermOfLeaderSCM(newTerm);
     supervisor.addTask(createTask(1L));
 
-    assertEquals(1, supervisor.getReplicationRequestCount());
-    assertEquals(0, supervisor.getReplicationSuccessCount());
+    Assert.assertEquals(1, supervisor.getReplicationRequestCount());
+    Assert.assertEquals(0, supervisor.getReplicationSuccessCount());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testMultipleReplication(ContainerLayoutVersion layout,
-      @TempDir File tempFile) throws IOException {
-    this.layoutVersion = layout;
-    OzoneConfiguration conf = new OzoneConfiguration();
-    // GIVEN
-    ReplicationSupervisor replicationSupervisor =
-        supervisorWithReplicator(FakeReplicator::new);
-    ReplicationSupervisor ecReconstructionSupervisor = supervisorWithECReconstruction();
-    ReplicationSupervisorMetrics replicationMetrics =
-        ReplicationSupervisorMetrics.create(replicationSupervisor);
-    ReplicationSupervisorMetrics ecReconstructionMetrics =
-        ReplicationSupervisorMetrics.create(ecReconstructionSupervisor);
-    try {
-      //WHEN
-      replicationSupervisor.addTask(createTask(1L));
-      ecReconstructionSupervisor.addTask(createECTaskWithCoordinator(2L));
-      replicationSupervisor.addTask(createTask(1L));
-      replicationSupervisor.addTask(createTask(3L));
-      ecReconstructionSupervisor.addTask(createECTaskWithCoordinator(4L));
-
-      SimpleContainerDownloader moc = mock(SimpleContainerDownloader.class);
-      Path res = Paths.get("file:/tmp/no-such-file");
-      when(moc.getContainerDataFromReplicas(anyLong(), anyList(),
-          any(Path.class), any())).thenReturn(res);
-
-      final String testDir = tempFile.getPath();
-      MutableVolumeSet volumeSet = mock(MutableVolumeSet.class);
-      when(volumeSet.getVolumesList()).thenReturn(singletonList(
-          new HddsVolume.Builder(testDir).conf(conf).build()));
-      ContainerController mockedCC = mock(ContainerController.class);
-      ContainerImporter importer = new ContainerImporter(conf, set, mockedCC, volumeSet);
-      ContainerReplicator replicator = new DownloadAndImportReplicator(
-          conf, set, importer, moc);
-      replicatorRef.set(replicator);
-      replicationSupervisor.addTask(createTask(5L));
-
-      ReplicateContainerCommand cmd1 = createCommand(6L);
-      cmd1.setDeadline(clock.millis() + 10000);
-      ReplicationTask task1 = new ReplicationTask(cmd1, replicatorRef.get());
-      clock.fastForward(15000);
-      replicationSupervisor.addTask(task1);
-
-      ReconstructECContainersCommand cmd2 = createReconstructionCmd(7L);
-      cmd2.setDeadline(clock.millis() + 10000);
-      ECReconstructionCoordinatorTask task2 = new ECReconstructionCoordinatorTask(
-          ecReplicatorRef.get(), new ECReconstructionCommandInfo(cmd2));
-      clock.fastForward(15000);
-      ecReconstructionSupervisor.addTask(task2);
-      ecReconstructionSupervisor.addTask(createECTask(8L));
-      ecReconstructionSupervisor.addTask(createECTask(9L));
-
-      //THEN
-      assertEquals(2, replicationSupervisor.getReplicationSuccessCount());
-      assertEquals(2, replicationSupervisor.getReplicationSuccessCount(
-          task1.getMetricName()));
-      assertEquals(1, replicationSupervisor.getReplicationFailureCount());
-      assertEquals(1, replicationSupervisor.getReplicationFailureCount(
-          task1.getMetricName()));
-      assertEquals(1, replicationSupervisor.getReplicationSkippedCount());
-      assertEquals(1, replicationSupervisor.getReplicationSkippedCount(
-          task1.getMetricName()));
-      assertEquals(1, replicationSupervisor.getReplicationTimeoutCount());
-      assertEquals(1, replicationSupervisor.getReplicationTimeoutCount(
-          task1.getMetricName()));
-      assertEquals(5, replicationSupervisor.getReplicationRequestCount());
-      assertEquals(5, replicationSupervisor.getReplicationRequestCount(
-          task1.getMetricName()));
-      assertEquals(0, replicationSupervisor.getReplicationRequestCount(
-          task2.getMetricName()));
-
-      assertEquals(2, ecReconstructionSupervisor.getReplicationSuccessCount());
-      assertEquals(2, ecReconstructionSupervisor.getReplicationSuccessCount(
-          task2.getMetricName()));
-      assertEquals(1, ecReconstructionSupervisor.getReplicationTimeoutCount());
-      assertEquals(1, ecReconstructionSupervisor.getReplicationTimeoutCount(
-          task2.getMetricName()));
-      assertEquals(2, ecReconstructionSupervisor.getReplicationFailureCount());
-      assertEquals(2, ecReconstructionSupervisor.getReplicationFailureCount(
-          task2.getMetricName()));
-      assertEquals(5, ecReconstructionSupervisor.getReplicationRequestCount());
-      assertEquals(5, ecReconstructionSupervisor.getReplicationRequestCount(
-          task2.getMetricName()));
-      assertEquals(0, ecReconstructionSupervisor.getReplicationRequestCount(
-          task1.getMetricName()));
-
-      assertTrue(replicationSupervisor.getReplicationRequestTotalTime(
-          task1.getMetricName()) > 0);
-      assertTrue(ecReconstructionSupervisor.getReplicationRequestTotalTime(
-          task2.getMetricName()) > 0);
-      assertTrue(replicationSupervisor.getReplicationRequestAvgTime(
-          task1.getMetricName()) > 0);
-      assertTrue(ecReconstructionSupervisor.getReplicationRequestAvgTime(
-          task2.getMetricName()) > 0);
-
-      MetricsCollectorImpl replicationMetricsCollector = new MetricsCollectorImpl();
-      replicationMetrics.getMetrics(replicationMetricsCollector, true);
-      assertEquals(1, replicationMetricsCollector.getRecords().size());
-
-      MetricsCollectorImpl ecReconstructionMetricsCollector = new MetricsCollectorImpl();
-      ecReconstructionMetrics.getMetrics(ecReconstructionMetricsCollector, true);
-      assertEquals(1, ecReconstructionMetricsCollector.getRecords().size());
-    } finally {
-      replicationMetrics.unRegister();
-      ecReconstructionMetrics.unRegister();
-      replicationSupervisor.stop();
-      ecReconstructionSupervisor.stop();
-    }
-  }
-
-  @ContainerLayoutTestInfo.ContainerTest
-  public void testPriorityOrdering(ContainerLayoutVersion layout)
-      throws InterruptedException {
-    this.layoutVersion = layout;
+  @Test
+  public void testPriorityOrdering() throws InterruptedException {
     long deadline = clock.millis() + 1000;
     long containerId = 1;
     long term = 1;
@@ -564,19 +447,19 @@ public class TestReplicationSupervisor {
     // Before unblocking the queue, check the queue count for the OrderedTask.
     // We loaded 3 High / normal priority and 2 low. The counter should not
     // include the low counts.
-    assertEquals(3,
+    Assert.assertEquals(3,
         supervisor.getInFlightReplications(OrderedTask.class));
-    assertEquals(1,
+    Assert.assertEquals(1,
         supervisor.getInFlightReplications(BlockingTask.class));
 
     // Unblock the queue
     completeRunning.countDown();
     // Wait for all tasks to complete
     tasksCompleteLatch.await();
-    assertEquals(expectedOrder, completionOrder);
-    assertEquals(0,
+    Assert.assertEquals(expectedOrder, completionOrder);
+    Assert.assertEquals(0,
         supervisor.getInFlightReplications(OrderedTask.class));
-    assertEquals(0,
+    Assert.assertEquals(0,
         supervisor.getInFlightReplications(BlockingTask.class));
   }
 
@@ -593,20 +476,13 @@ public class TestReplicationSupervisor {
     }
 
     @Override
-    protected String getMetricName() {
-      return "Blockings";
-    }
-
-    @Override
-    protected String getMetricDescriptionSegment() {
-      return "blockings";
-    }
-
-    @Override
     public void runTask() {
       runningLatch.countDown();
-      assertDoesNotThrow(() -> waitForCompleteLatch.await(),
-          "Interrupted waiting for the completion latch to be released");
+      try {
+        waitForCompleteLatch.await();
+      } catch (InterruptedException e) {
+        fail("Interrupted waiting for the completion latch to be released");
+      }
       setStatus(DONE);
     }
   }
@@ -626,16 +502,6 @@ public class TestReplicationSupervisor {
       this.name = name;
       this.completeLatch = completeLatch;
       setPriority(priority);
-    }
-
-    @Override
-    protected String getMetricName() {
-      return "Ordereds";
-    }
-
-    @Override
-    protected String getMetricDescriptionSegment() {
-      return "ordereds";
     }
 
     @Override
@@ -667,22 +533,6 @@ public class TestReplicationSupervisor {
     return supervisor;
   }
 
-  private ReplicationSupervisor supervisorWithECReconstruction() throws IOException {
-    ConfigurationSource conf = new OzoneConfiguration();
-    ExecutorService executor = newDirectExecutorService();
-    ReplicationServer.ReplicationConfig repConf =
-        conf.getObject(ReplicationServer.ReplicationConfig.class);
-    ReplicationSupervisor supervisor = ReplicationSupervisor.newBuilder()
-        .stateContext(context).replicationConfig(repConf).executor(executor)
-        .clock(clock).build();
-
-    FakeECReconstructionCoordinator coordinator = new FakeECReconstructionCoordinator(
-        new OzoneConfiguration(), null, null, context,
-        ECReconstructionMetrics.create(), "", supervisor);
-    ecReplicatorRef.set(coordinator);
-    return supervisor;
-  }
-
   private ReplicationTask createTask(long containerId) {
     ReplicateContainerCommand cmd = createCommand(containerId);
     return new ReplicationTask(cmd, replicatorRef.get());
@@ -690,13 +540,7 @@ public class TestReplicationSupervisor {
 
   private ECReconstructionCoordinatorTask createECTask(long containerId) {
     return new ECReconstructionCoordinatorTask(null,
-        createReconstructionCmdInfo(containerId));
-  }
-
-  private ECReconstructionCoordinatorTask createECTaskWithCoordinator(long containerId) {
-    ECReconstructionCommandInfo ecReconstructionCommandInfo = createReconstructionCmdInfo(containerId);
-    return new ECReconstructionCoordinatorTask(ecReplicatorRef.get(),
-        ecReconstructionCommandInfo);
+        createReconstructionCmd(containerId));
   }
 
   private static ReplicateContainerCommand createCommand(long containerId) {
@@ -706,20 +550,18 @@ public class TestReplicationSupervisor {
     return cmd;
   }
 
-  private static ECReconstructionCommandInfo createReconstructionCmdInfo(
+  private static ECReconstructionCommandInfo createReconstructionCmd(
       long containerId) {
-    return new ECReconstructionCommandInfo(createReconstructionCmd(containerId));
-  }
-
-  private static ReconstructECContainersCommand createReconstructionCmd(
-      long containerId) {
-    List<ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex> sources =
-        new ArrayList<>();
-    sources.add(new ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex(
-        MockDatanodeDetails.randomDatanodeDetails(), 1));
-    sources.add(new ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex(
+    List<ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex> sources
+        = new ArrayList<>();
+    sources.add(new ReconstructECContainersCommand
+        .DatanodeDetailsAndReplicaIndex(
+            MockDatanodeDetails.randomDatanodeDetails(), 1));
+    sources.add(new ReconstructECContainersCommand
+        .DatanodeDetailsAndReplicaIndex(
         MockDatanodeDetails.randomDatanodeDetails(), 2));
-    sources.add(new ReconstructECContainersCommand.DatanodeDetailsAndReplicaIndex(
+    sources.add(new ReconstructECContainersCommand
+        .DatanodeDetailsAndReplicaIndex(
         MockDatanodeDetails.randomDatanodeDetails(), 3));
 
     byte[] missingIndexes = new byte[1];
@@ -727,44 +569,14 @@ public class TestReplicationSupervisor {
 
     List<DatanodeDetails> target = singletonList(
         MockDatanodeDetails.randomDatanodeDetails());
-    ReconstructECContainersCommand cmd = new ReconstructECContainersCommand(containerId, sources, target,
-        Proto2Utils.unsafeByteString(missingIndexes),
-        new ECReplicationConfig(3, 2));
-    cmd.setTerm(CURRENT_TERM);
-    return cmd;
-  }
+    ReconstructECContainersCommand cmd =
+        new ReconstructECContainersCommand(containerId,
+            sources,
+            target,
+            missingIndexes,
+            new ECReplicationConfig(3, 2));
 
-  /**
-   * A fake coordinator that simulates successful reconstruction of ec containers.
-   */
-  private class FakeECReconstructionCoordinator extends ECReconstructionCoordinator {
-
-    private final OzoneConfiguration conf = new OzoneConfiguration();
-    private final ReplicationSupervisor supervisor;
-
-    FakeECReconstructionCoordinator(ConfigurationSource conf,
-        CertificateClient certificateClient, SecretKeySignerClient secretKeyClient,
-        StateContext context, ECReconstructionMetrics metrics, String threadNamePrefix,
-        ReplicationSupervisor supervisor)
-            throws IOException {
-      super(conf, certificateClient, secretKeyClient, context, metrics, threadNamePrefix);
-      this.supervisor = supervisor;
-    }
-
-    @Override
-    public void reconstructECContainerGroup(long containerID,
-        ECReplicationConfig repConfig, SortedMap<Integer, DatanodeDetails> sourceNodeMap,
-        SortedMap<Integer, DatanodeDetails> targetNodeMap) {
-      assertEquals(1, supervisor.getTotalInFlightReplications());
-
-      KeyValueContainerData kvcd = new KeyValueContainerData(
-          containerID, layoutVersion, 100L,
-          UUID.randomUUID().toString(), UUID.randomUUID().toString());
-      KeyValueContainer kvc = new KeyValueContainer(kvcd, conf);
-      assertDoesNotThrow(() -> {
-        set.addContainer(kvc);
-      });
-    }
+    return new ECReconstructionCommandInfo(cmd);
   }
 
   /**
@@ -787,18 +599,21 @@ public class TestReplicationSupervisor {
       }
 
       // assumes same-thread execution
-      assertEquals(1, supervisor.getTotalInFlightReplications());
+      Assert.assertEquals(1, supervisor.getTotalInFlightReplications());
 
       KeyValueContainerData kvcd =
           new KeyValueContainerData(task.getContainerId(),
-              layoutVersion, 100L,
+              layout, 100L,
               UUID.randomUUID().toString(), UUID.randomUUID().toString());
       KeyValueContainer kvc =
           new KeyValueContainer(kvcd, conf);
-      assertDoesNotThrow(() -> {
+
+      try {
         set.addContainer(kvc);
         task.setStatus(DONE);
-      });
+      } catch (Exception e) {
+        Assert.fail("Unexpected error: " + e.getMessage());
+      }
     }
   }
 
@@ -839,7 +654,7 @@ public class TestReplicationSupervisor {
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
+  @Test
   public void poolSizeCanBeIncreased() {
     datanode.setPersistedOpState(IN_SERVICE);
     ReplicationSupervisor subject = ReplicationSupervisor.newBuilder()
@@ -853,7 +668,7 @@ public class TestReplicationSupervisor {
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
+  @Test
   public void poolSizeCanBeDecreased() {
     datanode.setPersistedOpState(IN_MAINTENANCE);
     ReplicationSupervisor subject = ReplicationSupervisor.newBuilder()
@@ -867,7 +682,7 @@ public class TestReplicationSupervisor {
     }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
+  @Test
   public void testMaxQueueSize() {
     List<DatanodeDetails> datanodes = new ArrayList<>();
     datanodes.add(MockDatanodeDetails.randomDatanodeDetails());
@@ -895,22 +710,21 @@ public class TestReplicationSupervisor {
 
     // in progress task will be limited by max. queue size,
     // since all tasks are discarded by the executor, none of them complete
-    assertEquals(maxQueueSize, rs.getTotalInFlightReplications());
+    Assert.assertEquals(maxQueueSize, rs.getTotalInFlightReplications());
 
     // queue size is doubled
     rs.nodeStateUpdated(HddsProtos.NodeOperationalState.DECOMMISSIONING);
-    assertEquals(2 * maxQueueSize, rs.getMaxQueueSize());
-    assertEquals(2 * replicationMaxStreams, threadPoolSize.get());
+    Assert.assertEquals(2 * maxQueueSize, rs.getMaxQueueSize());
+    Assert.assertEquals(2 * replicationMaxStreams, threadPoolSize.get());
 
     // can schedule more tasks
     scheduleTasks(datanodes, rs);
-    assertEquals(
-        2 * maxQueueSize, rs.getTotalInFlightReplications());
+    Assert.assertEquals(2 * maxQueueSize, rs.getTotalInFlightReplications());
 
     // queue size is restored
     rs.nodeStateUpdated(IN_SERVICE);
-    assertEquals(maxQueueSize, rs.getMaxQueueSize());
-    assertEquals(replicationMaxStreams, threadPoolSize.get());
+    Assert.assertEquals(maxQueueSize, rs.getMaxQueueSize());
+    Assert.assertEquals(replicationMaxStreams, threadPoolSize.get());
   }
 
   //schedule 10 container replication

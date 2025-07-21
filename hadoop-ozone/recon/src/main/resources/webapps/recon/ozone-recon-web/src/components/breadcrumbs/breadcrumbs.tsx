@@ -36,7 +36,7 @@ class Breadcrumbs extends React.Component<RouteComponentProps> {
             {breadcrumbNameMap[url]}
           </Link>
         </Breadcrumb.Item>
-      )
+      );
     });
     const breadcrumbItems = [(
       <Breadcrumb.Item key='home'>

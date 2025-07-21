@@ -1,21 +1,63 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.Comparator;
+
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdds.conf.ConfigurationException;
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
+import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.ozone.conf.OMClientConfig;
+import org.apache.hadoop.ozone.ha.ConfUtils;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OMNodeDetails;
+import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+
+import org.apache.commons.lang3.StringUtils;
 
 import static org.apache.hadoop.hdds.HddsUtils.getHostName;
 import static org.apache.hadoop.hdds.HddsUtils.getHostNameFromConfigKeys;
@@ -37,45 +79,6 @@ import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_NODES_KEY;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_PORT_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_SERVICE_IDS_KEY;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdds.conf.ConfigurationException;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.scm.client.HddsClientUtils;
-import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.ozone.conf.OMClientConfig;
-import org.apache.hadoop.ozone.ha.ConfUtils;
-import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OMNodeDetails;
-import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.ServiceInfo;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +100,7 @@ public final class OmUtils {
   public static final long EPOCH_ID_SHIFT = 62; // 64 - 2
   public static final long REVERSE_EPOCH_ID_SHIFT = 2; // 64 - EPOCH_ID_SHIFT
   public static final long MAX_TRXN_ID = (1L << 54) - 2;
+  public static final int EPOCH_WHEN_RATIS_NOT_ENABLED = 1;
   public static final int EPOCH_WHEN_RATIS_ENABLED = 2;
 
   private OmUtils() {
@@ -115,7 +119,7 @@ public final class OmUtils {
    * Return list of OM addresses by service ids - when HA is enabled.
    *
    * @param conf {@link ConfigurationSource}
-   * @return {service.id -&gt; [{@link InetSocketAddress}]}
+   * @return {service.id -> [{@link InetSocketAddress}]}
    */
   public static Map<String, List<InetSocketAddress>> getOmHAAddressesById(
       ConfigurationSource conf) {
@@ -200,7 +204,7 @@ public final class OmUtils {
    */
   public static boolean isServiceIdsDefined(ConfigurationSource conf) {
     String val = conf.get(OZONE_OM_SERVICE_IDS_KEY);
-    return val != null && !val.isEmpty();
+    return val != null && val.length() > 0;
   }
 
   /**
@@ -239,12 +243,7 @@ public final class OmUtils {
     case ListKeys:
     case ListKeysLight:
     case ListTrash:
-      // ListTrash is deprecated by HDDS-11251. Keeping this in here
-      // As protobuf currently doesn't support deprecating enum fields
-      // TODO: Remove once migrated to proto3 and mark fields in proto
-      // as deprecated
     case ServiceList:
-    case ListOpenFiles:
     case ListMultiPartUploadParts:
     case GetFileStatus:
     case LookupFile:
@@ -274,9 +273,6 @@ public final class OmUtils {
     case SetSafeMode:
     case PrintCompactionLogDag:
     case GetSnapshotInfo:
-    case GetObjectTagging:
-    case GetQuotaRepairStatus:
-    case StartQuotaRepair:
       return true;
     case CreateVolume:
     case SetVolumeProperty:
@@ -306,10 +302,6 @@ public final class OmUtils {
     case AddAcl:
     case PurgeKeys:
     case RecoverTrash:
-      // RecoverTrash is deprecated by HDDS-11251. Keeping this in here
-      // As protobuf currently doesn't support deprecating enum fields
-      // TODO: Remove once migrated to proto3 and mark fields in proto
-      // as deprecated
     case FinalizeUpgrade:
     case Prepare:
     case CancelPrepare:
@@ -327,17 +319,12 @@ public final class OmUtils {
     case SetRangerServiceVersion:
     case CreateSnapshot:
     case DeleteSnapshot:
-    case RenameSnapshot:
     case SnapshotMoveDeletedKeys:
-    case SnapshotMoveTableKeys:
     case SnapshotPurge:
     case RecoverLease:
     case SetTimes:
     case AbortExpiredMultiPartUploads:
     case SetSnapshotProperty:
-    case QuotaRepair:
-    case PutObjectTagging:
-    case DeleteObjectTagging:
     case UnknownCommand:
       return false;
     case EchoRPC:
@@ -367,36 +354,13 @@ public final class OmUtils {
       String omServiceId) {
     String nodeIdsKey = ConfUtils.addSuffix(OZONE_OM_NODES_KEY, omServiceId);
     Collection<String> nodeIds = conf.getTrimmedStringCollection(nodeIdsKey);
-    String decommissionNodesKeyWithServiceIdSuffix =
-        ConfUtils.addKeySuffixes(OZONE_OM_DECOMMISSIONED_NODES_KEY,
-            omServiceId);
-    Collection<String> decommissionedNodeIds =
-        getDecommissionedNodeIds(conf, decommissionNodesKeyWithServiceIdSuffix);
-    nodeIds.removeAll(decommissionedNodeIds);
+    String decommNodesKey = ConfUtils.addKeySuffixes(
+        OZONE_OM_DECOMMISSIONED_NODES_KEY, omServiceId);
+    Collection<String> decommNodeIds = conf.getTrimmedStringCollection(
+        decommNodesKey);
+    nodeIds.removeAll(decommNodeIds);
 
     return nodeIds;
-  }
-
-  /**
-   * Returns a collection of configured nodeId's that are to be decommissioned.
-   * Aggregate results from both config keys - with and without serviceId
-   * suffix. If ozone.om.service.ids contains a single service ID, then a config
-   * key without suffix defaults to nodeID associated with that serviceID.
-   */
-  public static Collection<String> getDecommissionedNodeIds(
-      ConfigurationSource conf,
-      String decommissionedNodesKeyWithServiceIdSuffix) {
-    HashSet<String> serviceIds = new HashSet<>(
-        conf.getTrimmedStringCollection(OZONE_OM_SERVICE_IDS_KEY));
-    HashSet<String> decommissionedNodeIds = new HashSet<>(
-        conf.getTrimmedStringCollection(
-            decommissionedNodesKeyWithServiceIdSuffix));
-    // If only one serviceID is configured, also check property without prefix
-    if (decommissionedNodeIds.isEmpty() && serviceIds.size() == 1) {
-      decommissionedNodeIds.addAll(
-          conf.getTrimmedStringCollection(OZONE_OM_DECOMMISSIONED_NODES_KEY));
-    }
-    return decommissionedNodeIds;
   }
 
   /**
@@ -412,7 +376,6 @@ public final class OmUtils {
 
     nodeIds.addAll(conf.getTrimmedStringCollection(nodeIdsKey));
     nodeIds.addAll(conf.getTrimmedStringCollection(decommNodesKey));
-    nodeIds.addAll(conf.getTrimmedStringCollection(OZONE_OM_DECOMMISSIONED_NODES_KEY));
 
     return nodeIds;
   }
@@ -508,7 +471,7 @@ public final class OmUtils {
    * @return {@link RepeatedOmKeyInfo}
    */
   public static RepeatedOmKeyInfo prepareKeyForDelete(OmKeyInfo keyInfo,
-      long trxnLogIndex) {
+      long trxnLogIndex, boolean isRatisEnabled) {
     // If this key is in a GDPR enforced bucket, then before moving
     // KeyInfo to deletedTable, remove the GDPR related metadata and
     // FileEncryptionInfo from KeyInfo.
@@ -522,7 +485,7 @@ public final class OmUtils {
     }
 
     // Set the updateID
-    keyInfo.setUpdateID(trxnLogIndex);
+    keyInfo.setUpdateID(trxnLogIndex, isRatisEnabled);
 
     //The key doesn't exist in deletedTable, so create a new instance.
     return new RepeatedOmKeyInfo(keyInfo);
@@ -534,7 +497,7 @@ public final class OmUtils {
   public static void validateVolumeName(String volumeName, boolean isStrictS3)
       throws OMException {
     try {
-      HddsClientUtils.verifyResourceName(volumeName, "volume", isStrictS3);
+      HddsClientUtils.verifyResourceName(volumeName, isStrictS3);
     } catch (IllegalArgumentException e) {
       throw new OMException("Invalid volume name: " + volumeName,
           OMException.ResultCodes.INVALID_VOLUME_NAME);
@@ -547,7 +510,7 @@ public final class OmUtils {
   public static void validateBucketName(String bucketName, boolean isStrictS3)
       throws OMException {
     try {
-      HddsClientUtils.verifyResourceName(bucketName, "bucket", isStrictS3);
+      HddsClientUtils.verifyResourceName(bucketName, isStrictS3);
     } catch (IllegalArgumentException e) {
       throw new OMException("Invalid bucket name: " + bucketName,
           OMException.ResultCodes.INVALID_BUCKET_NAME);
@@ -583,9 +546,9 @@ public final class OmUtils {
       return;
     }
     try {
-      HddsClientUtils.verifyResourceName(snapshotName, "snapshot");
+      HddsClientUtils.verifyResourceName(snapshotName);
     } catch (IllegalArgumentException e) {
-      throw new OMException("Invalid snapshot name: " + snapshotName + "\n" + e.getMessage(),
+      throw new OMException("Invalid snapshot name: " + snapshotName,
           OMException.ResultCodes.INVALID_SNAPSHOT_ERROR);
     }
   }
@@ -597,8 +560,9 @@ public final class OmUtils {
     return configuration.getObject(OMClientConfig.class).getRpcTimeOut();
   }
 
-  public static int getOMEpoch() {
-    return EPOCH_WHEN_RATIS_ENABLED;
+  public static int getOMEpoch(boolean isRatisEnabled) {
+    return isRatisEnabled ? EPOCH_WHEN_RATIS_ENABLED :
+        EPOCH_WHEN_RATIS_NOT_ENABLED;
   }
 
   /**
@@ -665,36 +629,15 @@ public final class OmUtils {
         if (keyName.substring(OM_SNAPSHOT_INDICATOR.length())
             .startsWith(OM_KEY_PREFIX)) {
           throw new OMException(
-              "Cannot create key under path reserved for snapshot: " + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX,
+              "Cannot create key under path reserved for "
+                  + "snapshot: " + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX,
               OMException.ResultCodes.INVALID_KEY_NAME);
         }
       } else {
-        // We checked for startsWith OM_SNAPSHOT_INDICATOR, and the length is
+        // We checked for startsWith OM_SNAPSHOT_INDICATOR and the length is
         // the same, so it must be equal OM_SNAPSHOT_INDICATOR.
-        throw new OMException("Cannot create key with reserved name: " + OM_SNAPSHOT_INDICATOR,
-            OMException.ResultCodes.INVALID_KEY_NAME);
-      }
-    }
-  }
-
-  /**
-   * Verify if key name contains snapshot reserved word.
-   * This is similar to verifyKeyNameWithSnapshotReservedWord. The only difference is exception message.
-   */
-  public static void verifyKeyNameWithSnapshotReservedWordForDeletion(String keyName)  throws OMException {
-    if (keyName != null &&
-        keyName.startsWith(OM_SNAPSHOT_INDICATOR)) {
-      if (keyName.length() > OM_SNAPSHOT_INDICATOR.length()) {
-        if (keyName.substring(OM_SNAPSHOT_INDICATOR.length())
-            .startsWith(OM_KEY_PREFIX)) {
-          throw new OMException(
-              "Cannot delete key under path reserved for snapshot: " + OM_SNAPSHOT_INDICATOR + OM_KEY_PREFIX,
-              OMException.ResultCodes.INVALID_KEY_NAME);
-        }
-      } else {
-        // We checked for startsWith OM_SNAPSHOT_INDICATOR, and the length is
-        // the same, so it must be equal OM_SNAPSHOT_INDICATOR.
-        throw new OMException("Cannot delete key with reserved name: " + OM_SNAPSHOT_INDICATOR,
+        throw new OMException(
+            "Cannot create key with reserved name: " + OM_SNAPSHOT_INDICATOR,
             OMException.ResultCodes.INVALID_KEY_NAME);
       }
     }
@@ -705,7 +648,7 @@ public final class OmUtils {
    * Look at 'ozone.om.internal.service.id' first. If configured, return that.
    * If the above is not configured, look at 'ozone.om.service.ids'.
    * If count(ozone.om.service.ids) == 1, return that id.
-   * If count(ozone.om.service.ids) &gt; 1 throw exception
+   * If count(ozone.om.service.ids) > 1 throw exception
    * If 'ozone.om.service.ids' is not configured, return null. (Non HA)
    * @param conf configuration
    * @return OM service ID.
@@ -765,7 +708,7 @@ public final class OmUtils {
         normalizedKeyName = new Path(OM_KEY_PREFIX + keyName)
             .toUri().getPath();
       }
-      if (LOG.isDebugEnabled() && !keyName.equals(normalizedKeyName)) {
+      if (!keyName.equals(normalizedKeyName) && LOG.isDebugEnabled()) {
         LOG.debug("Normalized key {} to {} ", keyName,
             normalizedKeyName.substring(1));
       }
@@ -854,9 +797,10 @@ public final class OmUtils {
     } else {
       omNodeIds = OmUtils.getActiveOMNodeIds(conf, omServiceId);
     }
-    Collection<String> decommissionedNodeIds = getDecommissionedNodeIds(conf,
+    Collection<String> decommissionedNodeIds = conf.getTrimmedStringCollection(
             ConfUtils.addKeySuffixes(OZONE_OM_DECOMMISSIONED_NODES_KEY,
                     omServiceId));
+
     if (omNodeIds.isEmpty()) {
       // If there are no nodeIds present, return empty list
       return Collections.emptyList();
@@ -866,12 +810,6 @@ public final class OmUtils {
       try {
         OMNodeDetails omNodeDetails = OMNodeDetails.getOMNodeDetailsFromConf(
             conf, omServiceId, nodeId);
-        if (omNodeDetails == null) {
-          LOG.error(
-              "There is no OM configuration for node ID {} in ozone-site.xml.",
-              nodeId);
-          continue;
-        }
         if (decommissionedNodeIds.contains(omNodeDetails.getNodeId())) {
           omNodeDetails.setDecommissioningState();
         }
@@ -918,7 +856,7 @@ public final class OmUtils {
   }
   
   public static List<List<String>> format(
-          List<ServiceInfo> nodes, int port, String leaderId, String leaderReadiness) {
+          List<ServiceInfo> nodes, int port, String leaderId) {
     List<List<String>> omInfoList = new ArrayList<>();
     // Ensuring OM's are printed in correct order
     List<ServiceInfo> omNodes = nodes.stream()
@@ -935,7 +873,6 @@ public final class OmUtils {
         omInfo.add(info.getOmRoleInfo().getNodeId());
         omInfo.add(String.valueOf(port));
         omInfo.add(role);
-        omInfo.add(leaderReadiness);
         omInfoList.add(omInfo);
       }
     }

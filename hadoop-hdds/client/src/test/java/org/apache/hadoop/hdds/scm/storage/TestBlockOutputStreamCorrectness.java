@@ -1,35 +1,31 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.hdds.scm.storage;
 
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -50,44 +46,58 @@ import org.apache.hadoop.hdds.scm.XceiverClientReply;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.pipeline.MockPipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.ozone.ClientVersion;
-import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
+
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * UNIT test for BlockOutputStream.
  * <p>
  * Compares bytes written to the stream and received in the ChunkWriteRequests.
  */
-class TestBlockOutputStreamCorrectness {
+public class TestBlockOutputStreamCorrectness {
 
-  private static final int DATA_SIZE = 256 * (int) OzoneConsts.MB;
-  private static final byte[] DATA = RandomUtils.nextBytes(DATA_SIZE);
+  private static final long SEED = 18480315L;
 
-  @ParameterizedTest
-  @ValueSource(ints = { 1, 1024, 1024 * 1024 })
-  void test(final int writeSize) throws IOException {
-    assertEquals(0, DATA_SIZE % writeSize);
+  private int writeUnitSize = 1;
+
+  @Test
+  public void test() throws IOException {
 
     final BufferPool bufferPool = new BufferPool(4 * 1024 * 1024, 32 / 4);
 
     for (int block = 0; block < 10; block++) {
-      try (BlockOutputStream outputStream = createBlockOutputStream(bufferPool)) {
-        for (int i = 0; i < DATA_SIZE / writeSize; i++) {
-          if (writeSize > 1) {
-            outputStream.write(DATA, i * writeSize, writeSize);
-          } else {
-            outputStream.write(DATA[i]);
+      BlockOutputStream outputStream =
+          createBlockOutputStream(bufferPool);
+
+      Random random = new Random(SEED);
+
+      int max = 256 * 1024 * 1024 / writeUnitSize;
+
+      byte[] writeBuffer = new byte[writeUnitSize];
+      for (int t = 0; t < max; t++) {
+        if (writeUnitSize > 1) {
+          for (int i = 0; i < writeBuffer.length; i++) {
+            writeBuffer[i] = (byte) random.nextInt();
           }
+          outputStream.write(writeBuffer, 0, writeBuffer.length);
+        } else {
+          outputStream.write((byte) random.nextInt());
         }
       }
+      outputStream.close();
     }
   }
 
@@ -156,8 +166,8 @@ class TestBlockOutputStreamCorrectness {
 
     final Pipeline pipeline = MockPipeline.createRatisPipeline();
 
-    final XceiverClientManager xcm = mock(XceiverClientManager.class);
-    when(xcm.acquireClient(any()))
+    final XceiverClientManager xcm = Mockito.mock(XceiverClientManager.class);
+    Mockito.when(xcm.acquireClient(Mockito.any()))
         .thenReturn(new MockXceiverClientSpi(pipeline));
 
     OzoneClientConfig config = new OzoneClientConfig();
@@ -172,7 +182,6 @@ class TestBlockOutputStreamCorrectness {
 
     return new RatisBlockOutputStream(
         new BlockID(1L, 1L),
-        -1,
         xcm,
         pipeline,
         bufferPool,
@@ -204,8 +213,9 @@ class TestBlockOutputStreamCorrectness {
 
     private final Pipeline pipeline;
 
+    private final Random expectedRandomStream = new Random(SEED);
+
     private final AtomicInteger counter = new AtomicInteger();
-    private int i;
 
     MockXceiverClientSpi(Pipeline pipeline) {
       super();
@@ -255,8 +265,8 @@ class TestBlockOutputStreamCorrectness {
         ByteString data = request.getWriteChunk().getData();
         final byte[] writePayload = data.toByteArray();
         for (byte b : writePayload) {
-          assertEquals(DATA[i], b);
-          ++i;
+          byte expectedByte = (byte) expectedRandomStream.nextInt();
+          assertEquals(expectedByte, b);
         }
         break;
       default:
@@ -275,7 +285,7 @@ class TestBlockOutputStreamCorrectness {
     }
 
     @Override
-    public CompletableFuture<XceiverClientReply> watchForCommit(long index) {
+    public XceiverClientReply watchForCommit(long index) {
       final ContainerCommandResponseProto.Builder builder =
           ContainerCommandResponseProto.newBuilder()
               .setCmdType(Type.WriteChunk)
@@ -283,7 +293,7 @@ class TestBlockOutputStreamCorrectness {
       final XceiverClientReply xceiverClientReply = new XceiverClientReply(
           CompletableFuture.completedFuture(builder.build()));
       xceiverClientReply.setLogIndex(index);
-      return CompletableFuture.completedFuture(xceiverClientReply);
+      return xceiverClientReply;
     }
 
     @Override

@@ -1,28 +1,28 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.protocol.commands;
 
-import com.google.common.base.Preconditions;
-import com.google.protobuf.ByteString;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import com.google.protobuf.ByteString;
 import org.apache.hadoop.hdds.HddsIdFactory;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -30,6 +30,8 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReconstructECContainersCommandProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReconstructECContainersCommandProto.Builder;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type;
+
+import com.google.common.base.Preconditions;
 
 /**
  * SCM command to request reconstruction of EC containers.
@@ -39,12 +41,12 @@ public class ReconstructECContainersCommand
   private final long containerID;
   private final List<DatanodeDetailsAndReplicaIndex> sources;
   private final List<DatanodeDetails> targetDatanodes;
-  private final ByteString missingContainerIndexes;
+  private final byte[] missingContainerIndexes;
   private final ECReplicationConfig ecReplicationConfig;
 
   public ReconstructECContainersCommand(long containerID,
       List<DatanodeDetailsAndReplicaIndex> sources,
-      List<DatanodeDetails> targetDatanodes, ByteString missingContainerIndexes,
+      List<DatanodeDetails> targetDatanodes, byte[] missingContainerIndexes,
       ECReplicationConfig ecReplicationConfig) {
     this(containerID, sources, targetDatanodes, missingContainerIndexes,
         ecReplicationConfig, HddsIdFactory.getLongId());
@@ -52,15 +54,16 @@ public class ReconstructECContainersCommand
 
   public ReconstructECContainersCommand(long containerID,
       List<DatanodeDetailsAndReplicaIndex> sourceDatanodes,
-      List<DatanodeDetails> targetDatanodes, ByteString missingContainerIndexes,
+      List<DatanodeDetails> targetDatanodes, byte[] missingContainerIndexes,
       ECReplicationConfig ecReplicationConfig, long id) {
     super(id);
     this.containerID = containerID;
     this.sources = sourceDatanodes;
     this.targetDatanodes = targetDatanodes;
-    this.missingContainerIndexes = missingContainerIndexes;
+    this.missingContainerIndexes =
+        Arrays.copyOf(missingContainerIndexes, missingContainerIndexes.length);
     this.ecReplicationConfig = ecReplicationConfig;
-    if (targetDatanodes.size() != missingContainerIndexes.size()) {
+    if (targetDatanodes.size() != missingContainerIndexes.length) {
       throw new IllegalArgumentException("Number of target datanodes and " +
           "container indexes should be same");
     }
@@ -82,9 +85,13 @@ public class ReconstructECContainersCommand
     for (DatanodeDetails dd : targetDatanodes) {
       builder.addTargets(dd.getProtoBufMessage());
     }
-    builder.setMissingContainerIndexes(missingContainerIndexes);
+    builder.setMissingContainerIndexes(getByteString(missingContainerIndexes));
     builder.setEcReplicationConfig(ecReplicationConfig.toProto());
     return builder.build();
+  }
+
+  public static ByteString getByteString(byte[] bytes) {
+    return (bytes.length == 0) ? ByteString.EMPTY : ByteString.copyFrom(bytes);
   }
 
   public static ReconstructECContainersCommand getFromProtobuf(
@@ -101,7 +108,7 @@ public class ReconstructECContainersCommand
 
     return new ReconstructECContainersCommand(protoMessage.getContainerID(),
         srcDatanodeDetails, targetDatanodeDetails,
-        protoMessage.getMissingContainerIndexes(),
+        protoMessage.getMissingContainerIndexes().toByteArray(),
         new ECReplicationConfig(protoMessage.getEcReplicationConfig()),
         protoMessage.getCmdId());
   }
@@ -118,8 +125,9 @@ public class ReconstructECContainersCommand
     return targetDatanodes;
   }
 
-  public ByteString getMissingContainerIndexes() {
-    return missingContainerIndexes;
+  public byte[] getMissingContainerIndexes() {
+    return Arrays
+        .copyOf(missingContainerIndexes, missingContainerIndexes.length);
   }
 
   public ECReplicationConfig getEcReplicationConfig() {
@@ -130,11 +138,7 @@ public class ReconstructECContainersCommand
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append(getType())
-        .append(": cmdID: ").append(getId())
-        .append(", encodedToken: \"").append(getEncodedToken()).append("\"")
-        .append(", term: ").append(getTerm())
-        .append(", deadlineMsSinceEpoch: ").append(getDeadline())
-        .append(", containerID: ").append(containerID)
+        .append(": containerID: ").append(containerID)
         .append(", replicationConfig: ").append(ecReplicationConfig)
         .append(", sources: [").append(getSources().stream()
             .map(a -> a.dnDetails
@@ -142,7 +146,7 @@ public class ReconstructECContainersCommand
             .collect(Collectors.joining(", "))).append("]")
         .append(", targets: ").append(getTargetDatanodes())
         .append(", missingIndexes: ").append(
-            Arrays.toString(missingContainerIndexes.toByteArray()));
+            Arrays.toString(missingContainerIndexes));
     return sb.toString();
   }
   /**

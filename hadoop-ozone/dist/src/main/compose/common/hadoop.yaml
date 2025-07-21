@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+version: "3.8"
 services:
   rm:
-    image: ${HADOOP_TEST_IMAGE}
+    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
     hostname: rm
     volumes:
       - ../..:/opt/ozone
@@ -31,7 +32,7 @@ services:
     profiles:
       - hadoop
   nm:
-    image: ${HADOOP_TEST_IMAGE}
+    image: ${HADOOP_IMAGE}:${HADOOP_VERSION}
     hostname: nm
     volumes:
       - ../..:/opt/ozone

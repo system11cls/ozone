@@ -35,7 +35,8 @@ import './pipelines.less';
 
 const PipelineStatusList = ['OPEN', 'CLOSING', 'QUASI_CLOSED', 'CLOSED', 'UNHEALTHY', 'INVALID', 'DELETED', 'DORMANT'] as const;
 type PipelineStatusTuple = typeof PipelineStatusList;
-export type PipelineStatus = PipelineStatusTuple[number]; // 'OPEN' | 'CLOSING' | 'QUASI_CLOSED' | 'CLOSED' | 'UNHEALTHY' | 'INVALID' | 'DELETED';
+// 'OPEN' | 'CLOSING' | 'QUASI_CLOSED' | 'CLOSED' | 'UNHEALTHY' | 'INVALID' | 'DELETED';
+export type PipelineStatus = PipelineStatusTuple[number];
 
 interface IPipelineResponse {
   pipelineId: string;
@@ -116,8 +117,8 @@ const COLUMNS = [
     render: (datanodes: string[]) => <div> {datanodes && datanodes.map(datanode =>
       <div key={datanode.hostName}>
         <div className='uuidtooltip'>
-          <Tooltip placement='top' title={`UUID: ${datanode?.uuid ?? 'NA'}`} getPopupContainer={(triggerNode) => triggerNode}>
-            {datanode?.hostName ?? 'N/A'}
+          <Tooltip placement='top' title={`UUID: ${datanode && datanode.uuid}`} getPopupContainer={(triggerNode) => triggerNode}>
+            {datanode && datanode.hostName}
           </Tooltip>
         </div>
       </div>)}
@@ -141,7 +142,7 @@ const COLUMNS = [
     dataIndex: 'lastLeaderElection',
     key: 'lastLeaderElection',
     render: (lastLeaderElection: number) => lastLeaderElection > 0 ?
-      prettyMilliseconds(lastLeaderElection, { compact: true }) + ' ago' : 'NA',
+      prettyMilliseconds(lastLeaderElection, { compact: true }) + " ago" : 'NA',
     sorter: (a: IPipelineResponse, b: IPipelineResponse) => a.lastLeaderElection - b.lastLeaderElection
   },
   {

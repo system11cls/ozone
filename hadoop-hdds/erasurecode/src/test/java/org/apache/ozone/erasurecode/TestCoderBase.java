@@ -1,35 +1,38 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ozone.erasurecode;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.apache.commons.lang3.RandomUtils;
-import org.apache.hadoop.hdds.conf.ConfigurationSource;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import java.util.Random;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Test base of common utilities for tests not only raw coders but also block
  * coders.
  */
 @SuppressWarnings({"checkstyle:VisibilityModifier", "checkstyle:HiddenField"})
 public abstract class TestCoderBase {
+  protected static final Random RAND = new Random();
   private static int fixedDataGenerator = 0;
   protected boolean allowDump = true;
   protected int numDataUnits;
@@ -172,12 +175,12 @@ public abstract class TestCoderBase {
 
     int idx = 0;
 
-    for (int erasedDataIndex : erasedDataIndexes) {
-      erasedIndexesForDecoding[idx++] = erasedDataIndex;
+    for (int i = 0; i < erasedDataIndexes.length; i++) {
+      erasedIndexesForDecoding[idx++] = erasedDataIndexes[i];
     }
 
-    for (int erasedParityIndex : erasedParityIndexes) {
-      erasedIndexesForDecoding[idx++] = erasedParityIndex + numDataUnits;
+    for (int i = 0; i < erasedParityIndexes.length; i++) {
+      erasedIndexesForDecoding[idx++] = erasedParityIndexes[i] + numDataUnits;
     }
 
     return erasedIndexesForDecoding;
@@ -223,14 +226,14 @@ public abstract class TestCoderBase {
 
     int idx = 0;
 
-    for (int erasedDataIndex : erasedDataIndexes) {
-      toEraseChunks[idx++] = dataChunks[erasedDataIndex];
-      dataChunks[erasedDataIndex] = null;
+    for (int i = 0; i < erasedDataIndexes.length; i++) {
+      toEraseChunks[idx++] = dataChunks[erasedDataIndexes[i]];
+      dataChunks[erasedDataIndexes[i]] = null;
     }
 
-    for (int erasedParityIndex : erasedParityIndexes) {
-      toEraseChunks[idx++] = parityChunks[erasedParityIndex];
-      parityChunks[erasedParityIndex] = null;
+    for (int i = 0; i < erasedParityIndexes.length; i++) {
+      toEraseChunks[idx++] = parityChunks[erasedParityIndexes[i]];
+      parityChunks[erasedParityIndexes[i]] = null;
     }
 
     return toEraseChunks;
@@ -241,21 +244,23 @@ public abstract class TestCoderBase {
    * @param chunks
    */
   protected void eraseDataFromChunks(ECChunk[] chunks) {
-    Arrays.fill(chunks, null);
+    for (int i = 0; i < chunks.length; i++) {
+      chunks[i] = null;
+    }
   }
 
   protected void markChunks(ECChunk[] chunks) {
-    for (ECChunk chunk : chunks) {
-      if (chunk != null) {
-        chunk.getBuffer().mark();
+    for (int i = 0; i < chunks.length; i++) {
+      if (chunks[i] != null) {
+        chunks[i].getBuffer().mark();
       }
     }
   }
 
   protected void restoreChunksFromMark(ECChunk[] chunks) {
-    for (ECChunk chunk : chunks) {
-      if (chunk != null) {
-        chunk.getBuffer().reset();
+    for (int i = 0; i < chunks.length; i++) {
+      if (chunks[i] != null) {
+        chunks[i].getBuffer().reset();
       }
     }
   }
@@ -402,14 +407,14 @@ public abstract class TestCoderBase {
    */
   protected void fillDummyData(ByteBuffer buffer, int len) {
     byte[] dummy = new byte[len];
-    dummy = RandomUtils.secure().randomBytes(dummy.length);
+    RAND.nextBytes(dummy);
     buffer.put(dummy);
   }
 
   protected byte[] generateData(int len) {
     byte[] buffer = new byte[len];
     for (int i = 0; i < buffer.length; i++) {
-      buffer[i] = (byte) RandomUtils.secure().randomInt(0, 256);
+      buffer[i] = (byte) RAND.nextInt(256);
     }
     return buffer;
   }
@@ -508,7 +513,7 @@ public abstract class TestCoderBase {
    * Make some chunk messy or not correct any more.
    */
   protected void corruptSomeChunk(ECChunk[] chunks) {
-    int idx = RandomUtils.secure().randomInt(1, chunks.length);
+    int idx = new Random().nextInt(chunks.length);
     ByteBuffer buffer = chunks[idx].getBuffer();
     if (buffer.hasRemaining()) {
       buffer.position(buffer.position() + 1);

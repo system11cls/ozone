@@ -1,26 +1,37 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
  */
 
 package org.apache.hadoop.hdds.scm.node;
 
-import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.DUPLICATE_DATANODE;
-import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.NO_SUCH_DATANODE;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
+import org.apache.hadoop.hdds.protocol.proto.
+    StorageContainerDatanodeProtocolProtos.StorageReportProto;
+import org.apache.hadoop.hdds.scm.exceptions.SCMException;
+import org.apache.hadoop.metrics2.util.MBeans;
+import org.apache.hadoop.ozone.OzoneConfigKeys;
+import org.apache.hadoop.ozone.container.common.impl.StorageLocationReport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.management.ObjectName;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
@@ -29,14 +40,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
-import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.ozone.OzoneConfigKeys;
-import org.apache.hadoop.ozone.container.common.impl.StorageLocationReport;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.DUPLICATE_DATANODE;
+import static org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes.NO_SUCH_DATANODE;
 
 /**
  * This data structure maintains the disk space capacity, disk usage and free
@@ -51,6 +57,8 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
   private final double criticalUtilizationThreshold;
 
   private final Map<UUID, Set<StorageLocationReport>> scmNodeStorageReportMap;
+  // NodeStorageInfo MXBean
+  private ObjectName scmNodeStorageInfoBean;
   /**
    * constructs the scmNodeStorageReportMap object.
    */
@@ -109,7 +117,7 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
   public void insertNewDatanode(UUID datanodeID,
       Set<StorageLocationReport> report) throws SCMException {
     Preconditions.checkNotNull(report);
-    Preconditions.checkState(!report.isEmpty());
+    Preconditions.checkState(report.size() != 0);
     Preconditions.checkNotNull(datanodeID);
     synchronized (scmNodeStorageReportMap) {
       if (isKnownDatanode(datanodeID)) {
@@ -120,6 +128,19 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
     }
   }
 
+  //TODO: This should be called once SCMNodeManager gets Started.
+  private void registerMXBean() {
+    this.scmNodeStorageInfoBean = MBeans.register("StorageContainerManager",
+        "scmNodeStorageInfo", this);
+  }
+
+  //TODO: Unregister call should happen as a part of SCMNodeManager shutdown.
+  private void unregisterMXBean() {
+    if (this.scmNodeStorageInfoBean != null) {
+      MBeans.unregister(this.scmNodeStorageInfoBean);
+      this.scmNodeStorageInfoBean = null;
+    }
+  }
   /**
    * Updates the Container list of an existing DN.
    *
@@ -132,7 +153,7 @@ public class SCMNodeStorageStatMap implements SCMNodeStorageStatMXBean {
       Set<StorageLocationReport> report) throws SCMException {
     Preconditions.checkNotNull(datanodeID);
     Preconditions.checkNotNull(report);
-    Preconditions.checkState(!report.isEmpty());
+    Preconditions.checkState(report.size() != 0);
     synchronized (scmNodeStorageReportMap) {
       if (!scmNodeStorageReportMap.containsKey(datanodeID)) {
         throw new SCMException("No such datanode", NO_SUCH_DATANODE);

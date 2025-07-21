@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,20 +14,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.hdds.security.x509.certificate.authority;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.IOException;
-import java.nio.file.Path;
-import java.security.KeyPair;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.exception.SCMSecurityException;
+import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.x509.certificate.authority.profile.DefaultProfile;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateSignRequest;
 import org.apache.hadoop.hdds.security.x509.keys.HDDSKeyGenerator;
@@ -46,10 +41,21 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
+import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the default PKI Profile.
@@ -57,7 +63,7 @@ import org.junit.jupiter.api.io.TempDir;
 public class TestDefaultProfile {
   private SecurityConfig securityConfig;
   private DefaultProfile defaultProfile;
-  private DefaultApprover approver;
+  private MockApprover testApprover;
   private KeyPair keyPair;
 
   @BeforeEach
@@ -66,7 +72,8 @@ public class TestDefaultProfile {
     configuration.set(OZONE_METADATA_DIRS, tempDir.toString());
     securityConfig = new SecurityConfig(configuration);
     defaultProfile = new DefaultProfile();
-    approver = new DefaultApprover(defaultProfile, securityConfig);
+    testApprover = new MockApprover(defaultProfile,
+        securityConfig);
     keyPair = new HDDSKeyGenerator(securityConfig).generateKey();
   }
 
@@ -88,10 +95,14 @@ public class TestDefaultProfile {
 
   /**
    * Test valid keys are validated correctly.
+   *
+   * @throws SCMSecurityException      - on Error.
+   * @throws PKCSException             - on Error.
+   * @throws OperatorCreationException - on Error.
    */
   @Test
-  public void testVerifyCertificate() throws Exception {
-    //TODO: generateCSR!
+  public void testVerifyCertificate() throws SCMSecurityException,
+      PKCSException, OperatorCreationException {
     PKCS10CertificationRequest csr = new CertificateSignRequest.Builder()
         .addDnsName("hadoop.apache.org")
         .addIpAddress("8.8.8.8")
@@ -102,9 +113,8 @@ public class TestDefaultProfile {
         .setSubject("Ozone Cluster")
         .setConfiguration(securityConfig)
         .setKey(keyPair)
-        .build()
-        .generateCSR();
-    assertTrue(approver.verifyPkcs10Request(csr));
+        .build();
+    assertTrue(testApprover.verifyPkcs10Request(csr));
   }
 
 
@@ -112,13 +122,20 @@ public class TestDefaultProfile {
 
   /**
    * Test invalid keys fail in the validation.
+   *
+   * @throws SCMSecurityException      - on Error.
+   * @throws PKCSException             - on Error.
+   * @throws OperatorCreationException - on Error.
+   * @throws NoSuchProviderException   - on Error.
+   * @throws NoSuchAlgorithmException  - on Error.
    */
   @Test
-  public void testVerifyCertificateInvalidKeys() throws Exception {
+  public void testVerifyCertificateInvalidKeys() throws SCMSecurityException,
+      PKCSException, OperatorCreationException,
+      NoSuchProviderException, NoSuchAlgorithmException {
     KeyPair newKeyPair = new HDDSKeyGenerator(securityConfig).generateKey();
     KeyPair wrongKey = new KeyPair(keyPair.getPublic(),
         newKeyPair.getPrivate());
-    //TODO: generateCSR!
     PKCS10CertificationRequest csr = new CertificateSignRequest.Builder()
         .addDnsName("hadoop.apache.org")
         .addIpAddress("8.8.8.8")
@@ -128,19 +145,21 @@ public class TestDefaultProfile {
         .setSubject("Ozone Cluster")
         .setConfiguration(securityConfig)
         .setKey(wrongKey)
-        .build()
-        .generateCSR();
+        .build();
     // Signature verification should fail here, since the public/private key
     // does not match.
-    assertFalse(approver.verifyPkcs10Request(csr));
+    assertFalse(testApprover.verifyPkcs10Request(csr));
   }
 
   /**
    * Tests that normal valid extensions work with the default profile.
+   *
+   * @throws SCMSecurityException      - on Error.
+   * @throws PKCSException             - on Error.
+   * @throws OperatorCreationException - on Error.
    */
   @Test
-  public void testExtensions() throws Exception {
-    //TODO: generateCSR!
+  public void testExtensions() throws SCMSecurityException {
     PKCS10CertificationRequest csr = new CertificateSignRequest.Builder()
         .addDnsName("hadoop.apache.org")
         .addIpAddress("192.10.234.6")
@@ -150,9 +169,8 @@ public class TestDefaultProfile {
         .setSubject("Ozone Cluster")
         .setConfiguration(securityConfig)
         .setKey(keyPair)
-        .build()
-        .generateCSR();
-    assertTrue(approver.verfiyExtensions(csr));
+        .build();
+    assertTrue(testApprover.verfiyExtensions(csr));
   }
 
   /**
@@ -163,8 +181,7 @@ public class TestDefaultProfile {
    */
 
   @Test
-  public void testInvalidExtensionsWithCA() throws Exception {
-    //TODO: generateCSR!
+  public void testInvalidExtensionsWithCA() throws SCMSecurityException {
     PKCS10CertificationRequest csr = new CertificateSignRequest.Builder()
         .addDnsName("hadoop.apache.org")
         .addIpAddress("192.10.234.6")
@@ -174,9 +191,8 @@ public class TestDefaultProfile {
         .setSubject("Ozone Cluster")
         .setConfiguration(securityConfig)
         .setKey(keyPair)
-        .build()
-        .generateCSR();
-    assertFalse(approver.verfiyExtensions(csr));
+        .build();
+    assertFalse(testApprover.verfiyExtensions(csr));
   }
 
   /**
@@ -193,12 +209,12 @@ public class TestDefaultProfile {
     Extensions emailExtension = getSANExtension(GeneralName.rfc822Name,
         "bilbo@apache.org", false);
     PKCS10CertificationRequest csr = getInvalidCSR(keyPair, emailExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
 
     emailExtension = getSANExtension(GeneralName.rfc822Name, "bilbo" +
         "@apache.org", true);
     csr = getInvalidCSR(keyPair, emailExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
 
   }
 
@@ -213,11 +229,11 @@ public class TestDefaultProfile {
     Extensions oExtension = getSANExtension(
         GeneralName.uniformResourceIdentifier, "s3g.ozone.org", false);
     PKCS10CertificationRequest csr = getInvalidCSR(keyPair, oExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
     oExtension = getSANExtension(GeneralName.uniformResourceIdentifier,
         "s3g.ozone.org", false);
     csr = getInvalidCSR(keyPair, oExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
   }
 
   /**
@@ -232,13 +248,13 @@ public class TestDefaultProfile {
         "ozone.hadoop.org",
         true);
     PKCS10CertificationRequest csr = getInvalidCSR(keyPair, dnsExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
     // This tests should pass, hence the assertTrue
     dnsExtension = getSANExtension(GeneralName.dNSName,
         "ozone.hadoop.org",
         false);
     csr = getInvalidCSR(keyPair, dnsExtension);
-    assertTrue(approver.verfiyExtensions(csr));
+    assertTrue(testApprover.verfiyExtensions(csr));
   }
 
 
@@ -253,12 +269,12 @@ public class TestDefaultProfile {
     Extensions extendedExtension =
         getKeyUsageExtension(KeyPurposeId.id_kp_clientAuth, false);
     PKCS10CertificationRequest csr = getInvalidCSR(keyPair, extendedExtension);
-    assertTrue(approver.verfiyExtensions(csr));
+    assertTrue(testApprover.verfiyExtensions(csr));
 
     extendedExtension = getKeyUsageExtension(KeyPurposeId.id_kp_serverAuth,
         false);
     csr = getInvalidCSR(keyPair, extendedExtension);
-    assertTrue(approver.verfiyExtensions(csr));
+    assertTrue(testApprover.verfiyExtensions(csr));
   }
 
 
@@ -273,12 +289,12 @@ public class TestDefaultProfile {
     Extensions extendedExtension =
         getKeyUsageExtension(KeyPurposeId.id_kp_clientAuth, true);
     PKCS10CertificationRequest csr = getInvalidCSR(keyPair, extendedExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
 
     extendedExtension = getKeyUsageExtension(KeyPurposeId.id_kp_OCSPSigning,
         false);
     csr = getInvalidCSR(keyPair, extendedExtension);
-    assertFalse(approver.verfiyExtensions(csr));
+    assertFalse(testApprover.verfiyExtensions(csr));
   }
 
 

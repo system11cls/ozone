@@ -1,52 +1,23 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.HddsUtils.getReconAddresses;
-import static org.apache.hadoop.hdds.HddsUtils.getSCMAddressForDatanodes;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT_DEFAULT;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmHeartbeatInterval;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmRpcRetryCount;
-import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmRpcRetryInterval;
-import static org.apache.hadoop.hdds.utils.HddsVersionInfo.HDDS_VERSION_INFO;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdds.DatanodeVersion;
@@ -72,7 +43,6 @@ import org.apache.hadoop.hdds.server.ServerUtils;
 import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
 import org.apache.hadoop.hdds.utils.HAUtils;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.LegacyHadoopConfigurationSource;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
@@ -87,10 +57,40 @@ import org.apache.hadoop.ozone.protocolPB.StorageContainerDatanodeProtocolClient
 import org.apache.hadoop.ozone.protocolPB.StorageContainerDatanodeProtocolPB;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;
-import org.kohsuke.MetaInfServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.HddsUtils.getReconAddresses;
+import static org.apache.hadoop.hdds.HddsUtils.getSCMAddressForDatanodes;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT_DEFAULT;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmHeartbeatInterval;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmRpcRetryCount;
+import static org.apache.hadoop.hdds.utils.HddsServerUtil.getScmRpcRetryInterval;
+import static org.apache.hadoop.hdds.utils.HddsVersionInfo.HDDS_VERSION_INFO;
 
 /**
  * This command simulates a number of datanodes and coordinates with
@@ -119,8 +119,7 @@ import picocli.CommandLine;
     versionProvider = HddsVersionProvider.class,
     mixinStandardHelpOptions = true,
     showDefaultValues = true)
-@MetaInfServices(FreonSubcommand.class)
-public class DatanodeSimulator implements Callable<Void>, FreonSubcommand {
+public class DatanodeSimulator implements Callable<Void> {
   private static final Logger LOGGER = LoggerFactory.getLogger(
       DatanodeSimulator.class);
 
@@ -187,7 +186,7 @@ public class DatanodeSimulator implements Callable<Void>, FreonSubcommand {
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          IOUtils.closeQuietly(scmClients.values());
+          scmClients.values().forEach(IOUtils::closeQuietly);
           IOUtils.closeQuietly(reconClient);
           LOGGER.info("Successfully closed all the used resources");
           saveDatanodesToFile();
@@ -423,7 +422,7 @@ public class DatanodeSimulator implements Callable<Void>, FreonSubcommand {
   }
 
   private void init() throws IOException {
-    conf = freonCommand.getOzoneConf();
+    conf = freonCommand.createOzoneConfiguration();
     Collection<InetSocketAddress> addresses = getSCMAddressForDatanodes(conf);
     scmClients = new HashMap<>(addresses.size());
     for (InetSocketAddress address : addresses) {
@@ -464,12 +463,13 @@ public class DatanodeSimulator implements Callable<Void>, FreonSubcommand {
     details.setCurrentVersion(DatanodeVersion.CURRENT_VERSION);
     details.setHostName(HddsUtils.getHostName(config));
     details.setIpAddress(randomIp());
-    details.setStandalonePort(0);
-    details.setRatisPort(0);
-    details.setRestPort(0);
+    details.setPort(DatanodeDetails.Port.Name.STANDALONE, 0);
+    details.setPort(DatanodeDetails.Port.Name.RATIS, 0);
+    details.setPort(DatanodeDetails.Port.Name.REST, 0);
     details.setVersion(HDDS_VERSION_INFO.getVersion());
     details.setSetupTime(Time.now());
     details.setRevision(HDDS_VERSION_INFO.getRevision());
+    details.setBuildDate(HDDS_VERSION_INFO.getDate());
     details.setCurrentVersion(DatanodeVersion.CURRENT_VERSION);
     return details;
   }

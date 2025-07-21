@@ -1,73 +1,34 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.ozone.om;
-
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
-import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_DB_DIRS;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD_DEFAULT;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD_DEFAULT;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.BUCKET_NOT_FOUND;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.VOLUME_NOT_FOUND;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
-
-import java.io.File;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.ListOpenFilesResult;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmMultipartUpload;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
-import org.apache.hadoop.ozone.om.helpers.OpenKeySession;
+import org.apache.hadoop.hdds.utils.TransactionInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
@@ -77,15 +38,42 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Expired
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OpenKey;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OpenKeyBucket;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
-import org.apache.hadoop.ozone.snapshot.ListSnapshotResponse;
 import org.apache.hadoop.util.Time;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import java.io.File;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_EXPIRE_THRESHOLD_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_OPEN_KEY_EXPIRE_THRESHOLD_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_DB_DIRS;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.BUCKET_NOT_FOUND;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.VOLUME_NOT_FOUND;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
  * Tests OzoneManager MetadataManager.
@@ -109,19 +97,24 @@ public class TestOmMetadataManager {
   @Test
   public void testTransactionTable() throws Exception {
     omMetadataManager.getTransactionInfoTable().put(TRANSACTION_INFO_KEY,
-        TransactionInfo.valueOf(1, 100));
+        new TransactionInfo.Builder().setCurrentTerm(1)
+            .setTransactionIndex(100).build());
 
     omMetadataManager.getTransactionInfoTable().put(TRANSACTION_INFO_KEY,
-        TransactionInfo.valueOf(2, 200));
+        new TransactionInfo.Builder().setCurrentTerm(2)
+            .setTransactionIndex(200).build());
 
     omMetadataManager.getTransactionInfoTable().put(TRANSACTION_INFO_KEY,
-        TransactionInfo.valueOf(3, 250));
+        new TransactionInfo.Builder().setCurrentTerm(3)
+            .setTransactionIndex(250).build());
 
     TransactionInfo transactionInfo =
         omMetadataManager.getTransactionInfoTable().get(TRANSACTION_INFO_KEY);
 
     assertEquals(3, transactionInfo.getTerm());
     assertEquals(250, transactionInfo.getTransactionIndex());
+
+
   }
 
   @Test
@@ -206,13 +199,16 @@ public class TestOmMetadataManager {
 
   @Test
   public void testListBuckets() throws Exception {
+
     String volumeName1 = "volumeA";
     String prefixBucketNameWithOzoneOwner = "ozoneBucket";
     String prefixBucketNameWithHadoopOwner = "hadoopBucket";
 
     OMRequestTestUtils.addVolumeToDB(volumeName1, omMetadataManager);
 
+
     TreeSet<String> volumeABucketsPrefixWithOzoneOwner = new TreeSet<>();
+    TreeSet<String> volumeABucketsPrefixWithHadoopOwner = new TreeSet<>();
 
     // Add exact name in prefixBucketNameWithOzoneOwner without postfix.
     volumeABucketsPrefixWithOzoneOwner.add(prefixBucketNameWithOzoneOwner);
@@ -223,18 +219,24 @@ public class TestOmMetadataManager {
             prefixBucketNameWithOzoneOwner + i);
         addBucketsToCache(volumeName1, prefixBucketNameWithOzoneOwner + i);
       } else {
+        volumeABucketsPrefixWithHadoopOwner.add(
+            prefixBucketNameWithHadoopOwner + i);
         addBucketsToCache(volumeName1, prefixBucketNameWithHadoopOwner + i);
       }
     }
 
     String volumeName2 = "volumeB";
+    TreeSet<String> volumeBBucketsPrefixWithOzoneOwner = new TreeSet<>();
     TreeSet<String> volumeBBucketsPrefixWithHadoopOwner = new TreeSet<>();
     OMRequestTestUtils.addVolumeToDB(volumeName2, omMetadataManager);
 
     // Add exact name in prefixBucketNameWithOzoneOwner without postfix.
+    volumeBBucketsPrefixWithOzoneOwner.add(prefixBucketNameWithOzoneOwner);
     addBucketsToCache(volumeName2, prefixBucketNameWithOzoneOwner);
     for (int i = 1; i < 100; i++) {
       if (i % 2 == 0) { // This part adds 49 buckets.
+        volumeBBucketsPrefixWithOzoneOwner.add(
+            prefixBucketNameWithOzoneOwner + i);
         addBucketsToCache(volumeName2, prefixBucketNameWithOzoneOwner + i);
       } else {
         volumeBBucketsPrefixWithHadoopOwner.add(
@@ -242,8 +244,6 @@ public class TestOmMetadataManager {
         addBucketsToCache(volumeName2, prefixBucketNameWithHadoopOwner + i);
       }
     }
-
-    // VOLUME A
 
     // List all buckets which have prefix ozoneBucket
     List<OmBucketInfo> omBucketInfoList =
@@ -282,10 +282,11 @@ public class TestOmMetadataManager {
     for (OmBucketInfo omBucketInfo : omBucketInfoList) {
       assertTrue(omBucketInfo.getBucketName().startsWith(
           prefixBucketNameWithOzoneOwner));
-      assertNotEquals(prefixBucketNameWithOzoneOwner + 10, omBucketInfo.getBucketName());
+      assertFalse(omBucketInfo.getBucketName().equals(
+          prefixBucketNameWithOzoneOwner + 10));
     }
 
-    // VOLUME B
+
 
     omBucketInfoList = omMetadataManager.listBuckets(volumeName2,
         null, prefixBucketNameWithHadoopOwner, 100, false);
@@ -364,19 +365,26 @@ public class TestOmMetadataManager {
     String prefixKeyB = "key-b";
     String prefixKeyC = "key-c";
     TreeSet<String> keysASet = new TreeSet<>();
+    TreeSet<String> keysBSet = new TreeSet<>();
+    TreeSet<String> keysCSet = new TreeSet<>();
     for (int i = 1; i <= 100; i++) {
       if (i % 2 == 0) {
         keysASet.add(prefixKeyA + i);
         addKeysToOM(volumeNameA, ozoneBucket, prefixKeyA + i, i);
       } else {
+        keysBSet.add(prefixKeyB + i);
         addKeysToOM(volumeNameA, hadoopBucket, prefixKeyB + i, i);
       }
     }
+    keysCSet.add(prefixKeyC + 1);
     addKeysToOM(volumeNameA, ozoneTestBucket, prefixKeyC + 0, 0);
 
+    TreeSet<String> keysAVolumeBSet = new TreeSet<>();
     TreeSet<String> keysBVolumeBSet = new TreeSet<>();
     for (int i = 1; i <= 100; i++) {
       if (i % 2 == 0) {
+        keysAVolumeBSet.add(
+            prefixKeyA + i);
         addKeysToOM(volumeNameB, ozoneBucket, prefixKeyA + i, i);
       } else {
         keysBVolumeBSet.add(
@@ -418,7 +426,8 @@ public class TestOmMetadataManager {
     for (OmKeyInfo omKeyInfo : omKeyInfoList) {
       assertTrue(omKeyInfo.getKeyName().startsWith(
           prefixKeyA));
-      assertNotEquals(prefixKeyA + 38, omKeyInfo.getBucketName());
+      assertFalse(omKeyInfo.getBucketName().equals(
+          prefixKeyA + 38));
     }
 
 
@@ -511,7 +520,6 @@ public class TestOmMetadataManager {
 
     // As in total 100, 50 are marked for delete. It should list only 50 keys.
     assertEquals(50, omKeyInfoList.size());
-    assertEquals(50, deleteKeySet.size());
 
     TreeSet<String> expectedKeys = new TreeSet<>();
 
@@ -556,118 +564,36 @@ public class TestOmMetadataManager {
 
   }
 
-  /**
-   * Tests inner impl of listOpenFiles with different bucket types with and
-   * without pagination. NOTE: This UT does NOT test hsync here since the hsync
-   * status check is done purely on the client side.
-   * @param bucketLayout BucketLayout
-   */
-  @ParameterizedTest
-  @EnumSource
-  public void testListOpenFiles(BucketLayout bucketLayout) throws Exception {
-    final long clientID = 1000L;
-
-    String volumeName = "volume-lof";
-    String bucketName = "bucket-" + bucketLayout.name().toLowerCase();
-    String keyPrefix = "key";
-
-    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
-        omMetadataManager, bucketLayout);
-
-    long volumeId = -1L, bucketId = -1L;
-    if (bucketLayout.isFileSystemOptimized()) {
-      volumeId = omMetadataManager.getVolumeId(volumeName);
-      bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
-    }
-
-    int numOpenKeys = 3;
-    for (int i = 0; i < numOpenKeys; i++) {
-      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, keyPrefix + i,
-              RatisReplicationConfig.getInstance(ONE))
-          .build();
-
-      final String dbOpenKeyName;
-      if (bucketLayout.isFileSystemOptimized()) {
-        keyInfo.setParentObjectID(i);
-        keyInfo.setFileName(OzoneFSUtils.getFileName(keyInfo.getKeyName()));
-        OMRequestTestUtils.addFileToKeyTable(true, false,
-            keyInfo.getFileName(), keyInfo, clientID, 0L, omMetadataManager);
-        dbOpenKeyName = omMetadataManager.getOpenFileName(volumeId, bucketId,
-            keyInfo.getParentObjectID(), keyInfo.getFileName(), clientID);
-      } else {
-        OMRequestTestUtils.addKeyToTable(true, false,
-            keyInfo, clientID, 0L, omMetadataManager);
-        dbOpenKeyName = omMetadataManager.getOpenKey(volumeName, bucketName,
-            keyInfo.getKeyName(), clientID);
-      }
-    }
-
-    String dbPrefix;
-    if (bucketLayout.isFileSystemOptimized()) {
-      dbPrefix = omMetadataManager.getOzoneKeyFSO(volumeName, bucketName, "");
-    } else {
-      dbPrefix = omMetadataManager.getOzoneKey(volumeName, bucketName, "");
-    }
-
-    // Without pagination
-    ListOpenFilesResult res = omMetadataManager.listOpenFiles(
-        bucketLayout, 100, dbPrefix, false, dbPrefix);
-
-    assertEquals(numOpenKeys, res.getTotalOpenKeyCount());
-    assertFalse(res.hasMore());
-    List<OpenKeySession> keySessionList = res.getOpenKeys();
-    assertEquals(numOpenKeys, keySessionList.size());
-    // Verify that every single open key shows up in the result, and in order
-    for (int i = 0; i < numOpenKeys; i++) {
-      OpenKeySession keySession = keySessionList.get(i);
-      assertEquals(keyPrefix + i, keySession.getKeyInfo().getKeyName());
-      assertEquals(clientID, keySession.getId());
-      assertEquals(0, keySession.getOpenVersion());
-    }
-
-    // With pagination
-    int pageSize = 2;
-    int numExpectedKeys = pageSize;
-    res = omMetadataManager.listOpenFiles(
-        bucketLayout, pageSize, dbPrefix, false, dbPrefix);
-    // total open key count should still be 3
-    assertEquals(numOpenKeys, res.getTotalOpenKeyCount());
-    // hasMore should have been set
-    assertTrue(res.hasMore());
-    keySessionList = res.getOpenKeys();
-    assertEquals(numExpectedKeys, keySessionList.size());
-    for (int i = 0; i < numExpectedKeys; i++) {
-      OpenKeySession keySession = keySessionList.get(i);
-      assertEquals(keyPrefix + i, keySession.getKeyInfo().getKeyName());
-      assertEquals(clientID, keySession.getId());
-      assertEquals(0, keySession.getOpenVersion());
-    }
-
-    // Get the second page
-    res = omMetadataManager.listOpenFiles(
-        bucketLayout, pageSize, dbPrefix, true, res.getContinuationToken());
-    numExpectedKeys = numOpenKeys - pageSize;
-    // total open key count should still be 3
-    assertEquals(numOpenKeys, res.getTotalOpenKeyCount());
-    assertFalse(res.hasMore());
-    keySessionList = res.getOpenKeys();
-    assertEquals(numExpectedKeys, keySessionList.size());
-    for (int i = 0; i < numExpectedKeys; i++) {
-      OpenKeySession keySession = keySessionList.get(i);
-      assertEquals(keyPrefix + (pageSize + i),
-          keySession.getKeyInfo().getKeyName());
-      assertEquals(clientID, keySession.getId());
-      assertEquals(0, keySession.getOpenVersion());
-    }
-  }
-
   private static BucketLayout getDefaultBucketLayout() {
     return BucketLayout.DEFAULT;
   }
 
-  @ParameterizedTest
-  @EnumSource
-  public void testGetExpiredOpenKeys(BucketLayout bucketLayout)
+  @Test
+  public void testGetExpiredOpenKeys() throws Exception {
+    testGetExpiredOpenKeys(BucketLayout.DEFAULT);
+  }
+
+  @Test
+  public void testGetExpiredOpenKeysExcludeMPUs() throws Exception {
+    testGetExpiredOpenKeysExcludeMPUKeys(BucketLayout.DEFAULT);
+  }
+
+  @Test
+  public void testGetExpiredOpenKeysFSO() throws Exception {
+    testGetExpiredOpenKeys(BucketLayout.FILE_SYSTEM_OPTIMIZED);
+  }
+
+  @Test
+  public void testGetExpiredOpenKeysExcludeMPUsFSO() throws Exception {
+    testGetExpiredOpenKeysExcludeMPUKeys(BucketLayout.FILE_SYSTEM_OPTIMIZED);
+  }
+
+  @Test
+  public void testGetExpiredMultipartUploads() throws Exception {
+    testGetExpiredMPUs();
+  }
+
+  private void testGetExpiredOpenKeys(BucketLayout bucketLayout)
       throws Exception {
     final String bucketName = UUID.randomUUID().toString();
     final String volumeName = UUID.randomUUID().toString();
@@ -699,10 +625,9 @@ public class TestOmMetadataManager {
     for (int i = 0; i < numExpiredOpenKeys + numUnexpiredOpenKeys; i++) {
       final long creationTime = i < numExpiredOpenKeys ?
           expiredOpenKeyCreationTime : Time.now();
-      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(
-              volumeName, bucketName, "expired" + i, RatisReplicationConfig.getInstance(ONE))
-          .setCreationTime(creationTime)
-          .build();
+      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName,
+          bucketName, "expired" + i, HddsProtos.ReplicationType.RATIS,
+          HddsProtos.ReplicationFactor.ONE, 0L, creationTime);
 
       final String dbOpenKeyName;
       if (bucketLayout.isFileSystemOptimized()) {
@@ -724,31 +649,29 @@ public class TestOmMetadataManager {
     // Test retrieving fewer expired keys than actually exist.
     final Collection<OpenKeyBucket.Builder> someExpiredKeys =
         omMetadataManager.getExpiredOpenKeys(expireThreshold,
-            numExpiredOpenKeys - 1, bucketLayout, expireThreshold).getOpenKeyBuckets();
+            numExpiredOpenKeys - 1, bucketLayout).getOpenKeyBuckets();
     List<String> names = getOpenKeyNames(someExpiredKeys);
     assertEquals(numExpiredOpenKeys - 1, names.size());
-    assertThat(expiredKeys).containsAll(names);
+    assertTrue(expiredKeys.containsAll(names));
 
     // Test attempting to retrieving more expired keys than actually exist.
     Collection<OpenKeyBucket.Builder> allExpiredKeys =
         omMetadataManager.getExpiredOpenKeys(expireThreshold,
-            numExpiredOpenKeys + 1, bucketLayout, expireThreshold).getOpenKeyBuckets();
+            numExpiredOpenKeys + 1, bucketLayout).getOpenKeyBuckets();
     names = getOpenKeyNames(allExpiredKeys);
     assertEquals(numExpiredOpenKeys, names.size());
-    assertThat(expiredKeys).containsAll(names);
+    assertTrue(expiredKeys.containsAll(names));
 
     // Test retrieving exact amount of expired keys that exist.
     allExpiredKeys =
         omMetadataManager.getExpiredOpenKeys(expireThreshold,
-            numExpiredOpenKeys, bucketLayout, expireThreshold).getOpenKeyBuckets();
+            numExpiredOpenKeys, bucketLayout).getOpenKeyBuckets();
     names = getOpenKeyNames(allExpiredKeys);
     assertEquals(numExpiredOpenKeys, names.size());
-    assertThat(expiredKeys).containsAll(names);
+    assertTrue(expiredKeys.containsAll(names));
   }
 
-  @ParameterizedTest
-  @EnumSource
-  public void testGetExpiredOpenKeysExcludeMPUKeys(
+  private void testGetExpiredOpenKeysExcludeMPUKeys(
       BucketLayout bucketLayout) throws Exception {
     final String bucketName = UUID.randomUUID().toString();
     final String volumeName = UUID.randomUUID().toString();
@@ -772,11 +695,10 @@ public class TestOmMetadataManager {
     // Ensure that "expired" MPU-related open keys are not fetched.
     // MPU-related open keys, identified by isMultipartKey = false
     for (int i = 0; i < numExpiredMPUOpenKeys; i++) {
-      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, "expired" + i,
-              RatisReplicationConfig.getInstance(ONE), new OmKeyLocationInfoGroup(0L, new ArrayList<>(), true))
-          .setCreationTime(expiredOpenKeyCreationTime)
-          .build();
-      assertThat(keyInfo.getModificationTime()).isPositive();
+      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName,
+          bucketName, "expired" + i,
+          HddsProtos.ReplicationType.RATIS, HddsProtos.ReplicationFactor.ONE,
+          0L, expiredOpenKeyCreationTime, true);
 
       final String uploadId = OMMultipartUploadUtils.getMultipartUploadId();
       final OmMultipartKeyInfo multipartKeyInfo = OMRequestTestUtils.
@@ -799,17 +721,17 @@ public class TestOmMetadataManager {
 
     // Return empty since only MPU-related open keys exist.
     assertTrue(omMetadataManager.getExpiredOpenKeys(expireThreshold,
-        numExpiredMPUOpenKeys, bucketLayout, expireThreshold).getOpenKeyBuckets().isEmpty());
+        numExpiredMPUOpenKeys, bucketLayout).getOpenKeyBuckets().isEmpty());
 
 
     // This is for MPU-related open keys prior to isMultipartKey fix in
     // HDDS-9017. Although these open keys are MPU-related,
     // the isMultipartKey flags are set to false
     for (int i = numExpiredMPUOpenKeys; i < 2 * numExpiredMPUOpenKeys; i++) {
-      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(
-              volumeName, bucketName, "expired" + i, RatisReplicationConfig.getInstance(ONE))
-          .setCreationTime(expiredOpenKeyCreationTime)
-          .build();
+      final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName,
+          bucketName, "expired" + i,
+          HddsProtos.ReplicationType.RATIS, HddsProtos.ReplicationFactor.ONE,
+          0L, expiredOpenKeyCreationTime, false);
 
       final String uploadId = OMMultipartUploadUtils.getMultipartUploadId();
       final OmMultipartKeyInfo multipartKeyInfo = OMRequestTestUtils.
@@ -833,12 +755,11 @@ public class TestOmMetadataManager {
     // MPU-related open keys should not be fetched regardless of isMultipartKey
     // flag if has the multipart upload characteristics
     assertTrue(omMetadataManager.getExpiredOpenKeys(expireThreshold,
-            numExpiredMPUOpenKeys, bucketLayout, expireThreshold).getOpenKeyBuckets()
+            numExpiredMPUOpenKeys, bucketLayout).getOpenKeyBuckets()
         .isEmpty());
   }
 
-  @Test
-  public void testGetExpiredMPUs() throws Exception {
+  private void testGetExpiredMPUs() throws Exception {
     final String bucketName = UUID.randomUUID().toString();
     final String volumeName = UUID.randomUUID().toString();
     final int numExpiredMPUs = 4;
@@ -854,7 +775,7 @@ public class TestOmMetadataManager {
     final Duration expireThreshold = Duration.ofMillis(expireThresholdMillis);
 
     final long expiredMPUCreationTime =
-        expireThreshold.negated().plusMillis(Time.now()).toMillis();
+        Instant.now().minus(expireThreshold).toEpochMilli();
 
     // Add expired MPUs to multipartInfoTable.
     // The method under test does not check for expired open keys in the
@@ -862,7 +783,7 @@ public class TestOmMetadataManager {
     Set<String> expiredMPUs = new HashSet<>();
     for (int i = 0; i < numExpiredMPUs + numUnexpiredMPUs; i++) {
       final long creationTime = i < numExpiredMPUs ?
-          expiredMPUCreationTime : Time.now();
+          expiredMPUCreationTime : Instant.now().toEpochMilli();
 
       String uploadId = OMMultipartUploadUtils.getMultipartUploadId();
       final OmMultipartKeyInfo mpuKeyInfo = OMRequestTestUtils
@@ -873,9 +794,8 @@ public class TestOmMetadataManager {
       String keyName = "expired" + i;
       // Key info to construct the MPU DB key
       final OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(volumeName,
-              bucketName, keyName, RatisReplicationConfig.getInstance(ONE))
-          .setCreationTime(creationTime)
-          .build();
+          bucketName, keyName, HddsProtos.ReplicationType.RATIS,
+          HddsProtos.ReplicationFactor.ONE, 0L, creationTime);
 
 
       for (int j = 1; j <= numPartsPerMPU; j++) {
@@ -897,7 +817,7 @@ public class TestOmMetadataManager {
         (numExpiredMPUs * numPartsPerMPU) - (numPartsPerMPU));
     List<String> names = getMultipartKeyNames(someExpiredMPUs);
     assertEquals(numExpiredMPUs - 1, names.size());
-    assertThat(expiredMPUs).containsAll(names);
+    assertTrue(expiredMPUs.containsAll(names));
 
     // Test retrieving fewer expire MPU parts than actually exist (round up).
     someExpiredMPUs = omMetadataManager.getExpiredMultipartUploads(
@@ -905,7 +825,7 @@ public class TestOmMetadataManager {
         (numExpiredMPUs * numPartsPerMPU) - (numPartsPerMPU + 1));
     names = getMultipartKeyNames(someExpiredMPUs);
     assertEquals(numExpiredMPUs - 1, names.size());
-    assertThat(expiredMPUs).containsAll(names);
+    assertTrue(expiredMPUs.containsAll(names));
 
     // Test attempting to retrieving more expire MPU parts than actually exist.
     List<ExpiredMultipartUploadsBucket> allExpiredMPUs =
@@ -913,7 +833,7 @@ public class TestOmMetadataManager {
             (numExpiredMPUs * numPartsPerMPU) + numPartsPerMPU);
     names = getMultipartKeyNames(allExpiredMPUs);
     assertEquals(numExpiredMPUs, names.size());
-    assertThat(expiredMPUs).containsAll(names);
+    assertTrue(expiredMPUs.containsAll(names));
 
     // Test retrieving exact amount of MPU parts than actually exist.
     allExpiredMPUs =
@@ -921,7 +841,7 @@ public class TestOmMetadataManager {
             (numExpiredMPUs * numPartsPerMPU));
     names = getMultipartKeyNames(allExpiredMPUs);
     assertEquals(numExpiredMPUs, names.size());
-    assertThat(expiredMPUs).containsAll(names);
+    assertTrue(expiredMPUs.containsAll(names));
   }
 
   private List<String> getOpenKeyNames(
@@ -947,10 +867,11 @@ public class TestOmMetadataManager {
 
     if (i % 2 == 0) {
       OMRequestTestUtils.addKeyToTable(false, volumeName, bucketName, keyName,
-          1000L, RatisReplicationConfig.getInstance(ONE), omMetadataManager);
+          1000L, HddsProtos.ReplicationType.RATIS,
+          HddsProtos.ReplicationFactor.ONE, omMetadataManager);
     } else {
       OMRequestTestUtils.addKeyToTableCache(volumeName, bucketName, keyName,
-          RatisReplicationConfig.getInstance(ONE),
+          HddsProtos.ReplicationType.RATIS, HddsProtos.ReplicationFactor.ONE,
           omMetadataManager);
     }
   }
@@ -978,58 +899,67 @@ public class TestOmMetadataManager {
     for (int i = 1; i <= 100; i++) {
       if (i % 2 == 0) {
         snapshotsASnapshotIDMap.put(prefixA + i,
-            OMRequestTestUtils.addSnapshotToTable(vol1, bucket1, prefixA + i, omMetadataManager));
+            OMRequestTestUtils.addSnapshotToTable(vol1, bucket1,
+            prefixA + i, omMetadataManager));
         if (i % 4 == 0) {
           snapshotsASnapshotIDMap.put(prefixA + i,
-              OMRequestTestUtils.addSnapshotToTableCache(vol1, bucket1, prefixA + i, omMetadataManager));
+              OMRequestTestUtils.addSnapshotToTableCache(vol1, bucket1,
+              prefixA + i, omMetadataManager));
         }
       } else {
-        OMRequestTestUtils.addSnapshotToTableCache(vol1, bucket1, prefixB + i, omMetadataManager);
+        OMRequestTestUtils.addSnapshotToTableCache(vol1, bucket1,
+            prefixB + i, omMetadataManager);
       }
     }
 
     //Test listing all snapshots.
-    List<SnapshotInfo> snapshotInfos = omMetadataManager.listSnapshot(vol1, bucket1, null, null, 100)
-        .getSnapshotInfos();
+    List<SnapshotInfo> snapshotInfos = omMetadataManager.listSnapshot(vol1,
+        bucket1, null, null, 100);
     assertEquals(100, snapshotInfos.size());
 
-    snapshotInfos = omMetadataManager.listSnapshot(vol1, bucket1, prefixA, null, 50)
-        .getSnapshotInfos();
+    snapshotInfos = omMetadataManager.listSnapshot(vol1,
+        bucket1, prefixA, null, 50);
     assertEquals(50, snapshotInfos.size());
     for (SnapshotInfo snapshotInfo : snapshotInfos) {
       assertTrue(snapshotInfo.getName().startsWith(prefixA));
     }
 
     String startSnapshot = prefixA + 38;
-    snapshotInfos = omMetadataManager.listSnapshot(vol1, bucket1, prefixA, startSnapshot, 50)
-        .getSnapshotInfos();
-    System.out.println(snapshotInfos.stream().map(SnapshotInfo::getName).collect(Collectors.joining(",")));
-    assertEquals(snapshotsASnapshotIDMap.tailMap(startSnapshot).size() - 1, snapshotInfos.size());
+    snapshotInfos = omMetadataManager.listSnapshot(vol1,
+        bucket1, prefixA, startSnapshot, 50);
+    assertEquals(snapshotsASnapshotIDMap.tailMap(startSnapshot).size() - 1,
+        snapshotInfos.size());
     for (SnapshotInfo snapshotInfo : snapshotInfos) {
       assertTrue(snapshotInfo.getName().startsWith(prefixA));
-      assertEquals(snapshotInfo, snapshotsASnapshotIDMap.get(snapshotInfo.getName()));
-      assertThat(snapshotInfo.getName().compareTo(startSnapshot)).isGreaterThanOrEqualTo(0);
+      assertEquals(snapshotInfo, snapshotsASnapshotIDMap.get(
+          snapshotInfo.getName()));
+      assertTrue(snapshotInfo.getName().compareTo(startSnapshot) > 0);
     }
 
-    String lastSnapshot = null;
+    startSnapshot = null;
     TreeSet<String> expectedSnapshot = new TreeSet<>();
     for (int i = 1; i <= 5; i++) {
-      ListSnapshotResponse listSnapshotResponse =
-          omMetadataManager.listSnapshot(vol1, bucket1, prefixA, lastSnapshot, 10);
-      snapshotInfos = listSnapshotResponse.getSnapshotInfos();
-      lastSnapshot = listSnapshotResponse.getLastSnapshot();
+      snapshotInfos = omMetadataManager.listSnapshot(
+          vol1, bucket1, prefixA, startSnapshot, 10);
       assertEquals(10, snapshotInfos.size());
 
       for (SnapshotInfo snapshotInfo : snapshotInfos) {
         expectedSnapshot.add(snapshotInfo.getName());
-        assertEquals(snapshotInfo, snapshotsASnapshotIDMap.get(snapshotInfo.getName()));
+        assertEquals(snapshotInfo, snapshotsASnapshotIDMap.get(
+            snapshotInfo.getName()));
         assertTrue(snapshotInfo.getName().startsWith(prefixA));
+        startSnapshot = snapshotInfo.getName();
       }
     }
     assertEquals(snapshotsASnapshotIDMap.keySet(), expectedSnapshot);
-    assertNull(lastSnapshot);
-  }
 
+    // As now we have iterated all 50 snapshots, calling next time should
+    // return empty list.
+    snapshotInfos = omMetadataManager.listSnapshot(vol1, bucket1,
+        prefixA, startSnapshot, 10);
+
+    assertEquals(snapshotInfos.size(), 0);
+  }
 
   @ParameterizedTest
   @MethodSource("listSnapshotWithInvalidPathCases")
@@ -1080,99 +1010,18 @@ public class TestOmMetadataManager {
     }
 
     //Test listing snapshots only lists snapshots of specified bucket
-    List<SnapshotInfo> snapshotInfos1 = omMetadataManager.listSnapshot(vol1, bucket1, null, null, Integer.MAX_VALUE)
-        .getSnapshotInfos();
+    List<SnapshotInfo> snapshotInfos1 = omMetadataManager.listSnapshot(vol1,
+            bucket1, null, null, Integer.MAX_VALUE);
     assertEquals(2, snapshotInfos1.size());
     for (SnapshotInfo snapshotInfo : snapshotInfos1) {
       assertTrue(snapshotInfo.getName().startsWith(snapshotName1));
     }
 
-    List<SnapshotInfo> snapshotInfos2 = omMetadataManager.listSnapshot(vol1, bucket2, null, null, Integer.MAX_VALUE)
-        .getSnapshotInfos();
+    List<SnapshotInfo> snapshotInfos2 = omMetadataManager.listSnapshot(vol1,
+            bucket2, null, null, Integer.MAX_VALUE);
     assertEquals(5, snapshotInfos2.size());
     for (SnapshotInfo snapshotInfo : snapshotInfos2) {
       assertTrue(snapshotInfo.getName().startsWith(snapshotName2));
     }
-  }
-
-  @Test
-  public void testGetMultipartUploadKeys() throws Exception {
-    String volumeName = "vol1";
-    String bucketName = "bucket1";
-    String prefix = "dir/";
-    int maxUploads = 10;
-
-    // Create volume and bucket
-    OMRequestTestUtils.addVolumeToDB(volumeName, omMetadataManager);
-    addBucketsToCache(volumeName, bucketName);
-
-    List<String> expectedKeys = new ArrayList<>();
-    for (int i = 0; i < 25; i++) {
-      String key = prefix + "key" + i;
-      String uploadId = OMMultipartUploadUtils.getMultipartUploadId();
-
-      // Create multipart key info
-      OmKeyInfo keyInfo = OMRequestTestUtils.createOmKeyInfo(
-          volumeName, bucketName, key,
-          RatisReplicationConfig.getInstance(ONE))
-          .build();
-
-      OmMultipartKeyInfo multipartKeyInfo = OMRequestTestUtils
-          .createOmMultipartKeyInfo(uploadId, Time.now(),
-              HddsProtos.ReplicationType.RATIS,
-              HddsProtos.ReplicationFactor.ONE, 0L);
-
-      if (i % 2 == 0) {
-        OMRequestTestUtils.addMultipartInfoToTable(false, keyInfo,
-            multipartKeyInfo, 0L, omMetadataManager);
-      } else {
-        OMRequestTestUtils.addMultipartInfoToTableCache(keyInfo,
-            multipartKeyInfo, 0L, omMetadataManager);
-      }
-
-      expectedKeys.add(key);
-    }
-    Collections.sort(expectedKeys);
-
-    // List first page without markers
-    List<OmMultipartUpload> result = omMetadataManager.getMultipartUploadKeys(
-        volumeName, bucketName, prefix, null, null, maxUploads, false);
-
-    assertEquals(maxUploads + 1, result.size());
-
-    // List next page using markers from first page
-    List<OmMultipartUpload> nextPage = omMetadataManager.getMultipartUploadKeys(
-        volumeName, bucketName, prefix,
-        result.get(result.size() - 1).getKeyName(),
-        result.get(result.size() - 1).getUploadId(),
-        maxUploads, false);
-
-    assertEquals(maxUploads + 1, nextPage.size());
-
-    // List with different prefix
-    List<OmMultipartUpload> differentPrefix = omMetadataManager.getMultipartUploadKeys(
-        volumeName, bucketName, "different/", null, null, maxUploads, false);
-
-    assertEquals(0, differentPrefix.size());
-
-    // List all entries with large maxUploads
-    List<OmMultipartUpload> allEntries = omMetadataManager.getMultipartUploadKeys(
-        volumeName, bucketName, prefix, null, null, 100, false);
-
-    assertEquals(25, allEntries.size());
-
-    // Verify all keys are present
-    List<String> actualKeys = new ArrayList<>();
-    for (OmMultipartUpload mpu : allEntries) {
-      actualKeys.add(mpu.getKeyName());
-    }
-    Collections.sort(actualKeys);
-    assertEquals(expectedKeys, actualKeys);
-
-    // Test with no pagination
-    List<OmMultipartUpload> noPagination = omMetadataManager.getMultipartUploadKeys(
-        volumeName, bucketName, prefix, null, null, 10, true);
-
-    assertEquals(25, noPagination.size());
   }
 }

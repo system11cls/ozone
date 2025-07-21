@@ -31,9 +31,8 @@ import {
   LayoutOutlined,
   PieChartOutlined
 } from '@ant-design/icons';
-import { withRouter, Link } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
-
+import { withRouter, Link } from 'react-router-dom';
 
 import logo from '../../logo.png';
 import { showDataFetchError } from '@/utils/common';
@@ -46,7 +45,7 @@ interface INavBarProps extends RouteComponentProps<object> {
   onCollapse: (arg: boolean) => void;
   isHeatmapEnabled: boolean;
   isLoading: boolean;
-  location: object;
+  location: object
 }
 
 class NavBar extends React.Component<INavBarProps> {
@@ -89,77 +88,6 @@ class NavBar extends React.Component<INavBarProps> {
   render() {
     const { location } = this.props;
     const { isHeatmapEnabled } = this.state;
-    const menuItems = [(
-      <Menu.Item key='/Overview'
-        icon={<DashboardOutlined />}>
-        <span>Overview</span>
-        <Link to='/Overview' />
-      </Menu.Item>
-    ), (
-      <Menu.Item key='/Volumes'
-        icon={<InboxOutlined />}>
-        <span>Volumes</span>
-        <Link to='/Volumes' />
-      </Menu.Item>
-    ), (
-      <Menu.Item key='/Buckets'
-        icon={<FolderOpenOutlined />}>
-        <span>Buckets</span>
-        <Link to='/Buckets' />
-      </Menu.Item>
-    ), (
-      <Menu.Item key='/Datanodes'
-        icon={<ClusterOutlined />}>
-        <span>Datanodes</span>
-        <Link to='/Datanodes' />
-      </Menu.Item>
-    ), (
-      <Menu.Item key='/Pipelines'
-        icon={<DeploymentUnitOutlined />}>
-        <span>Pipelines</span>
-        <Link to='/Pipelines' />
-      </Menu.Item>
-    ), (
-      <Menu.Item key='/Containers'
-        icon={<ContainerOutlined />}>
-        <span>Containers</span>
-        <Link to='/Containers' />
-      </Menu.Item>
-    ), (
-      <Menu.SubMenu key='InsightsMenu'
-        title="Insights"
-        icon={<BarChartOutlined />}>
-        <Menu.Item key='/Insights'
-          icon={<BarChartOutlined />}>
-          <span>Insights</span>
-          <Link to='/Insights' />
-        </Menu.Item>
-        <Menu.Item key='/Om'
-          icon={<DatabaseOutlined />}>
-          <span>OM DB Insights</span>
-          <Link to='/Om' />
-        </Menu.Item>
-      </Menu.SubMenu>
-    ), (
-      <Menu.Item key='/DiskUsage'
-        icon={<PieChartOutlined />}>
-        <span>Disk Usage</span>
-        <Link to='/DiskUsage' />
-      </Menu.Item>
-    ), (
-      isHeatmapEnabled
-        ? <>
-          <Menu.Item key='/Heatmap'
-            icon={<LayoutOutlined />}>
-            <span>Heatmap</span>
-            <Link to={{
-              pathname: '/Heatmap',
-              state: { isHeatmapEnabled: true }
-            }}
-            />
-          </Menu.Item></>
-        : <></>
-    )]
     return (
       <Sider
         collapsible
@@ -181,7 +109,69 @@ class NavBar extends React.Component<INavBarProps> {
           theme='dark' defaultSelectedKeys={['/Dashboard']}
           mode='inline' selectedKeys={[location.pathname]}
         >
-          {...menuItems}
+          <Menu.Item key='/Overview'
+            icon={<DashboardOutlined />}>
+            <span>Overview</span>
+            <Link to='/Overview' />
+          </Menu.Item>
+          <Menu.Item key='/Volumes'
+            icon={<InboxOutlined />}>
+            <span>Volumes</span>
+            <Link to='/Volumes' />
+          </Menu.Item>
+          <Menu.Item key='/Buckets'
+            icon={<FolderOpenOutlined />}>
+            <span>Buckets</span>
+            <Link to='/Buckets' />
+          </Menu.Item>
+          <Menu.Item key='/Datanodes'
+            icon={<ClusterOutlined />}>
+            <span>Datanodes</span>
+            <Link to='/Datanodes' />
+          </Menu.Item>
+          <Menu.Item key='/Pipelines'
+            icon={<DeploymentUnitOutlined />}>
+            <span>Pipelines</span>
+            <Link to='/Pipelines' />
+          </Menu.Item>
+          <Menu.Item key='/Containers'
+            icon={<ContainerOutlined />}>
+            <span>Containers</span>
+            <Link to='/Containers' />
+          </Menu.Item>
+          <Menu.SubMenu key='InsightsMenu'
+            title="Insights"
+            icon={<BarChartOutlined />}>
+            <Menu.Item key="/Insights"
+              icon={<BarChartOutlined />}>
+              <span>Insights</span>
+              <Link to='/Insights' />
+            </Menu.Item>
+            <Menu.Item key="/Om"
+              icon={<DatabaseOutlined />}>
+              <span>OM DB Insights</span>
+              <Link to='/Om' />
+            </Menu.Item>
+          </Menu.SubMenu>
+          <Menu.Item key='/DiskUsage'
+            icon={<PieChartOutlined />}>
+            <span>Disk Usage</span>
+            <Link to='/DiskUsage' />
+          </Menu.Item>
+          {
+            isHeatmapEnabled
+              ? <>
+                <Menu.Item key='/Heatmap'
+                  icon={<LayoutOutlined />}>
+                  <span>Heatmap</span>
+                  <Link to={{
+                    pathname: '/Heatmap',
+                    state: { isHeatmapEnabled: true }
+                  }}
+                  />
+                </Menu.Item></>
+              : <></>
+          }
         </Menu>
       </Sider>
     );

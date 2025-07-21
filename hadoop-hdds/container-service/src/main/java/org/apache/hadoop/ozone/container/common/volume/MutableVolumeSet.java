@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +18,6 @@
 
 package org.apache.hadoop.ozone.container.common.volume;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -31,17 +29,21 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.fs.SpaceUsageCheckFactory;
-import org.apache.hadoop.hdds.fs.SpaceUsageSource;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
 import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
 import org.apache.hadoop.ozone.container.common.impl.StorageLocationReport;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.util.DiskChecker.DiskOutOfSpaceException;
-import org.apache.ratis.util.function.CheckedRunnable;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,9 +81,10 @@ public class MutableVolumeSet implements VolumeSet {
   private final ReentrantReadWriteLock volumeSetRWLock;
 
   private final String datanodeUuid;
+  private String clusterID;
 
   private final StorageVolumeChecker volumeChecker;
-  private CheckedRunnable<IOException> failedVolumeListener;
+  private Runnable failedVolumeListener;
   private StateContext context;
   private final StorageVolumeFactory volumeFactory;
   private final StorageVolume.VolumeType volumeType;
@@ -99,6 +102,7 @@ public class MutableVolumeSet implements VolumeSet {
   ) throws IOException {
     this.context = context;
     this.datanodeUuid = dnUuid;
+    this.clusterID = clusterID;
     this.conf = conf;
     this.volumeSetRWLock = new ReentrantReadWriteLock();
     this.volumeChecker = volumeChecker;
@@ -128,7 +132,7 @@ public class MutableVolumeSet implements VolumeSet {
     initializeVolumeSet();
   }
 
-  public void setFailedVolumeListener(CheckedRunnable<IOException> runnable) {
+  public void setFailedVolumeListener(Runnable runnable) {
     failedVolumeListener = runnable;
   }
 
@@ -189,7 +193,7 @@ public class MutableVolumeSet implements VolumeSet {
 
     // First checking if we have any volumes, if all volumes are failed the
     // volumeMap size will be zero, and we throw Exception.
-    if (volumeMap.isEmpty()) {
+    if (volumeMap.size() == 0) {
       throw new DiskOutOfSpaceException("No storage locations configured");
     }
   }
@@ -219,7 +223,7 @@ public class MutableVolumeSet implements VolumeSet {
       throw new IOException("Interrupted while running disk check", e);
     }
 
-    if (!failedVolumes.isEmpty()) {
+    if (failedVolumes.size() > 0) {
       LOG.warn("checkAllVolumes got {} failed volumes - {}",
           failedVolumes.size(), failedVolumes);
       handleVolumeFailures(failedVolumes);
@@ -266,7 +270,7 @@ public class MutableVolumeSet implements VolumeSet {
 
     volumeChecker.checkVolume(
         volume, (healthyVolumes, failedVolumes) -> {
-          if (!failedVolumes.isEmpty()) {
+          if (failedVolumes.size() > 0) {
             LOG.warn("checkVolumeAsync callback got {} failed volumes: {}",
                 failedVolumes.size(), failedVolumes);
           } else {
@@ -438,20 +442,12 @@ public class MutableVolumeSet implements VolumeSet {
   public boolean hasEnoughVolumes() {
     // Max number of bad volumes allowed, should have at least
     // 1 good volume
-    boolean hasEnoughVolumes;
     if (maxVolumeFailuresTolerated ==
         StorageVolumeChecker.MAX_VOLUME_FAILURE_TOLERATED_LIMIT) {
-      hasEnoughVolumes = !getVolumesList().isEmpty();
+      return getVolumesList().size() >= 1;
     } else {
-      hasEnoughVolumes = getFailedVolumesList().size() <= maxVolumeFailuresTolerated;
+      return getFailedVolumesList().size() <= maxVolumeFailuresTolerated;
     }
-    if (!hasEnoughVolumes) {
-      LOG.error("Not enough volumes in MutableVolumeSet. DatanodeUUID: {}, VolumeType: {}, " +
-              "MaxVolumeFailuresTolerated: {}, ActiveVolumes: {}, FailedVolumes: {}",
-          datanodeUuid, volumeType, maxVolumeFailuresTolerated,
-          getVolumesList().size(), getFailedVolumesList().size());
-    }
-    return hasEnoughVolumes;
   }
 
   public StorageLocationReport[] getStorageReport() {
@@ -474,10 +470,9 @@ public class MutableVolumeSet implements VolumeSet {
         if (volumeInfo.isPresent()) {
           try {
             rootDir = volumeInfo.get().getRootDir();
-            SpaceUsageSource usage = volumeInfo.get().getCurrentUsage();
-            scmUsed = usage.getUsedSpace();
-            remaining = usage.getAvailable();
-            capacity = usage.getCapacity();
+            scmUsed = volumeInfo.get().getScmUsed();
+            remaining = volumeInfo.get().getAvailable();
+            capacity = volumeInfo.get().getCapacity();
             committed = (volume instanceof HddsVolume) ?
                 ((HddsVolume) volume).getCommittedBytes() : 0;
             failed = false;

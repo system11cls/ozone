@@ -1,28 +1,30 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.common;
 
 import com.google.common.base.Preconditions;
+
 import java.util.Collections;
 import java.util.List;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumType;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+    .ChecksumType;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 /**
@@ -31,7 +33,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
  */
 public class ChecksumData {
 
-  private final ChecksumType type;
+  private ChecksumType type;
   // Checksum will be computed for every bytesPerChecksum number of bytes and
   // stored sequentially in checksumList
   private final int bytesPerChecksum;
@@ -45,7 +47,7 @@ public class ChecksumData {
                       List<ByteString> checksums) {
     this.type = checksumType;
     this.bytesPerChecksum = bytesPerChecksum;
-    this.checksums = Collections.unmodifiableList(checksums);
+    this.checksums = checksums;
   }
 
   /**
@@ -116,12 +118,12 @@ public class ChecksumData {
       throws OzoneChecksumException {
 
     // pre checks
-    if (this.checksums.isEmpty()) {
+    if (this.checksums.size() == 0) {
       throw new OzoneChecksumException("Original checksumData has no " +
           "checksums");
     }
 
-    if (that.checksums.isEmpty()) {
+    if (that.checksums.size() == 0) {
       throw new OzoneChecksumException("Computed checksumData has no " +
           "checksums");
     }

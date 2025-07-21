@@ -1,37 +1,41 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.hdds.conf;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.eq;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import com.google.common.base.Strings;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.Map;
+import com.google.gson.Gson;
+import org.apache.hadoop.http.HttpServer2;
+import org.apache.hadoop.thirdparty.com.google.common.base.Strings;
+import org.apache.hadoop.util.XMLUtils;
+import org.eclipse.jetty.util.ajax.JSON;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.mockito.Mockito;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -39,17 +43,11 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.HttpHeaders;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.apache.hadoop.hdds.JsonTestUtils;
-import org.apache.hadoop.hdds.server.http.HttpServer2;
-import org.apache.hadoop.util.XMLUtils;
-import org.eclipse.jetty.util.ajax.JSON;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Test for {@link HddsConfServlet}. */
 public class TestHddsConfServlet {
@@ -77,10 +75,10 @@ public class TestHddsConfServlet {
     verifyMap.put("application/xml", HddsConfServlet.FORMAT_XML);
     verifyMap.put("application/json", HddsConfServlet.FORMAT_JSON);
 
-    HttpServletRequest request = mock(HttpServletRequest.class);
+    HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
     for (Map.Entry<String, String> entry : verifyMap.entrySet()) {
       String contenTypeActual = entry.getValue();
-      when(request.getHeader(HttpHeaders.ACCEPT))
+      Mockito.when(request.getHeader(HttpHeaders.ACCEPT))
           .thenReturn(entry.getKey());
       assertEquals(contenTypeActual,
           HddsConfServlet.parseAcceptHeader(request));
@@ -109,11 +107,12 @@ public class TestHddsConfServlet {
     conf.getObject(OzoneTestConfig.class);
     // test cmd is getOzoneTags
     String result = getResultWithCmd(conf, "getOzoneTags");
-    String tags = JsonTestUtils.toJsonString(OzoneConfiguration.TAGS);
+    Gson gson = new Gson();
+    String tags = gson.toJson(OzoneConfiguration.TAGS);
     assertEquals(result, tags);
     // cmd is getPropertyByTag
     result = getResultWithCmd(conf, "getPropertyByTag");
-    assertThat(result).contains("ozone.test.test.key");
+    assertTrue(result.contains("ozone.test.test.key"));
     // cmd is illegal
     getResultWithCmd(conf, "illegal");
   }
@@ -169,8 +168,12 @@ public class TestHddsConfServlet {
   @Test
   public void testBadFormat() throws Exception {
     StringWriter sw = new StringWriter();
-    assertThrows(HddsConfServlet.BadFormatException.class,
-        () -> HddsConfServlet.writeResponse(getTestConf(), sw, "not a format", null));
+    try {
+      HddsConfServlet.writeResponse(getTestConf(), sw, "not a format", null);
+      fail("writeResponse with bad format didn't throw!");
+    } catch (HddsConfServlet.BadFormatException bfe) {
+      // expected
+    }
     assertEquals("", sw.toString());
   }
 
@@ -199,9 +202,10 @@ public class TestHddsConfServlet {
       // response request
       service.doGet(request, response);
       if (cmd.equals("illegal")) {
-        verify(response).sendError(
-            eq(HttpServletResponse.SC_NOT_FOUND),
-            eq("illegal is not a valid command."));
+        Mockito.verify(response)
+            .sendError(
+                Mockito.eq(HttpServletResponse.SC_NOT_FOUND),
+                Mockito.eq("illegal is not a valid command."));
       }
       String result = sw.toString().trim();
       return result;
@@ -250,24 +254,25 @@ public class TestHddsConfServlet {
       // in the response
       if (Strings.isNullOrEmpty(propertyName)) {
         for (Map.Entry<String, String> entry : TEST_PROPERTIES.entrySet()) {
-          assertThat(result).contains(entry.getKey(), entry.getValue());
+          assertTrue(result.contains(entry.getKey()) &&
+                  result.contains(entry.getValue()));
         }
       } else {
         if (conf.get(propertyName) != null) {
           // if property name is not empty and property is found
-          assertThat(result).contains(propertyName);
+          assertTrue(result.contains(propertyName));
           for (Map.Entry<String, String> entry : TEST_PROPERTIES.entrySet()) {
             if (!entry.getKey().equals(propertyName)) {
-              assertThat(result).doesNotContain(entry.getKey());
+              assertFalse(result.contains(entry.getKey()));
             }
           }
         } else {
           // if property name is not empty, and it's not in configuration
           // expect proper error code and error message is set to the response
-          verify(response)
+          Mockito.verify(response)
               .sendError(
-                  eq(HttpServletResponse.SC_NOT_FOUND),
-                  eq("Property " + propertyName + " not found"));
+                  Mockito.eq(HttpServletResponse.SC_NOT_FOUND),
+                  Mockito.eq("Property " + propertyName + " not found"));
         }
       }
     } finally {

@@ -20,15 +20,14 @@ import React, { ReactElement } from 'react';
 import { Card, Row, Col } from 'antd';
 import {
   ClusterOutlined,
-  DeploymentUnitOutlined,
-  DatabaseOutlined,
   ContainerOutlined,
-  InboxOutlined,
-  FolderOpenOutlined,
-  FileTextOutlined,
-  QuestionCircleOutlined,
+  DatabaseOutlined,
   DeleteOutlined,
-  HourglassOutlined
+  DeploymentUnitOutlined,
+  FileTextOutlined,
+  FolderOpenOutlined,
+  InboxOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons';
 import { RouteComponentProps } from 'react-router';
 import { withRouter, Link } from 'react-router-dom';
@@ -59,7 +58,7 @@ const defaultProps = {
 
 interface IOverviewCardWrapperProps {
   linkToUrl: string;
-  title: string;
+  title: string
 }
 
 const IconSelector = ({ iconType, ...extras }: { iconType: string }) => {
@@ -71,8 +70,7 @@ const IconSelector = ({ iconType, ...extras }: { iconType: string }) => {
     'inbox': <InboxOutlined {...extras} />,
     'folder-open': <FolderOpenOutlined {...extras} />,
     'file-text': <FileTextOutlined {...extras} />,
-    'delete': <DeleteOutlined {...extras} />,
-    'hourglass': <HourglassOutlined {...extras} />
+    'delete': <DeleteOutlined {...extras} />
   }
 
   const selectIcon = (type: string) => {
@@ -93,19 +91,14 @@ const IconSelector = ({ iconType, ...extras }: { iconType: string }) => {
 class OverviewCardWrapper extends React.Component<IOverviewCardWrapperProps> {
   // To set Current ACtive Tab for OM DB Insights
   setCurrentActiveTab = (title: string) => {
-    if (title === 'Open Keys Summary') {
+    if (title === "Open Keys Summary") {
       return {
         active: '2'
       }
     }
-    else if (title === 'Pending Deleted Keys Summary') {
+    else if (title === "Pending Deleted Keys Summary") {
       return {
         active: '3'
-      }
-    }
-    else if (title === 'Ozone Service ID') {
-      return {
-        active: '4'
       }
     }
   };
@@ -141,25 +134,14 @@ class OverviewCard extends React.Component<IOverviewCardProps> {
 
   render() {
     let { icon, data, title, loading, hoverable, storageReport, linkToUrl, error } = this.props;
-
-    let meta = <Meta title={data} description={title} data-testid={`overview-${title}`} />;
-    let errorClass = error ? 'card-error' : '';
-
-    if (typeof data === 'string' && data === 'N/A') {
-      errorClass = 'card-error';
-    }
-
+    let meta = <Meta title={data} description={title} />;
+    const errorClass = error ? 'card-error' : '';
     if (storageReport) {
       meta = (
         <div className='ant-card-percentage'>
           {meta}
           <div className='storage-bar'>
-            <StorageBar
-              total={storageReport.capacity}
-              used={storageReport.used}
-              remaining={storageReport.remaining}
-              committed={storageReport.committed}
-              showMeta={false} />
+            <StorageBar total={storageReport.capacity} used={storageReport.used} remaining={storageReport.remaining} showMeta={false} />
           </div>
         </div>
       );

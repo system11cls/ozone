@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,10 +18,6 @@
 
 package org.apache.hadoop.ozone.client;
 
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChunkInfo;
@@ -42,6 +39,11 @@ import org.apache.hadoop.hdds.scm.XceiverClientReply;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerNotOpenException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Mocked version of the datanode client.
@@ -108,7 +110,8 @@ public class MockXceiverClientSpi extends XceiverClientSpi {
 
   private ReadChunkResponseProto readChunk(ReadChunkRequestProto readChunk) {
     return ReadChunkResponseProto.newBuilder()
-        .setChunkData(readChunk.getChunkData())
+        .setChunkData(datanodeStorage
+            .readChunkInfo(readChunk.getBlockID(), readChunk.getChunkData()))
         .setData(datanodeStorage
             .readChunkData(readChunk.getBlockID(), readChunk.getChunkData()))
         .setBlockID(readChunk.getBlockID())
@@ -127,26 +130,21 @@ public class MockXceiverClientSpi extends XceiverClientSpi {
   }
 
   private PutBlockResponseProto putBlock(PutBlockRequestProto putBlock) {
-    return PutBlockResponseProto.newBuilder()
-        .setCommittedBlockLength(
-            doPutBlock(putBlock.getBlockData()))
-        .build();
-  }
-
-  private GetCommittedBlockLengthResponseProto doPutBlock(
-      ContainerProtos.BlockData blockData) {
     long length = 0;
-    for (ChunkInfo chunk : blockData.getChunksList()) {
+    for (ChunkInfo chunk : putBlock.getBlockData().getChunksList()) {
       length += chunk.getLen();
     }
 
-    datanodeStorage.putBlock(blockData.getBlockID(),
-        blockData);
+    datanodeStorage.putBlock(putBlock.getBlockData().getBlockID(),
+        putBlock.getBlockData());
 
-    return GetCommittedBlockLengthResponseProto.newBuilder()
-                .setBlockID(blockData.getBlockID())
+    return PutBlockResponseProto.newBuilder()
+        .setCommittedBlockLength(
+            GetCommittedBlockLengthResponseProto.newBuilder()
+                .setBlockID(putBlock.getBlockData().getBlockID())
                 .setBlockLength(length)
-                .build();
+                .build())
+        .build();
   }
 
   private XceiverClientReply result(
@@ -169,20 +167,18 @@ public class MockXceiverClientSpi extends XceiverClientSpi {
     datanodeStorage
         .writeChunk(writeChunk.getBlockID(), writeChunk.getChunkData(),
             writeChunk.getData());
-
-    WriteChunkResponseProto.Builder builder =
-        WriteChunkResponseProto.newBuilder();
-    if (writeChunk.hasBlock()) {
-      ContainerProtos.BlockData
-          blockData = writeChunk.getBlock().getBlockData();
-      builder.setCommittedBlockLength(doPutBlock(blockData));
-    }
-    return builder.build();
+    return WriteChunkResponseProto.newBuilder()
+        .build();
   }
 
   @Override
   public ReplicationType getPipelineType() {
     return pipeline.getType();
+  }
+
+  @Override
+  public XceiverClientReply watchForCommit(long index) {
+    return null;
   }
 
   @Override

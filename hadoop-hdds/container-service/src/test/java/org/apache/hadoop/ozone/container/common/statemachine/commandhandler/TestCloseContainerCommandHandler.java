@@ -1,37 +1,21 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.container.common.statemachine.commandhandler;
 
-import static java.util.Collections.singletonMap;
-import static org.apache.hadoop.ozone.OzoneConsts.GB;
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -51,11 +35,27 @@ import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
 import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
 import org.apache.hadoop.ozone.protocol.commands.CloseContainerCommand;
 import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.Test;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import java.io.IOException;
+import java.util.UUID;
+
+import static java.util.Collections.singletonMap;
+import static org.apache.hadoop.ozone.OzoneConsts.GB;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Test cases to verify CloseContainerCommandHandler in datanode.
  */
+@RunWith(Parameterized.class)
 public class TestCloseContainerCommandHandler {
 
   private static final long CONTAINER_ID = 123L;
@@ -72,25 +72,29 @@ public class TestCloseContainerCommandHandler {
   private CloseContainerCommandHandler subject =
       new CloseContainerCommandHandler(1, 1000, "");
 
-  private ContainerLayoutVersion layoutVersion;
+  private final ContainerLayoutVersion layout;
 
-  public void initLayoutVersion(ContainerLayoutVersion layout)
-      throws Exception {
-    this.layoutVersion = layout;
-    init();
+  public TestCloseContainerCommandHandler(ContainerLayoutVersion layout) {
+    this.layout = layout;
   }
 
-  private void init() throws Exception {
+  @Parameterized.Parameters
+  public static Iterable<Object[]> parameters() {
+    return ContainerLayoutTestInfo.containerLayoutParameters();
+  }
+
+  @Before
+  public void before() throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration();
     context = ContainerTestUtils.getMockContext(randomDatanodeDetails(), conf);
     pipelineID = PipelineID.randomId();
 
     KeyValueContainerData data = new KeyValueContainerData(CONTAINER_ID,
-        layoutVersion, GB,
+        layout, GB,
         pipelineID.getId().toString(), null);
 
     container = new KeyValueContainer(data, conf);
-    containerSet = newContainerSet();
+    containerSet = new ContainerSet(1000);
     containerSet.addContainer(container);
 
     containerHandler = mock(Handler.class);
@@ -108,10 +112,8 @@ public class TestCloseContainerCommandHandler {
         .thenReturn(false);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeContainerWithPipeline(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeContainerWithPipeline() throws Exception {
     // close a container that's associated with an existing pipeline
     subject.handle(closeWithKnownPipeline(), ozoneContainer, context, null);
     waitTillFinishExecution(subject);
@@ -123,10 +125,8 @@ public class TestCloseContainerCommandHandler {
         .quasiCloseContainer(eq(container), any());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeContainerWithoutPipeline(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeContainerWithoutPipeline() throws Exception {
     // close a container that's NOT associated with an open pipeline
     subject.handle(closeWithUnknownPipeline(), ozoneContainer, context, null);
     waitTillFinishExecution(subject);
@@ -141,10 +141,8 @@ public class TestCloseContainerCommandHandler {
         .quasiCloseContainer(eq(container), any());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeContainerWithForceFlagSet(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeContainerWithForceFlagSet() throws Exception {
     // close a container that's associated with an existing pipeline
     subject.handle(forceCloseWithoutPipeline(), ozoneContainer, context, null);
     waitTillFinishExecution(subject);
@@ -155,10 +153,8 @@ public class TestCloseContainerCommandHandler {
     verify(containerHandler).closeContainer(container);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void forceCloseQuasiClosedContainer(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void forceCloseQuasiClosedContainer() throws Exception {
     // force-close a container that's already quasi closed
     container.getContainerData()
         .setState(ContainerProtos.ContainerDataProto.State.QUASI_CLOSED);
@@ -172,10 +168,8 @@ public class TestCloseContainerCommandHandler {
         .closeContainer(container);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void forceCloseOpenContainer(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void forceCloseOpenContainer() throws Exception {
     // force-close a container that's NOT associated with an open pipeline
     subject.handle(forceCloseWithoutPipeline(), ozoneContainer, context, null);
     waitTillFinishExecution(subject);
@@ -188,10 +182,8 @@ public class TestCloseContainerCommandHandler {
         .closeContainer(container);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void forceCloseOpenContainerWithPipeline(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void forceCloseOpenContainerWithPipeline() throws Exception {
     // force-close a container that's associated with an existing pipeline
     subject.handle(forceCloseWithPipeline(), ozoneContainer, context, null);
     waitTillFinishExecution(subject);
@@ -206,10 +198,8 @@ public class TestCloseContainerCommandHandler {
         .closeContainer(container);
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeAlreadyClosedContainer(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeAlreadyClosedContainer() throws Exception {
     container.getContainerData()
         .setState(ContainerProtos.ContainerDataProto.State.CLOSED);
 
@@ -230,25 +220,29 @@ public class TestCloseContainerCommandHandler {
         .submitRequest(any(), any());
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeNonExistenceContainer(ContainerLayoutVersion layout) throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeNonExistenceContainer() {
     long containerID = 1L;
+    try {
+      controller.markContainerForClose(containerID);
+    } catch (IOException e) {
 
-    IOException ioe = assertThrows(IOException.class, () -> controller.markContainerForClose(containerID));
-    assertThat(ioe).hasMessage("The Container is not found. ContainerID: " + containerID);
+      GenericTestUtils.assertExceptionContains("The Container " +
+                      "is not found. ContainerID: " + containerID, e);
+    }
   }
 
-  @ContainerLayoutTestInfo.ContainerTest
-  public void closeMissingContainer(ContainerLayoutVersion layout)
-      throws Exception {
-    initLayoutVersion(layout);
+  @Test
+  public void closeMissingContainer() {
     long containerID = 2L;
     containerSet.getMissingContainerSet().add(containerID);
-
-    IOException ioe = assertThrows(IOException.class, () -> controller.markContainerForClose(containerID));
-    assertThat(ioe)
-        .hasMessage("The Container is in the MissingContainerSet hence we can't close it. ContainerID: " + containerID);
+    try {
+      controller.markContainerForClose(containerID);
+    } catch (IOException e) {
+      GenericTestUtils.assertExceptionContains("The Container is in " +
+              "the MissingContainerSet hence we can't close it. " +
+              "ContainerID: " + containerID, e);
+    }
   }
 
   private CloseContainerCommand closeWithKnownPipeline() {
@@ -273,9 +267,12 @@ public class TestCloseContainerCommandHandler {
    */
   private static DatanodeDetails randomDatanodeDetails() {
     String ipAddress = "127.0.0.1";
-    DatanodeDetails.Port containerPort = DatanodeDetails.newStandalonePort(0);
-    DatanodeDetails.Port ratisPort = DatanodeDetails.newRatisPort(0);
-    DatanodeDetails.Port restPort = DatanodeDetails.newRestPort(0);
+    DatanodeDetails.Port containerPort = DatanodeDetails.newPort(
+        DatanodeDetails.Port.Name.STANDALONE, 0);
+    DatanodeDetails.Port ratisPort = DatanodeDetails.newPort(
+        DatanodeDetails.Port.Name.RATIS, 0);
+    DatanodeDetails.Port restPort = DatanodeDetails.newPort(
+        DatanodeDetails.Port.Name.REST, 0);
     DatanodeDetails.Builder builder = DatanodeDetails.newBuilder();
     builder.setUuid(UUID.randomUUID())
         .setHostName("localhost")
@@ -292,10 +289,4 @@ public class TestCloseContainerCommandHandler {
     GenericTestUtils.waitFor(()
         -> closeHandler.getQueuedCount() <= 0, 10, 3000);
   }
-
-  @Test
-  public void testThreadPoolPoolSize() {
-    assertEquals(1, subject.getThreadPoolMaxPoolSize());
-  }
-
 }

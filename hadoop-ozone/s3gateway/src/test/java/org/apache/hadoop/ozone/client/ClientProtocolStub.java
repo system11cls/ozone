@@ -1,29 +1,25 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
  */
-
 package org.apache.hadoop.ozone.client;
 
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
-import java.net.URI;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.annotation.Nonnull;
 import org.apache.hadoop.crypto.key.KeyProvider;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
@@ -32,21 +28,19 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ozone.OzoneAcl;
-import org.apache.hadoop.ozone.OzoneFsServerDefaults;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
 import org.apache.hadoop.ozone.om.helpers.DeleteTenantState;
 import org.apache.hadoop.ozone.om.helpers.ErrorInfo;
-import org.apache.hadoop.ozone.om.helpers.LeaseKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartUploadCompleteInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatusLight;
+import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.ozone.om.helpers.S3VolumeContext;
 import org.apache.hadoop.ozone.om.helpers.TenantStateList;
@@ -58,9 +52,15 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.ozone.snapshot.CancelSnapshotDiffResponse;
-import org.apache.hadoop.ozone.snapshot.ListSnapshotResponse;
 import org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse;
 import org.apache.hadoop.security.token.Token;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * ClientProtocol implementation with in-memory state.
@@ -230,24 +230,6 @@ public class ClientProtocolStub implements ClientProtocol {
   }
 
   @Override
-  public OzoneOutputStream createKey(String volumeName, String bucketName,
-                                     String keyName, long size,
-                                     ReplicationConfig replicationConfig,
-                                     Map<String, String> metadata,
-                                     Map<String, String> tags) throws IOException {
-    return getBucket(volumeName, bucketName)
-        .createKey(keyName, size, replicationConfig, metadata, tags);
-  }
-
-  @Override
-  public OzoneOutputStream rewriteKey(String volumeName, String bucketName, String keyName,
-      long size, long existingKeyGeneration, ReplicationConfig replicationConfig,
-      Map<String, String> metadata) throws IOException {
-    return getBucket(volumeName, bucketName)
-        .rewriteKey(keyName, size, existingKeyGeneration, replicationConfig, metadata);
-  }
-
-  @Override
   public OzoneInputStream getKey(String volumeName, String bucketName,
                                  String keyName) throws IOException {
     return getBucket(volumeName, bucketName).readKey(keyName);
@@ -298,6 +280,21 @@ public class ClientProtocolStub implements ClientProtocol {
   }
 
   @Override
+  public List<RepeatedOmKeyInfo> listTrash(String volumeName, String bucketName,
+                                           String startKeyName,
+                                           String keyPrefix, int maxKeys)
+      throws IOException {
+    return null;
+  }
+
+  @Override
+  public boolean recoverTrash(String volumeName, String bucketName,
+                              String keyName, String destinationBucket)
+      throws IOException {
+    return false;
+  }
+
+  @Override
   public OzoneKeyDetails getKeyDetails(String volumeName, String bucketName,
                                        String keyName) throws IOException {
     return getBucket(volumeName, bucketName).getKey(keyName);
@@ -332,14 +329,6 @@ public class ClientProtocolStub implements ClientProtocol {
       throws IOException {
     return getBucket(volumeName, bucketName)
         .initiateMultipartUpload(keyName, replicationConfig, metadata);
-  }
-
-  @Override
-  public OmMultipartInfo initiateMultipartUpload(String volumeName,
-         String bucketName, String keyName, ReplicationConfig replicationConfig,
-         Map<String, String> metadata, Map<String, String> tags) throws IOException {
-    return getBucket(volumeName, bucketName)
-        .initiateMultipartUpload(keyName, replicationConfig, metadata, tags);
   }
 
   @Override
@@ -382,10 +371,7 @@ public class ClientProtocolStub implements ClientProtocol {
   @Override
   public OzoneMultipartUploadList listMultipartUploads(String volumename,
                                                        String bucketName,
-                                                       String prefix,
-                                                       String keyMarker,
-                                                       String uploadIdMarker,
-                                                       int maxUploads)
+                                                       String prefix)
       throws IOException {
     return null;
   }
@@ -486,11 +472,6 @@ public class ClientProtocolStub implements ClientProtocol {
 
   @Override
   public TenantStateList listTenant() throws IOException {
-    return null;
-  }
-
-  @Override
-  public OzoneFsServerDefaults getServerDefaults() throws IOException {
     return null;
   }
 
@@ -610,14 +591,6 @@ public class ClientProtocolStub implements ClientProtocol {
 
   }
 
-  @Deprecated
-  @Override
-  public void setEncryptionKey(String volumeName, String bucketName,
-                               String bekName)
-      throws IOException {
-
-  }
-
   @Override
   public OzoneKey headObject(String volumeName, String bucketName,
                              String keyName) throws IOException {
@@ -666,14 +639,6 @@ public class ClientProtocolStub implements ClientProtocol {
   }
 
   @Override
-  public OzoneDataStreamOutput createStreamKey(
-      String volumeName, String bucketName, String keyName, long size,
-      ReplicationConfig replicationConfig, Map<String, String> metadata,
-      Map<String, String> tags) throws IOException {
-    return null;
-  }
-
-  @Override
   public OzoneDataStreamOutput createMultipartStreamKey(
       String volumeName, String bucketName, String keyName, long size,
       int partNumber, String uploadID) throws IOException {
@@ -696,20 +661,12 @@ public class ClientProtocolStub implements ClientProtocol {
   }
 
   @Override
-  public void renameSnapshot(String volumeName, String bucketName,
-      String snapshotOldName, String snapshotNewName)
-      throws IOException {
-
-  }
-
-  @Override
-  public ListSnapshotResponse listSnapshot(
+  public List<OzoneSnapshot> listSnapshot(
       String volumeName, String bucketName, String snapshotPrefix,
       String prevSnapshot, int maxListResult) throws IOException {
     return null;
   }
   
-  @Override
   public void deleteSnapshot(String volumeName,
       String bucketName, String snapshotName)
       throws IOException {
@@ -722,7 +679,6 @@ public class ClientProtocolStub implements ClientProtocol {
     return null;
   }
 
-  @Override
   public String printCompactionLogDag(String fileNamePrefix,
                                       String graphType) throws IOException {
     return null;
@@ -760,33 +716,6 @@ public class ClientProtocolStub implements ClientProtocol {
   @Override
   public void setTimes(OzoneObj obj, String keyName, long mtime, long atime)
       throws IOException {
-  }
-
-  @Override
-  public LeaseKeyInfo recoverLease(String volumeName, String bucketName,
-      String keyName, boolean force) throws IOException {
-    return null;
-  }
-
-  @Override
-  public void recoverKey(OmKeyArgs args, long clientID) throws IOException {
-
-  }
-
-  @Override
-  public Map<String, String> getObjectTagging(String volumeName, String bucketName, String keyName) throws IOException {
-    return getBucket(volumeName, bucketName).getObjectTagging(keyName);
-  }
-
-  @Override
-  public void putObjectTagging(String volumeName, String bucketName, String keyName, Map<String, String> tags)
-      throws IOException {
-    getBucket(volumeName, bucketName).putObjectTagging(keyName, tags);
-  }
-
-  @Override
-  public void deleteObjectTagging(String volumeName, String bucketName, String keyName) throws IOException {
-    getBucket(volumeName, bucketName).deleteObjectTagging(keyName);
   }
 
 }

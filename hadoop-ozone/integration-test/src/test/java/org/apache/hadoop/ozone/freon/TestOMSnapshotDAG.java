@@ -1,46 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.freon;
 
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_METADATA_DIRS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_S3_VOLUME_NAME_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConsts.DB_COMPACTION_LOG_DIR;
-import static org.apache.hadoop.ozone.OzoneConsts.DB_COMPACTION_SST_BACKUP_DIR;
-import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
-import static org.apache.hadoop.ozone.OzoneConsts.OM_SNAPSHOT_DIFF_DIR;
-import static org.apache.hadoop.ozone.om.snapshot.SnapshotUtils.getColumnFamilyToKeyPrefixMap;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.conf.DatanodeRatisServerConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.ratis.conf.RatisClientConfig;
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.RDBStore;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksDB;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
@@ -64,12 +44,30 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 import picocli.CommandLine;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_METADATA_DIRS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_S3_VOLUME_NAME_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConsts.DB_COMPACTION_LOG_DIR;
+import static org.apache.hadoop.ozone.OzoneConsts.DB_COMPACTION_SST_BACKUP_DIR;
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.OzoneConsts.OM_SNAPSHOT_DIFF_DIR;
+import static org.apache.hadoop.ozone.om.snapshot.SnapshotUtils.getColumnFamilyToKeyPrefixMap;
 
 /**
  * Tests Freon, with MiniOzoneCluster.
@@ -178,8 +176,9 @@ public class TestOMSnapshotDAG {
         "--validate-writes"
     );
 
-    assertEquals(500L, randomKeyGenerator.getNumberOfKeysAdded());
-    assertEquals(500L, randomKeyGenerator.getSuccessfulValidationCount());
+    Assertions.assertEquals(500L, randomKeyGenerator.getNumberOfKeysAdded());
+    Assertions.assertEquals(500L,
+        randomKeyGenerator.getSuccessfulValidationCount());
 
     List<OmVolumeArgs> volList = cluster.getOzoneManager()
         .listAllVolumes("", "", 2);
@@ -230,7 +229,7 @@ public class TestOMSnapshotDAG {
     final File checkpointSnap2 = new File(snap2.getDbPath());
     GenericTestUtils.waitFor(checkpointSnap2::exists, 2000, 20000);
 
-    List<String> sstDiffList21 = differ.getSSTDiffList(snap2, snap1).orElse(Collections.emptyList());
+    List<String> sstDiffList21 = differ.getSSTDiffList(snap2, snap1);
     LOG.debug("Got diff list: {}", sstDiffList21);
 
     // Delete 1000 keys, take a 3rd snapshot, and do another diff
@@ -249,14 +248,14 @@ public class TestOMSnapshotDAG {
     final File checkpointSnap3 = new File(snap3.getDbPath());
     GenericTestUtils.waitFor(checkpointSnap3::exists, 2000, 20000);
 
-    List<String> sstDiffList32 = differ.getSSTDiffList(snap3, snap2).orElse(Collections.emptyList());
+    List<String> sstDiffList32 = differ.getSSTDiffList(snap3, snap2);
 
     // snap3-snap1 diff result is a combination of snap3-snap2 and snap2-snap1
-    List<String> sstDiffList31 = differ.getSSTDiffList(snap3, snap1).orElse(Collections.emptyList());
+    List<String> sstDiffList31 = differ.getSSTDiffList(snap3, snap1);
 
     // Same snapshot. Result should be empty list
-    List<String> sstDiffList22 = differ.getSSTDiffList(snap2, snap2).orElse(Collections.emptyList());
-    assertThat(sstDiffList22).isEmpty();
+    List<String> sstDiffList22 = differ.getSSTDiffList(snap2, snap2);
+    Assertions.assertTrue(sstDiffList22.isEmpty());
     snapDB1.close();
     snapDB2.close();
     snapDB3.close();
@@ -281,14 +280,14 @@ public class TestOMSnapshotDAG {
         volumeName, bucketName, "snap3",
         ((RDBStore) snapDB3.get()
             .getMetadataManager().getStore()).getDb().getManagedRocksDb());
-    List<String> sstDiffList21Run2 = differ.getSSTDiffList(snap2, snap1).orElse(Collections.emptyList());
-    assertEquals(sstDiffList21, sstDiffList21Run2);
+    List<String> sstDiffList21Run2 = differ.getSSTDiffList(snap2, snap1);
+    Assertions.assertEquals(sstDiffList21, sstDiffList21Run2);
 
-    List<String> sstDiffList32Run2 = differ.getSSTDiffList(snap3, snap2).orElse(Collections.emptyList());
-    assertEquals(sstDiffList32, sstDiffList32Run2);
+    List<String> sstDiffList32Run2 = differ.getSSTDiffList(snap3, snap2);
+    Assertions.assertEquals(sstDiffList32, sstDiffList32Run2);
 
-    List<String> sstDiffList31Run2 = differ.getSSTDiffList(snap3, snap1).orElse(Collections.emptyList());
-    assertEquals(sstDiffList31, sstDiffList31Run2);
+    List<String> sstDiffList31Run2 = differ.getSSTDiffList(snap3, snap1);
+    Assertions.assertEquals(sstDiffList31, sstDiffList31Run2);
     snapDB1.close();
     snapDB2.close();
     snapDB3.close();
@@ -314,8 +313,9 @@ public class TestOMSnapshotDAG {
         "--validate-writes"
     );
 
-    assertEquals(1000L, randomKeyGenerator.getNumberOfKeysAdded());
-    assertEquals(1000L, randomKeyGenerator.getSuccessfulValidationCount());
+    Assertions.assertEquals(1000L, randomKeyGenerator.getNumberOfKeysAdded());
+    Assertions.assertEquals(1000L,
+        randomKeyGenerator.getSuccessfulValidationCount());
 
     String omMetadataDir =
         cluster.getOzoneManager().getConfiguration().get(OZONE_METADATA_DIRS);
@@ -327,7 +327,7 @@ public class TestOMSnapshotDAG {
     if (fileList != null) {
       for (File file : fileList) {
         if (file != null && file.isFile() && file.getName().endsWith(".log")) {
-          assertEquals(0L, file.length());
+          Assertions.assertEquals(0L, file.length());
         }
       }
     }
@@ -335,8 +335,8 @@ public class TestOMSnapshotDAG {
     Path sstBackupPath = Paths.get(omMetadataDir, OM_SNAPSHOT_DIFF_DIR,
         DB_COMPACTION_SST_BACKUP_DIR);
     fileList = sstBackupPath.toFile().listFiles();
-    assertNotNull(fileList);
-    assertEquals(0L, fileList.length);
+    Assertions.assertNotNull(fileList);
+    Assertions.assertEquals(0L, fileList.length);
   }
 
 }

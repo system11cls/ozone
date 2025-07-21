@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,31 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.ozone.shell;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTITENANCY_ENABLED;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RANGER_HTTPS_ADMIN_API_PASSWD;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RANGER_HTTPS_ADMIN_API_USER;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_RANGER_HTTPS_ADDRESS_KEY;
-import static org.apache.hadoop.ozone.om.OMMultiTenantManagerImpl.OZONE_OM_TENANT_DEV_SKIP_RANGER;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
-import java.nio.file.Path;
-import java.security.PrivilegedExceptionAction;
-import java.util.Arrays;
-import java.util.List;
+import com.google.common.base.Strings;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.cli.GenericCli;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.io.retry.RetryInvocationHandler;
@@ -46,25 +29,47 @@ import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.ha.ConfUtils;
+import org.apache.hadoop.ozone.om.multitenant.AuthorizerLockImpl;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
-import org.apache.hadoop.ozone.om.multitenant.AuthorizerLockImpl;
+import org.apache.hadoop.ozone.om.service.OMRangerBGSyncService;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantAssignUserAccessIdRequest;
 import org.apache.hadoop.ozone.om.request.s3.tenant.OMTenantCreateRequest;
-import org.apache.hadoop.ozone.om.service.OMRangerBGSyncService;
 import org.apache.hadoop.ozone.shell.tenant.TenantShell;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.ozone.test.GenericTestUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.apache.ozone.test.JUnit5AwareTimeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 import picocli.CommandLine;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.security.PrivilegedExceptionAction;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MULTITENANCY_ENABLED;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RANGER_HTTPS_ADMIN_API_PASSWD;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RANGER_HTTPS_ADMIN_API_USER;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_RANGER_HTTPS_ADDRESS_KEY;
+import static org.apache.hadoop.ozone.om.OMMultiTenantManagerImpl.OZONE_OM_TENANT_DEV_SKIP_RANGER;
+import static org.junit.Assert.fail;
 
 /**
  * Integration test for Ozone tenant shell command. HA enabled.
@@ -72,7 +77,6 @@ import picocli.CommandLine;
  * TODO: HDDS-6338. Add a Kerberized version of this
  * TODO: HDDS-6336. Add a mock Ranger server to test Ranger HTTP endpoint calls
  */
-@Timeout(300)
 public class TestOzoneTenantShell {
 
   private static final Logger LOG =
@@ -87,21 +91,27 @@ public class TestOzoneTenantShell {
   /**
    * Set the timeout for every test.
    */
+  @Rule
+  public TestRule testTimeout = new JUnit5AwareTimeout(Timeout.seconds(300));
 
-  @TempDir
-  private static Path path;
+  private static File baseDir;
   private static File testFile;
   private static final File AUDIT_LOG_FILE = new File("audit.log");
 
   private static OzoneConfiguration conf = null;
-  private static MiniOzoneHAClusterImpl cluster = null;
+  private static MiniOzoneCluster cluster = null;
+  private static MiniOzoneHAClusterImpl haCluster = null;
   private static OzoneShell ozoneSh = null;
   private static TenantShell tenantShell = null;
 
-  private final StringWriter out = new StringWriter();
-  private final StringWriter err = new StringWriter();
+  private final ByteArrayOutputStream out = new ByteArrayOutputStream();
+  private final ByteArrayOutputStream err = new ByteArrayOutputStream();
+  private static final PrintStream OLD_OUT = System.out;
+  private static final PrintStream OLD_ERR = System.err;
 
   private static String omServiceId;
+  private static String clusterId;
+  private static String scmId;
   private static int numOfOMs;
 
   private static final boolean USE_ACTUAL_RANGER = false;
@@ -112,7 +122,7 @@ public class TestOzoneTenantShell {
    *
    * @throws Exception
    */
-  @BeforeAll
+  @BeforeClass
   public static void init() throws Exception {
     // Remove audit log output if it exists
     if (AUDIT_LOG_FILE.exists()) {
@@ -133,6 +143,11 @@ public class TestOzoneTenantShell {
       conf.setBoolean(OZONE_OM_TENANT_DEV_SKIP_RANGER, true);
     }
 
+    String path = GenericTestUtils.getTempPath(
+        TestOzoneTenantShell.class.getSimpleName());
+    baseDir = new File(path);
+    baseDir.mkdirs();
+
     testFile = new File(path + OzoneConsts.OZONE_URI_DELIMITER + "testFile");
     testFile.getParentFile().mkdirs();
     testFile.createNewFile();
@@ -143,21 +158,30 @@ public class TestOzoneTenantShell {
     // Init cluster
     omServiceId = "om-service-test1";
     numOfOMs = 3;
-    MiniOzoneHAClusterImpl.Builder builder = MiniOzoneCluster.newHABuilder(conf);
-    builder.setOMServiceId(omServiceId)
+    clusterId = UUID.randomUUID().toString();
+    scmId = UUID.randomUUID().toString();
+    cluster = MiniOzoneCluster.newOMHABuilder(conf)
+        .setClusterId(clusterId)
+        .setScmId(scmId)
+        .setOMServiceId(omServiceId)
         .setNumOfOzoneManagers(numOfOMs)
-        .withoutDatanodes();  // Remove this once we are actually writing data
-    cluster = builder.build();
+        .withoutDatanodes()  // Remove this once we are actually writing data
+        .build();
+    haCluster = (MiniOzoneHAClusterImpl) cluster;
     cluster.waitForClusterToBeReady();
   }
 
   /**
    * shutdown MiniOzoneCluster.
    */
-  @AfterAll
+  @AfterClass
   public static void shutdown() {
     if (cluster != null) {
       cluster.shutdown();
+    }
+
+    if (baseDir != null) {
+      FileUtil.fullyDelete(baseDir, true);
     }
 
     if (AUDIT_LOG_FILE.exists()) {
@@ -165,12 +189,11 @@ public class TestOzoneTenantShell {
     }
   }
 
-  @BeforeEach
+  @Before
   public void setup() throws UnsupportedEncodingException {
-    tenantShell.getCmd().setOut(new PrintWriter(out));
-    tenantShell.getCmd().setErr(new PrintWriter(err));
-    ozoneSh.getCmd().setOut(new PrintWriter(out));
-    ozoneSh.getCmd().setErr(new PrintWriter(err));
+    System.setOut(new PrintStream(out, false, UTF_8.name()));
+    System.setErr(new PrintStream(err, false, UTF_8.name()));
+
     // Suppress OMNotLeaderException in the log
     GenericTestUtils.setLogLevel(RetryInvocationHandler.LOG, Level.WARN);
     // Enable debug logging for interested classes
@@ -182,15 +205,27 @@ public class TestOzoneTenantShell {
     GenericTestUtils.setLogLevel(OMRangerBGSyncService.LOG, Level.DEBUG);
   }
 
+  @After
+  public void reset() {
+    // reset stream after each unit test
+    out.reset();
+    err.reset();
+
+    // restore system streams
+    System.setOut(OLD_OUT);
+    System.setErr(OLD_ERR);
+  }
+
   /**
    * Returns exit code.
    */
   private int execute(GenericCli shell, String[] args) {
     LOG.info("Executing shell command with args {}", Arrays.asList(args));
     CommandLine cmd = shell.getCmd();
+
     CommandLine.IExecutionExceptionHandler exceptionHandler =
         (ex, commandLine, parseResult) -> {
-          commandLine.getErr().println(ex.getMessage());
+          new PrintStream(err, true, DEFAULT_ENCODING).println(ex.getMessage());
           return commandLine.getCommandSpec().exitCodeOnExecutionException();
         };
 
@@ -210,6 +245,36 @@ public class TestOzoneTenantShell {
     System.arraycopy(args, 0, newArgs, 0, args.length);
     newArgs[args.length] = "--om-service-id=" + omServiceId;
     return execute(shell, newArgs);
+  }
+
+  /**
+   * Execute command, assert exception message and returns true if error
+   * was thrown.
+   */
+  private void executeWithError(OzoneShell shell, String[] args,
+                                String expectedError) {
+    if (Strings.isNullOrEmpty(expectedError)) {
+      execute(shell, args);
+    } else {
+      try {
+        execute(shell, args);
+        fail("Exception is expected from command execution " + Arrays
+            .asList(args));
+      } catch (Exception ex) {
+        if (!Strings.isNullOrEmpty(expectedError)) {
+          Throwable exceptionToCheck = ex;
+          if (exceptionToCheck.getCause() != null) {
+            exceptionToCheck = exceptionToCheck.getCause();
+          }
+          Assert.assertTrue(
+              String.format(
+                  "Error of OzoneShell code doesn't contain the " +
+                      "exception [%s] in [%s]",
+                  expectedError, exceptionToCheck.getMessage()),
+              exceptionToCheck.getMessage().contains(expectedError));
+        }
+      }
+    }
   }
 
   private String getSetConfStringFromConf(String key) {
@@ -273,33 +338,33 @@ public class TestOzoneTenantShell {
   /**
    * Helper function that checks command output AND clears it.
    */
-  private void checkOutput(StringWriter writer, String stringToMatch,
+  private void checkOutput(ByteArrayOutputStream stream, String stringToMatch,
                            boolean exactMatch) throws IOException {
-    writer.flush();
-    final String str = writer.toString();
+    stream.flush();
+    final String str = stream.toString(DEFAULT_ENCODING);
     checkOutput(str, stringToMatch, exactMatch);
-    writer.getBuffer().setLength(0);
+    stream.reset();
   }
 
-  private void checkOutput(StringWriter writer, String stringToMatch,
+  private void checkOutput(ByteArrayOutputStream stream, String stringToMatch,
       boolean exactMatch, boolean expectValidJSON) throws IOException {
-    writer.flush();
-    final String str = writer.toString();
+    stream.flush();
+    final String str = stream.toString(DEFAULT_ENCODING);
     if (expectValidJSON) {
       // Verify if the String can be parsed as a valid JSON
       final ObjectMapper objectMapper = new ObjectMapper();
       objectMapper.readTree(str);
     }
     checkOutput(str, stringToMatch, exactMatch);
-    writer.getBuffer().setLength(0);
+    stream.reset();
   }
 
   private void checkOutput(String str, String stringToMatch,
                            boolean exactMatch) {
     if (exactMatch) {
-      assertEquals(stringToMatch, str);
+      Assert.assertEquals(stringToMatch, str);
     } else {
-      assertThat(str).contains(stringToMatch);
+      Assert.assertTrue(str, str.contains(stringToMatch));
     }
   }
 
@@ -308,7 +373,7 @@ public class TestOzoneTenantShell {
     checkOutput(out, "Volume " + volumeName + " is deleted\n", true);
     checkOutput(err, "", true);
     // Exit code should be 0
-    assertEquals(0, exitC);
+    Assert.assertEquals(0, exitC);
   }
 
   @Test
@@ -331,17 +396,17 @@ public class TestOzoneTenantShell {
       executeHA(tenantShell, new String[] {"--verbose", "user", "assign-admin",
           tenantName + "$" + userName, "--tenant=" + tenantName,
           "--delegated=true"});
-      checkOutput(out, "{\n" + "  \"accessId\" : \"devaa$alice\",\n"
-          + "  \"tenantId\" : \"devaa\",\n" + "  \"isAdmin\" : true,\n"
-          + "  \"isDelegatedAdmin\" : true\n" + "}\n", true, true);
+      checkOutput(out, "{\n" + "  \"accessId\": \"devaa$alice\",\n"
+          + "  \"tenantId\": \"devaa\",\n" + "  \"isAdmin\": true,\n"
+          + "  \"isDelegatedAdmin\": true\n" + "}\n", true, true);
       checkOutput(err, "", true);
 
       // Clean up
       executeHA(tenantShell, new String[] {"--verbose", "user", "revoke-admin",
           tenantName + "$" + userName, "--tenant=" + tenantName});
-      checkOutput(out, "{\n" + "  \"accessId\" : \"devaa$alice\",\n"
-          + "  \"tenantId\" : \"devaa\",\n" + "  \"isAdmin\" : false,\n"
-          + "  \"isDelegatedAdmin\" : false\n" + "}\n", true, true);
+      checkOutput(out, "{\n" + "  \"accessId\": \"devaa$alice\",\n"
+          + "  \"tenantId\": \"devaa\",\n" + "  \"isAdmin\": false,\n"
+          + "  \"isDelegatedAdmin\": false\n" + "}\n", true, true);
       checkOutput(err, "", true);
 
       executeHA(tenantShell, new String[] {
@@ -371,7 +436,7 @@ public class TestOzoneTenantShell {
   public void testOzoneTenantBasicOperations() throws IOException {
 
     List<String> lines = FileUtils.readLines(AUDIT_LOG_FILE, (String)null);
-    assertEquals(0, lines.size());
+    Assert.assertEquals(0, lines.size());
 
     executeHA(tenantShell, new String[] {"list"});
     checkOutput(out, "", true);
@@ -388,12 +453,12 @@ public class TestOzoneTenantShell {
     checkOutput(err, "", true);
 
     lines = FileUtils.readLines(AUDIT_LOG_FILE, (String)null);
-    assertThat(lines.size()).isGreaterThan(0);
+    Assert.assertTrue(lines.size() > 0);
     checkOutput(lines.get(lines.size() - 1), "ret=SUCCESS", false);
 
     // Check volume creation
     OmVolumeArgs volArgs = cluster.getOzoneManager().getVolumeInfo("finance");
-    assertEquals("finance", volArgs.getVolume());
+    Assert.assertEquals("finance", volArgs.getVolume());
 
     // Creating the tenant with the same name again should fail
     executeHA(tenantShell, new String[] {"create", "finance"});
@@ -414,7 +479,7 @@ public class TestOzoneTenantShell {
 
     executeHA(tenantShell, new String[] {"list", "--json"});
     // Not checking the full output here
-    checkOutput(out, "\"tenantId\" : \"dev\",", false);
+    checkOutput(out, "\"tenantId\": \"dev\",", false);
     checkOutput(err, "", true);
 
     // Attempt user getsecret before assignment, should fail
@@ -483,26 +548,16 @@ public class TestOzoneTenantShell {
 
     executeHA(tenantShell, new String[] {
         "user", "info", "--json", "bob"});
-    checkOutput(out,
-        "{\n" +
-            "  \"user\" : \"bob\",\n" +
-            "  \"tenants\" : [ {\n" +
-            "    \"accessId\" : \"research$bob\",\n" +
-            "    \"tenantId\" : \"research\",\n" +
-            "    \"isAdmin\" : false,\n" +
-            "    \"isDelegatedAdmin\" : false\n" +
-            "  }, {\n" +
-            "    \"accessId\" : \"finance$bob\",\n" +
-            "    \"tenantId\" : \"finance\",\n" +
-            "    \"isAdmin\" : false,\n" +
-            "    \"isDelegatedAdmin\" : false\n" +
-            "  }, {\n" +
-            "    \"accessId\" : \"dev$bob\",\n" +
-            "    \"tenantId\" : \"dev\",\n" +
-            "    \"isAdmin\" : true,\n" +
-            "    \"isDelegatedAdmin\" : true\n" +
-            "  } ]\n" +
-            "}\n",
+    checkOutput(out, "{\n" + "  \"user\": \"bob\",\n" + "  \"tenants\": [\n"
+        + "    {\n" + "      \"accessId\": \"research$bob\",\n"
+        + "      \"tenantId\": \"research\",\n" + "      \"isAdmin\": false,\n"
+        + "      \"isDelegatedAdmin\": false\n" + "    },\n" + "    {\n"
+        + "      \"accessId\": \"finance$bob\",\n"
+        + "      \"tenantId\": \"finance\",\n" + "      \"isAdmin\": false,\n"
+        + "      \"isDelegatedAdmin\": false\n" + "    },\n" + "    {\n"
+        + "      \"accessId\": \"dev$bob\",\n"
+        + "      \"tenantId\": \"dev\",\n" + "      \"isAdmin\": true,\n"
+        + "      \"isDelegatedAdmin\": true\n" + "    }\n" + "  ]\n" + "}\n",
         true, true);
     checkOutput(err, "", true);
 
@@ -592,7 +647,7 @@ public class TestOzoneTenantShell {
 
     // Attempt to delete tenant with accessIds still assigned to it, should fail
     int exitCode = executeHA(tenantShell, new String[] {"delete", "dev"});
-    assertNotEquals(0, exitCode, "Tenant delete should fail!");
+    Assert.assertTrue("Tenant delete should fail!", exitCode != 0);
     checkOutput(out, "", true);
     checkOutput(err, "Tenant 'dev' is not empty. All accessIds associated "
         + "to this tenant must be revoked before the tenant can be deleted. "
@@ -605,12 +660,12 @@ public class TestOzoneTenantShell {
     // Because InMemoryMultiTenantAccessController is used in OMs for this
     // integration test, we need to trigger BG sync on all OMs just
     // in case a leader changed right after the last operation.
-    cluster.getOzoneManagersList().forEach(om -> om.getMultiTenantManager()
+    haCluster.getOzoneManagersList().forEach(om -> om.getMultiTenantManager()
         .getOMRangerBGSyncService().triggerRangerSyncOnce());
 
     // Delete dev volume should fail because the volume reference count > 0L
     exitCode = execute(ozoneSh, new String[] {"volume", "delete", "dev"});
-    assertNotEquals(0, exitCode, "Volume delete should fail!");
+    Assert.assertTrue("Volume delete should fail!", exitCode != 0);
     checkOutput(out, "", true);
     checkOutput(err, "Volume reference count is not zero (1). "
         + "Ozone features are enabled on this volume. "
@@ -628,8 +683,8 @@ public class TestOzoneTenantShell {
 
     // Then delete tenant, should succeed
     executeHA(tenantShell, new String[] {"--verbose", "delete", "dev"});
-    checkOutput(out, "{\n" + "  \"tenantId\" : \"dev\",\n"
-            + "  \"volumeName\" : \"dev\",\n" + "  \"volumeRefCount\" : 0\n" + "}\n",
+    checkOutput(out, "{\n" + "  \"tenantId\": \"dev\",\n"
+        + "  \"volumeName\": \"dev\",\n" + "  \"volumeRefCount\": 0\n" + "}\n",
         true, true);
     checkOutput(err, "Deleted tenant 'dev'.\n", false);
     deleteVolume("dev");
@@ -644,7 +699,7 @@ public class TestOzoneTenantShell {
   public void testListTenantUsers() throws IOException {
     executeHA(tenantShell, new String[] {"--verbose", "create", "tenant1"});
     checkOutput(out, "{\n" +
-        "  \"tenantId\" : \"tenant1\"\n" + "}\n", true, true);
+        "  \"tenantId\": \"tenant1\"\n" + "}\n", true, true);
     checkOutput(err, "", true);
 
     executeHA(tenantShell, new String[] {
@@ -668,14 +723,10 @@ public class TestOzoneTenantShell {
 
     executeHA(tenantShell, new String[] {
         "user", "list", "tenant1", "--json"});
-    checkOutput(out,
-        "[ {\n" +
-            "  \"user\" : \"bob\",\n" +
-            "  \"accessId\" : \"tenant1$bob\"\n" +
-            "}, {\n" +
-            "  \"user\" : \"alice\",\n" +
-            "  \"accessId\" : \"tenant1$alice\"\n" +
-            "} ]\n", true);
+    checkOutput(out, "[\n" + "  {\n" + "    \"user\": \"bob\",\n"
+        + "    \"accessId\": \"tenant1$bob\"\n" + "  },\n" + "  {\n"
+        + "    \"user\": \"alice\",\n" + "    \"accessId\": \"tenant1$alice\"\n"
+        + "  }\n" + "]\n", true);
     checkOutput(err, "", true);
 
     executeHA(tenantShell, new String[] {
@@ -686,15 +737,13 @@ public class TestOzoneTenantShell {
 
     executeHA(tenantShell, new String[] {
         "user", "list", "tenant1", "--prefix=b", "--json"});
-    checkOutput(out, "[ {\n" +
-        "  \"user\" : \"bob\",\n" +
-        "  \"accessId\" : \"tenant1$bob\"\n" +
-        "} ]\n", true);
+    checkOutput(out, "[\n" + "  {\n" + "    \"user\": \"bob\",\n"
+        + "    \"accessId\": \"tenant1$bob\"\n" + "  }\n" + "]\n", true);
     checkOutput(err, "", true);
 
     int exitCode = executeHA(tenantShell, new String[] {
         "user", "list", "unknown"});
-    assertNotEquals(0, exitCode, "Expected non-zero exit code");
+    Assert.assertTrue("Expected non-zero exit code", exitCode != 0);
     checkOutput(out, "", true);
     checkOutput(err, "Tenant 'unknown' doesn't exist.\n", true);
 
@@ -755,7 +804,7 @@ public class TestOzoneTenantShell {
     int exitCode = executeHA(tenantShell, new String[] {
         "user", "setsecret", tenantName + "$alice",
         "--secret=short"});
-    assertNotEquals(0, exitCode, "Expected non-zero exit code");
+    Assert.assertTrue("Expected non-zero exit code", exitCode != 0);
     checkOutput(out, "", true);
     checkOutput(err, "Secret key length should be at least 8 characters\n",
         true);
@@ -794,7 +843,7 @@ public class TestOzoneTenantShell {
       int exitC = executeHA(tenantShell, new String[] {
           "user", "setsecret", tenantName + "$alice",
           "--secret=somesecret2"});
-      assertNotEquals(0, exitC, "Should return non-zero exit code!");
+      Assert.assertTrue("Should return non-zero exit code!", exitC != 0);
       checkOutput(out, "", true);
       checkOutput(err, "Requested accessId 'tenant-test-set-secret$alice'"
           + " doesn't belong to current user 'bob', nor does current user"
@@ -1034,7 +1083,7 @@ public class TestOzoneTenantShell {
     final String testVolume = "existing-volume-1";
     int exitC = execute(ozoneSh, new String[] {"volume", "create", testVolume});
     // Volume create should succeed
-    assertEquals(0, exitC);
+    Assert.assertEquals(0, exitC);
     checkOutput(out, "", true);
     checkOutput(err, "", true);
 

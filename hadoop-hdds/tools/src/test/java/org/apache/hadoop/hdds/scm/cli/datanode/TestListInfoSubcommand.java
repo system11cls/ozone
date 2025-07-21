@@ -1,26 +1,27 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.hdds.scm.cli.datanode;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.scm.client.ScmClient;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -31,12 +32,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.scm.client.ScmClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
+import org.mockito.Mockito;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.any;
 
 /**
  * Unit tests to validate the TestListInfoSubCommand class includes the
@@ -68,8 +68,10 @@ public class TestListInfoSubcommand {
   public void testDataNodeOperationalStateAndHealthIncludedInOutput()
       throws Exception {
     ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.queryNode(any(), any(), any(), any())).thenAnswer(invocation -> getNodeDetails());
-    when(scmClient.listPipelines()).thenReturn(new ArrayList<>());
+    Mockito.when(scmClient.queryNode(any(), any(), any(), any()))
+        .thenAnswer(invocation -> getNodeDetails());
+    Mockito.when(scmClient.listPipelines())
+        .thenReturn(new ArrayList<>());
 
     cmd.execute(scmClient);
 
@@ -97,32 +99,6 @@ public class TestListInfoSubcommand {
     p = Pattern.compile(".+HEALTHY.+STALE.+DEAD.+HEALTHY_READONLY.+",
         Pattern.DOTALL);
 
-    m = p.matcher(outContent.toString(DEFAULT_ENCODING));
-    assertTrue(m.find());
-  }
-
-  @Test
-  public void testDataNodeByUuidOutput()
-      throws Exception {
-    List<HddsProtos.Node> nodes = getNodeDetails();
-
-    ScmClient scmClient = mock(ScmClient.class);
-    when(scmClient.queryNode(any()))
-        .thenAnswer(invocation -> nodes.get(0));
-    when(scmClient.listPipelines())
-        .thenReturn(new ArrayList<>());
-
-    CommandLine c = new CommandLine(cmd);
-    c.parseArgs("--id", nodes.get(0).getNodeID().getUuid());
-    cmd.execute(scmClient);
-
-    Pattern p = Pattern.compile(
-        "^Operational State:\\s+IN_SERVICE$", Pattern.MULTILINE);
-    Matcher m = p.matcher(outContent.toString(DEFAULT_ENCODING));
-    assertTrue(m.find());
-
-    p = Pattern.compile(nodes.get(0).getNodeID().getUuid().toString(),
-        Pattern.MULTILINE);
     m = p.matcher(outContent.toString(DEFAULT_ENCODING));
     assertTrue(m.find());
   }

@@ -1,125 +1,138 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
  */
 
 package org.apache.hadoop.hdds.scm.container.states;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.NavigableMap;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
-import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Test ContainerAttribute management.
  */
 public class TestContainerAttribute {
-  enum Key { K1, K2, K3 }
 
-  private final Key key1 = Key.K1;
-  private final Key key2 = Key.K2;
-  private final Key key3 = Key.K3;
+  @Test
+  public void testInsert() throws SCMException {
+    ContainerAttribute<Integer> containerAttribute = new ContainerAttribute<>();
+    ContainerID id = ContainerID.valueOf(42);
+    containerAttribute.insert(1, id);
+    Assertions.assertEquals(1,
+        containerAttribute.getCollection(1).size());
+    Assertions.assertTrue(containerAttribute.getCollection(1).contains(id));
 
-  static <T extends Enum<T>> boolean hasContainerID(ContainerAttribute<T> attribute, T key, int id) {
-    return hasContainerID(attribute, key, ContainerID.valueOf(id));
-  }
-
-  static <T extends Enum<T>> boolean hasContainerID(ContainerAttribute<T> attribute, T key, ContainerID id) {
-    final NavigableMap<ContainerID, ContainerInfo> map = attribute.get(key);
-    return map != null && map.containsKey(id);
+    // Insert again and verify that the new ContainerId is inserted.
+    ContainerID newId =
+        ContainerID.valueOf(42);
+    containerAttribute.insert(1, newId);
+    Assertions.assertEquals(1,
+        containerAttribute.getCollection(1).size());
+    Assertions.assertTrue(containerAttribute.getCollection(1).contains(newId));
   }
 
   @Test
-  public void testAddNonExisting() {
-    ContainerAttribute<Key> containerAttribute = new ContainerAttribute<>(Key.class);
-    ContainerInfo info = new ContainerInfo.Builder().setContainerID(42).build();
-    ContainerID id = info.containerID();
-    containerAttribute.addNonExisting(key1, info);
-    assertEquals(1, containerAttribute.getCollection(key1).size());
-    assertThat(containerAttribute.get(key1)).containsKey(id);
+  public void testHasKey() throws SCMException {
+    ContainerAttribute<Integer> containerAttribute = new ContainerAttribute<>();
 
-    // Adding it again should fail.
-    assertThrows(IllegalStateException.class, () -> containerAttribute.addNonExisting(key1, info));
+    for (int x = 1; x < 42; x++) {
+      containerAttribute.insert(1, ContainerID.valueOf(x));
+    }
+    Assertions.assertTrue(containerAttribute.hasKey(1));
+    for (int x = 1; x < 42; x++) {
+      Assertions.assertTrue(containerAttribute.hasContainerID(1, x));
+    }
+
+    Assertions.assertFalse(containerAttribute.hasContainerID(1,
+        ContainerID.valueOf(42)));
   }
 
   @Test
-  public void testClearSet() {
-    ContainerAttribute<Key> containerAttribute = new ContainerAttribute<>(Key.class);
-    for (Key k : Key.values()) {
+  public void testClearSet() throws SCMException {
+    List<String> keyslist = Arrays.asList("Key1", "Key2", "Key3");
+    ContainerAttribute<String> containerAttribute = new ContainerAttribute<>();
+    for (String k : keyslist) {
       for (int x = 1; x < 101; x++) {
-        ContainerInfo info = new ContainerInfo.Builder().setContainerID(x).build();
-        containerAttribute.addNonExisting(k, info);
+        containerAttribute.insert(k, ContainerID.valueOf(x));
       }
     }
-    for (Key k : Key.values()) {
-      assertEquals(100, containerAttribute.getCollection(k).size());
+    for (String k : keyslist) {
+      Assertions.assertEquals(100,
+          containerAttribute.getCollection(k).size());
     }
-    containerAttribute.clearSet(key1);
-    assertEquals(0, containerAttribute.getCollection(key1).size());
+    containerAttribute.clearSet("Key1");
+    Assertions.assertEquals(0,
+        containerAttribute.getCollection("Key1").size());
   }
 
   @Test
-  public void testRemove() {
+  public void testRemove() throws SCMException {
 
-    ContainerAttribute<Key> containerAttribute = new ContainerAttribute<>(Key.class);
+    List<String> keyslist = Arrays.asList("Key1", "Key2", "Key3");
+    ContainerAttribute<String> containerAttribute = new ContainerAttribute<>();
 
-    for (Key k : Key.values()) {
+    for (String k : keyslist) {
       for (int x = 1; x < 101; x++) {
-        ContainerInfo info = new ContainerInfo.Builder().setContainerID(x).build();
-        containerAttribute.addNonExisting(k, info);
+        containerAttribute.insert(k, ContainerID.valueOf(x));
       }
     }
     for (int x = 1; x < 101; x += 2) {
-      containerAttribute.remove(key1, ContainerID.valueOf(x));
+      containerAttribute.remove("Key1", ContainerID.valueOf(x));
     }
 
     for (int x = 1; x < 101; x += 2) {
-      assertFalse(hasContainerID(containerAttribute, key1, x));
+      Assertions.assertFalse(containerAttribute.hasContainerID("Key1",
+          ContainerID.valueOf(x)));
     }
 
-    assertEquals(100, containerAttribute.getCollection(key2).size());
+    Assertions.assertEquals(100,
+        containerAttribute.getCollection("Key2").size());
 
-    assertEquals(100, containerAttribute.getCollection(key3).size());
+    Assertions.assertEquals(100,
+        containerAttribute.getCollection("Key3").size());
 
-    assertEquals(50, containerAttribute.getCollection(key1).size());
+    Assertions.assertEquals(50,
+        containerAttribute.getCollection("Key1").size());
   }
 
   @Test
   public void tesUpdate() throws SCMException {
-    ContainerAttribute<Key> containerAttribute = new ContainerAttribute<>(Key.class);
-    ContainerInfo info = new ContainerInfo.Builder().setContainerID(42).build();
-    ContainerID id = info.containerID();
+    String key1 = "Key1";
+    String key2 = "Key2";
+    String key3 = "Key3";
 
-    containerAttribute.addNonExisting(key1, info);
-    assertTrue(hasContainerID(containerAttribute, key1, id));
-    assertFalse(hasContainerID(containerAttribute, key2, id));
+    ContainerAttribute<String> containerAttribute = new ContainerAttribute<>();
+    ContainerID id = ContainerID.valueOf(42);
+
+    containerAttribute.insert(key1, id);
+    Assertions.assertTrue(containerAttribute.hasContainerID(key1, id));
+    Assertions.assertFalse(containerAttribute.hasContainerID(key2, id));
 
     // This should move the id from key1 bucket to key2 bucket.
     containerAttribute.update(key1, key2, id);
-    assertFalse(hasContainerID(containerAttribute, key1, id));
-    assertTrue(hasContainerID(containerAttribute, key2, id));
+    Assertions.assertFalse(containerAttribute.hasContainerID(key1, id));
+    Assertions.assertTrue(containerAttribute.hasContainerID(key2, id));
 
     // This should fail since we cannot find this id in the key3 bucket.
-    assertThrows(SCMException.class,
+    Assertions.assertThrows(SCMException.class,
         () -> containerAttribute.update(key3, key1, id));
   }
 }

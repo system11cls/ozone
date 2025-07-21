@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,16 +18,16 @@
 
 package org.apache.hadoop.ozone.security;
 
-import static org.apache.hadoop.ozone.security.OzoneTokenIdentifier.KIND_NAME;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.security.token.Token;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+
+import static org.apache.hadoop.ozone.security.OzoneTokenIdentifier.KIND_NAME;
 
 /**
  * Class to test OzoneDelegationTokenSelector.
@@ -58,7 +59,7 @@ public class TestOzoneDelegationTokenSelector {
             Collections.singletonList(tokenIdentifierToken));
 
 
-    assertNotNull(selectedToken);
+    Assertions.assertNotNull(selectedToken);
 
 
     tokenIdentifierToken.setService(new Text("om1:9863"));
@@ -66,14 +67,14 @@ public class TestOzoneDelegationTokenSelector {
         ozoneDelegationTokenSelector.selectToken(service,
             Collections.singletonList(tokenIdentifierToken));
 
-    assertNull(selectedToken);
+    Assertions.assertNull(selectedToken);
 
     service = new Text("om1:9863");
     selectedToken =
         ozoneDelegationTokenSelector.selectToken(service,
             Collections.singletonList(tokenIdentifierToken));
 
-    assertNotNull(selectedToken);
+    Assertions.assertNotNull(selectedToken);
 
   }
 

@@ -1,43 +1,40 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+ * limitations under the License
  */
 
 package org.apache.hadoop.ozone.container.common.transport.server.ratis;
 
-import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
 import static org.apache.ozone.test.MetricsAsserts.assertCounter;
 import static org.apache.ozone.test.MetricsAsserts.getDoubleGauge;
 import static org.apache.ozone.test.MetricsAsserts.getMetrics;
-import static org.apache.ratis.rpc.SupportedRpcType.GRPC;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+import java.util.ArrayList;
 
 import com.google.common.collect.Maps;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
 import org.apache.hadoop.hdds.client.BlockID;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandRequestProto;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandResponseProto;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+      .ContainerCommandRequestProto;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+      .ContainerCommandResponseProto;
 import org.apache.hadoop.hdds.scm.XceiverClientRatis;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.pipeline.MockPipeline;
@@ -46,26 +43,40 @@ import org.apache.hadoop.metrics2.MetricsRecordBuilder;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.RatisTestHelper;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
+import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.interfaces.ContainerDispatcher;
 import org.apache.hadoop.ozone.container.common.interfaces.Handler;
-import org.apache.hadoop.ozone.container.common.transport.server.XceiverServerSpi;
+import org.apache.hadoop.ozone.container.common.transport.server
+      .XceiverServerSpi;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
+import org.apache.ozone.test.GenericTestUtils;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+
+import static org.apache.ratis.rpc.SupportedRpcType.GRPC;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.function.CheckedBiConsumer;
+
+import java.util.Map;
+import java.util.function.BiConsumer;
+
 import org.apache.ratis.util.function.CheckedBiFunction;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.Assert;
 
 /**
  * This class tests the metrics of ContainerStateMachine.
  */
 public class TestCSMMetrics {
-  @TempDir
-  private static Path testDir;
+  private static final String TEST_DIR =
+      GenericTestUtils.getTestDir("dfs").getAbsolutePath()
+          + File.separator;
 
-  @BeforeAll
+  @BeforeClass
   public static void setup() {
     ExitUtils.disableSystemExit();
   }
@@ -131,7 +142,7 @@ public class TestCSMMetrics {
               pipeline, blockID, 1024);
       ContainerCommandResponseProto response =
           client.sendCommand(writeChunkRequest);
-      assertEquals(ContainerProtos.Result.SUCCESS,
+      Assert.assertEquals(ContainerProtos.Result.SUCCESS,
           response.getResult());
 
       metric = getMetrics(CSMMetrics.SOURCE_NAME +
@@ -144,26 +155,24 @@ public class TestCSMMetrics {
       assertCounter("NumContainerNotOpenVerifyFailures", 0L, metric);
       assertCounter("WriteChunkMsNumOps", 1L, metric);
 
-      applyTransactionLatency = getDoubleGauge(
-          "ApplyTransactionNsAvgTime", metric);
-      assertThat(applyTransactionLatency).isGreaterThan(0.0);
-      writeStateMachineLatency = getDoubleGauge(
-          "WriteStateMachineDataNsAvgTime", metric);
-      assertThat(writeStateMachineLatency).isGreaterThan(0.0);
-
-
       //Read Chunk
       ContainerProtos.ContainerCommandRequestProto readChunkRequest =
           ContainerTestHelper.getReadChunkRequest(pipeline, writeChunkRequest
               .getWriteChunk());
       response = client.sendCommand(readChunkRequest);
-      assertEquals(ContainerProtos.Result.SUCCESS,
+      Assert.assertEquals(ContainerProtos.Result.SUCCESS,
           response.getResult());
 
       metric = getMetrics(CSMMetrics.SOURCE_NAME +
           RaftGroupId.valueOf(pipeline.getId().getId()));
       assertCounter("NumQueryStateMachineOps", 1L, metric);
       assertCounter("NumApplyTransactionOps", 1L, metric);
+      applyTransactionLatency = getDoubleGauge(
+          "ApplyTransactionNsAvgTime", metric);
+      assertTrue(applyTransactionLatency > 0.0);
+      writeStateMachineLatency = getDoubleGauge(
+          "WriteStateMachineDataNsAvgTime", metric);
+      assertTrue(writeStateMachineLatency > 0.0);
 
     } finally {
       if (client != null) {
@@ -176,13 +185,13 @@ public class TestCSMMetrics {
   static XceiverServerRatis newXceiverServerRatis(
       DatanodeDetails dn, OzoneConfiguration conf) throws IOException {
     conf.setInt(OzoneConfigKeys.HDDS_CONTAINER_RATIS_IPC_PORT,
-        dn.getRatisPort().getValue());
-    final String dir = testDir.resolve(dn.getUuidString()).toString();
+        dn.getPort(DatanodeDetails.Port.Name.RATIS).getValue());
+    final String dir = TEST_DIR + dn.getUuid();
     conf.set(OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATANODE_STORAGE_DIR, dir);
 
     final ContainerDispatcher dispatcher = new TestContainerDispatcher();
-    return XceiverServerRatis.newXceiverServerRatis(null, dn, conf, dispatcher,
-        new ContainerController(newContainerSet(), Maps.newHashMap()),
+    return XceiverServerRatis.newXceiverServerRatis(dn, conf, dispatcher,
+        new ContainerController(new ContainerSet(1000), Maps.newHashMap()),
         null, null);
   }
 

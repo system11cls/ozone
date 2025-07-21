@@ -1,52 +1,26 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package org.apache.hadoop.ozone.container.ozoneimpl;
 
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_TIMEOUT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_TIMEOUT_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_WORKERS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_WORKERS_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_TIMEOUT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_TIMEOUT_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_WORKERS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_WORKERS_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT_DEFAULT;
-import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.ON_DEMAND_VOLUME_BYTES_PER_SECOND_KEY;
-import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.VOLUME_BYTES_PER_SECOND_KEY;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
@@ -55,17 +29,11 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.IncrementalContainerReportProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.PipelineReportsProto;
-import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.symmetric.SecretKeyVerifierClient;
 import org.apache.hadoop.hdds.security.token.TokenVerifier;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClient;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
-import org.apache.hadoop.hdds.utils.IOUtils;
-import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.hdds.utils.db.TableIterator;
-import org.apache.hadoop.ozone.HddsDatanodeService;
-import org.apache.hadoop.ozone.container.common.DatanodeLayoutStorage;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.impl.BlockDeletingService;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
@@ -88,8 +56,6 @@ import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolume.VolumeType;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolumeChecker;
 import org.apache.hadoop.ozone.container.keyvalue.statemachine.background.StaleRecoveringContainerScrubbingService;
-import org.apache.hadoop.ozone.container.metadata.WitnessedContainerMetadataStore;
-import org.apache.hadoop.ozone.container.metadata.WitnessedContainerMetadataStoreImpl;
 import org.apache.hadoop.ozone.container.replication.ContainerImporter;
 import org.apache.hadoop.ozone.container.replication.ReplicationServer;
 import org.apache.hadoop.ozone.container.replication.ReplicationServer.ReplicationConfig;
@@ -99,6 +65,29 @@ import org.apache.hadoop.util.Timer;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_TIMEOUT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_TIMEOUT_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_WORKERS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_WORKERS_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_TIMEOUT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_TIMEOUT_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_WORKERS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_WORKERS_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_RECOVERING_CONTAINER_TIMEOUT_DEFAULT;
+import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.ON_DEMAND_VOLUME_BYTES_PER_SECOND_KEY;
+import static org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration.VOLUME_BYTES_PER_SECOND_KEY;
 
 /**
  * Ozone main class sets up the network servers and initializes the container
@@ -122,7 +111,6 @@ public class OzoneContainer {
   private final ContainerController controller;
   private BackgroundContainerMetadataScanner metadataScanner;
   private List<BackgroundContainerDataScanner> dataScanners;
-  private List<AbstractBackgroundContainerScanner> backgroundScanners;
   private final BlockDeletingService blockDeletingService;
   private final StaleRecoveringContainerScrubbingService
       recoveringContainerScrubbingService;
@@ -131,10 +119,9 @@ public class OzoneContainer {
   private final ReplicationServer replicationServer;
   private DatanodeDetails datanodeDetails;
   private StateContext context;
-  private ScheduledExecutorService dbCompactionExecutorService;
+
 
   private final ContainerMetrics metrics;
-  private WitnessedContainerMetadataStore witnessedContainerMetadataStore;
 
   enum InitializingStatus {
     UNINITIALIZED, INITIALIZING, INITIALIZED
@@ -149,7 +136,7 @@ public class OzoneContainer {
    * @throws DiskOutOfSpaceException
    * @throws IOException
    */
-  public OzoneContainer(HddsDatanodeService hddsDatanodeService,
+  public OzoneContainer(
       DatanodeDetails datanodeDetails, ConfigurationSource conf,
       StateContext context, CertificateClient certClient,
       SecretKeyVerifierClient secretKeyClient) throws IOException {
@@ -168,31 +155,19 @@ public class OzoneContainer {
     dbVolumeSet = HddsServerUtil.getDatanodeDbDirs(conf).isEmpty() ? null :
         new MutableVolumeSet(datanodeDetails.getUuidString(), conf,
             context, VolumeType.DB_VOLUME, volumeChecker);
-    final DatanodeConfiguration dnConf =
-        conf.getObject(DatanodeConfiguration.class);
     if (SchemaV3.isFinalizedAndEnabled(config)) {
       HddsVolumeUtil.loadAllHddsVolumeDbStore(
           volumeSet, dbVolumeSet, false, LOG);
-      if (dnConf.autoCompactionSmallSstFile()) {
-        this.dbCompactionExecutorService = Executors.newScheduledThreadPool(
-                dnConf.getAutoCompactionSmallSstFileThreads(),
-            new ThreadFactoryBuilder().setNameFormat(
-                datanodeDetails.threadNamePrefix() +
-                    "RocksDBCompactionThread-%d").build());
-        this.dbCompactionExecutorService.scheduleWithFixedDelay(this::compactDb,
-            dnConf.getAutoCompactionSmallSstFileIntervalMinutes(),
-            dnConf.getAutoCompactionSmallSstFileIntervalMinutes(),
-            TimeUnit.MINUTES);
-      }
     }
+
     long recoveringContainerTimeout = config.getTimeDuration(
         OZONE_RECOVERING_CONTAINER_TIMEOUT,
         OZONE_RECOVERING_CONTAINER_TIMEOUT_DEFAULT, TimeUnit.MILLISECONDS);
-    this.witnessedContainerMetadataStore = WitnessedContainerMetadataStoreImpl.get(conf);
-    containerSet = ContainerSet.newRwContainerSet(witnessedContainerMetadataStore.getContainerIdsTable(),
-        recoveringContainerTimeout);
+
+    containerSet = new ContainerSet(recoveringContainerTimeout);
     metadataScanner = null;
 
+    buildContainerSet();
     metrics = ContainerMetrics.create(conf);
     handlers = Maps.newHashMap();
 
@@ -229,7 +204,7 @@ public class OzoneContainer {
      */
     controller = new ContainerController(containerSet, handlers);
 
-    writeChannel = XceiverServerRatis.newXceiverServerRatis(hddsDatanodeService,
+    writeChannel = XceiverServerRatis.newXceiverServerRatis(
         datanodeDetails, config, hddsDispatcher, controller, certClient,
         context);
 
@@ -244,7 +219,8 @@ public class OzoneContainer {
 
     readChannel = new XceiverServerGrpc(
         datanodeDetails, config, hddsDispatcher, certClient);
-    Duration blockDeletingSvcInterval = dnConf.getBlockDeletionInterval();
+    Duration blockDeletingSvcInterval = conf.getObject(
+        DatanodeConfiguration.class).getBlockDeletionInterval();
 
     long blockDeletingServiceTimeout = config
         .getTimeDuration(OZONE_BLOCK_DELETING_SERVICE_TIMEOUT,
@@ -261,8 +237,8 @@ public class OzoneContainer {
             datanodeDetails.threadNamePrefix(),
             context.getParent().getReconfigurationHandler());
 
-    Duration recoveringContainerScrubbingSvcInterval =
-        dnConf.getRecoveringContainerScrubInterval();
+    Duration recoveringContainerScrubbingSvcInterval = conf.getObject(
+        DatanodeConfiguration.class).getRecoveringContainerScrubInterval();
 
     long recoveringContainerScrubbingServiceTimeout = config
         .getTimeDuration(OZONE_RECOVERING_CONTAINER_SCRUBBING_SERVICE_TIMEOUT,
@@ -283,8 +259,8 @@ public class OzoneContainer {
 
     if (certClient != null && secConf.isGrpcTlsEnabled()) {
       tlsClientConfig = new GrpcTlsConfig(
-          certClient.getKeyManager(),
-          certClient.getTrustManager(), true);
+          certClient.getClientKeyStoresFactory().getKeyManagers()[0],
+          certClient.getClientKeyStoresFactory().getTrustManagers()[0], true);
     } else {
       tlsClientConfig = null;
     }
@@ -300,7 +276,7 @@ public class OzoneContainer {
   public OzoneContainer(
       DatanodeDetails datanodeDetails, ConfigurationSource conf,
       StateContext context) throws IOException {
-    this(null, datanodeDetails, conf, context, null, null);
+    this(datanodeDetails, conf, context, null, null);
   }
 
   public GrpcTlsConfig getTlsClientConfig() {
@@ -308,10 +284,9 @@ public class OzoneContainer {
   }
 
   /**
-   * Build's container map after volume format.
+   * Build's container map.
    */
-  @VisibleForTesting
-  public void buildContainerSet() throws IOException {
+  private void buildContainerSet() {
     Iterator<StorageVolume> volumeSetIterator = volumeSet.getVolumesList()
         .iterator();
     ArrayList<Thread> volumeThreads = new ArrayList<>();
@@ -336,16 +311,8 @@ public class OzoneContainer {
     }
 
     try {
-      for (Thread volumeThread : volumeThreads) {
-        volumeThread.join();
-      }
-      try (TableIterator<Long, ? extends Table.KeyValue<Long, String>> itr =
-               containerSet.getContainerIdsTable().iterator()) {
-        Map<Long, Long> containerIds = new HashMap<>();
-        while (itr.hasNext()) {
-          containerIds.put(itr.next().getKey(), 0L);
-        }
-        containerSet.buildMissingContainerSetAndValidate(containerIds);
+      for (int i = 0; i < volumeThreads.size(); i++) {
+        volumeThreads.get(i).join();
       }
     } catch (InterruptedException ex) {
       LOG.error("Volume Threads Interrupted exception", ex);
@@ -371,10 +338,8 @@ public class OzoneContainer {
           "the on-demand container scanner have been disabled.");
       return;
     }
-
     initOnDemandContainerScanner(c);
 
-    backgroundScanners = new LinkedList<>();
     // This config is for testing the scanners in isolation.
     if (c.isMetadataScanEnabled()) {
       initMetadataScanner(c);
@@ -398,19 +363,6 @@ public class OzoneContainer {
           new BackgroundContainerDataScanner(c, controller, (HddsVolume) v);
       s.start();
       dataScanners.add(s);
-      backgroundScanners.add(s);
-    }
-  }
-
-  /**
-   * We need to inject the containerController into the hddsVolume.
-   * because we need to obtain the container count
-   * for each disk based on the container controller.
-   */
-  private void initHddsVolumeContainer() {
-    for (StorageVolume v : volumeSet.getVolumesList()) {
-      HddsVolume hddsVolume = (HddsVolume) v;
-      hddsVolume.setController(controller);
     }
   }
 
@@ -418,7 +370,6 @@ public class OzoneContainer {
     if (this.metadataScanner == null) {
       this.metadataScanner =
           new BackgroundContainerMetadataScanner(c, controller);
-      backgroundScanners.add(metadataScanner);
     }
     this.metadataScanner.start();
   }
@@ -451,16 +402,6 @@ public class OzoneContainer {
     OnDemandContainerDataScanner.shutdown();
   }
 
-  @VisibleForTesting
-  public void pauseContainerScrub() {
-    backgroundScanners.forEach(AbstractBackgroundContainerScanner::pause);
-  }
-
-  @VisibleForTesting
-  public void resumeContainerScrub() {
-    backgroundScanners.forEach(AbstractBackgroundContainerScanner::unpause);
-  }
-
   /**
    * Starts serving requests to ozone container.
    *
@@ -485,13 +426,6 @@ public class OzoneContainer {
       return;
     }
 
-    DatanodeLayoutStorage layoutStorage
-        = new DatanodeLayoutStorage(config);
-    layoutStorage.setClusterId(clusterId);
-    layoutStorage.persistCurrentState();
-
-    buildContainerSet();
-
     // Start background volume checks, which will begin after the configured
     // delay.
     volumeChecker.start();
@@ -510,14 +444,12 @@ public class OzoneContainer {
     replicationServer.start();
     datanodeDetails.setPort(Name.REPLICATION, replicationServer.getPort());
 
-    hddsDispatcher.init();
-    hddsDispatcher.setClusterId(clusterId);
     writeChannel.start();
     readChannel.start();
+    hddsDispatcher.init();
+    hddsDispatcher.setClusterId(clusterId);
     blockDeletingService.start();
     recoveringContainerScrubbingService.start();
-
-    initHddsVolumeContainer();
 
     // mark OzoneContainer as INITIALIZED.
     initializingStatus.set(InitializingStatus.INITIALIZED);
@@ -541,25 +473,12 @@ public class OzoneContainer {
     if (dbVolumeSet != null) {
       dbVolumeSet.shutdown();
     }
-    if (dbCompactionExecutorService != null) {
-      dbCompactionExecutorService.shutdown();
-    }
     blockDeletingService.shutdown();
     recoveringContainerScrubbingService.shutdown();
-    IOUtils.closeQuietly(metrics);
     ContainerMetrics.remove();
-    if (this.witnessedContainerMetadataStore != null) {
-      try {
-        this.witnessedContainerMetadataStore.stop();
-      } catch (Exception e) {
-        LOG.error("Error while stopping witnessedContainerMetadataStore. Status of store: {}",
-            witnessedContainerMetadataStore.isClosed(), e);
-      }
-      this.witnessedContainerMetadataStore = null;
-    }
   }
 
-  public void handleVolumeFailures() throws StorageContainerException {
+  public void handleVolumeFailures() {
     if (containerSet != null) {
       containerSet.handleVolumeFailures(context);
     }
@@ -604,22 +523,20 @@ public class OzoneContainer {
     StorageContainerDatanodeProtocolProtos.NodeReportProto.Builder nrb
             = StorageContainerDatanodeProtocolProtos.
             NodeReportProto.newBuilder();
-
-    for (StorageLocationReport report : reports) {
-      nrb.addStorageReport(report.getProtoBufMessage(config));
+    for (int i = 0; i < reports.length; i++) {
+      nrb.addStorageReport(reports[i].getProtoBufMessage(config));
     }
 
     StorageLocationReport[] metaReports = metaVolumeSet.getStorageReport();
-
-    for (StorageLocationReport metaReport : metaReports) {
-      nrb.addMetadataStorageReport(metaReport.getMetadataProtoBufMessage());
+    for (int i = 0; i < metaReports.length; i++) {
+      nrb.addMetadataStorageReport(
+          metaReports[i].getMetadataProtoBufMessage());
     }
 
     if (dbVolumeSet != null) {
       StorageLocationReport[] dbReports = dbVolumeSet.getStorageReport();
-
-      for (StorageLocationReport dbReport : dbReports) {
-        nrb.addDbStorageReport(dbReport.getProtoBufMessage());
+      for (int i = 0; i < dbReports.length; i++) {
+        nrb.addDbStorageReport(dbReports[i].getProtoBufMessage());
       }
     }
 
@@ -649,18 +566,6 @@ public class OzoneContainer {
 
   public BlockDeletingService getBlockDeletingService() {
     return blockDeletingService;
-  }
-
-  public ReplicationServer getReplicationServer() {
-    return replicationServer;
-  }
-
-  public void compactDb() {
-    for (StorageVolume volume : volumeSet.getVolumesList()) {
-      HddsVolume hddsVolume = (HddsVolume) volume;
-      CompletableFuture.runAsync(hddsVolume::compactDb,
-          dbCompactionExecutorService);
-    }
   }
 
 }

@@ -1,91 +1,63 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package org.apache.hadoop.hdds.utils;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_RECON_HEARTBEAT_INTERVAL;
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_RECON_HEARTBEAT_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.HddsUtils.getHostNameFromConfigKeys;
-import static org.apache.hadoop.hdds.HddsUtils.getPortNumberFromConfigKeys;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_KEY;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEADNODE_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEADNODE_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_LOG_WARN_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_LOG_WARN_INTERVAL_COUNT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_COUNT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_COUNT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT_DEFAULT;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdds.server.ServerUtils.sanitizeUserArgs;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.HDDS_DATANODE_CONTAINER_DB_DIR;
-
-import com.google.common.base.Strings;
-import com.google.protobuf.BlockingService;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import com.google.common.base.Strings;
+import com.google.protobuf.BlockingService;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hdds.HddsConfigKeys;
-import org.apache.hadoop.hdds.HddsUtils;
+import org.apache.hadoop.hdds.DFSConfigKeysLegacy;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.SCMSecurityProtocol;
 import org.apache.hadoop.hdds.protocol.SecretKeyProtocolScm;
-import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.protocolPB.SecretKeyProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.protocolPB.SecretKeyProtocolDatanodePB;
 import org.apache.hadoop.hdds.protocolPB.SecretKeyProtocolOmPB;
+import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.protocolPB.SecretKeyProtocolScmPB;
 import org.apache.hadoop.hdds.ratis.ServerNotLeaderException;
 import org.apache.hadoop.hdds.recon.ReconConfigKeys;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocol;
 import org.apache.hadoop.hdds.scm.proxy.SCMClientConfig;
-import org.apache.hadoop.hdds.scm.proxy.SCMSecurityProtocolFailoverProxyProvider;
 import org.apache.hadoop.hdds.scm.proxy.SecretKeyProtocolFailoverProxyProvider;
+import org.apache.hadoop.hdds.scm.proxy.SCMSecurityProtocolFailoverProxyProvider;
 import org.apache.hadoop.hdds.scm.proxy.SingleSecretKeyProtocolProxyProvider;
-import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.server.ServerUtils;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
@@ -100,7 +72,32 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.util.ShutdownHookManager;
+
+import static org.apache.hadoop.hdds.DFSConfigKeysLegacy.DFS_DATANODE_DATA_DIR_KEY;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_RECON_HEARTBEAT_INTERVAL;
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_RECON_HEARTBEAT_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.HddsUtils.getHostNameFromConfigKeys;
+import static org.apache.hadoop.hdds.HddsUtils.getPortNumberFromConfigKeys;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DATANODE_PORT_KEY;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEADNODE_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_DEADNODE_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_LOG_WARN_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_LOG_WARN_INTERVAL_COUNT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_TIMEOUT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_COUNT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_COUNT_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_HEARTBEAT_RPC_RETRY_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_STALENODE_INTERVAL_DEFAULT;
+import static org.apache.hadoop.hdds.server.ServerUtils.sanitizeUserArgs;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.HDDS_DATANODE_CONTAINER_DB_DIR;
+
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,8 +110,6 @@ public final class HddsServerUtil {
   private HddsServerUtil() {
   }
 
-  private static final int SHUTDOWN_HOOK_PRIORITY = 0;
-
   public static final String OZONE_RATIS_SNAPSHOT_COMPLETE_FLAG_NAME =
       "OZONE_RATIS_SNAPSHOT_COMPLETE";
 
@@ -122,11 +117,11 @@ public final class HddsServerUtil {
       HddsServerUtil.class);
 
   /**
-   * Add protobuf-based protocol to the {@link org.apache.hadoop.ipc.RPC.Server}.
+   * Add protobuf-based protocol to the {@link RPC.Server}.
    * @param conf configuration
    * @param protocol Protocol interface
    * @param service service that implements the protocol
-   * @param server RPC server to which the protocol and implementation is added to
+   * @param server RPC server to which the protocol & implementation is added to
    */
   public static void addPBProtocol(Configuration conf, Class<?> protocol,
       BlockingService service, RPC.Server server) throws IOException {
@@ -403,10 +398,16 @@ public final class HddsServerUtil {
     return rawLocations;
   }
 
-  public static Collection<String> getDatanodeStorageDirs(ConfigurationSource conf) {
-    Collection<String> rawLocations = conf.getTrimmedStringCollection(HDDS_DATANODE_DIR_KEY);
+  public static Collection<String> getDatanodeStorageDirs(
+      ConfigurationSource conf) {
+    Collection<String> rawLocations = conf.getTrimmedStringCollection(
+        HDDS_DATANODE_DIR_KEY);
     if (rawLocations.isEmpty()) {
-      throw new IllegalArgumentException("No location configured in " + HDDS_DATANODE_DIR_KEY);
+      rawLocations = conf.getTrimmedStringCollection(DFS_DATANODE_DATA_DIR_KEY);
+    }
+    if (rawLocations.isEmpty()) {
+      throw new IllegalArgumentException("No location configured in either "
+          + HDDS_DATANODE_DIR_KEY + " or " + DFS_DATANODE_DATA_DIR_KEY);
     }
     return rawLocations;
   }
@@ -450,7 +451,6 @@ public final class HddsServerUtil {
    */
   public static SCMSecurityProtocolClientSideTranslatorPB getScmSecurityClient(
       ConfigurationSource conf) throws IOException {
-    SecurityConfig.initSecurityProvider(conf);
     return new SCMSecurityProtocolClientSideTranslatorPB(
         new SCMSecurityProtocolFailoverProxyProvider(conf,
             UserGroupInformation.getCurrentUser()));
@@ -463,7 +463,6 @@ public final class HddsServerUtil {
     // for ever. In this way DN start up is resilient to SCM service running
     // status.
     OzoneConfiguration configuration = new OzoneConfiguration(conf);
-    SecurityConfig.initSecurityProvider(configuration);
     SCMClientConfig scmClientConfig =
         conf.getObject(SCMClientConfig.class);
     int retryCount = Integer.MAX_VALUE;
@@ -483,7 +482,6 @@ public final class HddsServerUtil {
    */
   public static SCMSecurityProtocolClientSideTranslatorPB getScmSecurityClient(
       OzoneConfiguration conf, UserGroupInformation ugi) throws IOException {
-    SecurityConfig.initSecurityProvider(conf);
     SCMSecurityProtocolClientSideTranslatorPB scmSecurityClient =
         new SCMSecurityProtocolClientSideTranslatorPB(
             new SCMSecurityProtocolFailoverProxyProvider(conf, ugi));
@@ -573,7 +571,7 @@ public final class HddsServerUtil {
     MetricsSystem metricsSystem = DefaultMetricsSystem.initialize(serverName);
     try {
       JvmMetrics.create(serverName,
-          configuration.get(HddsConfigKeys.HDDS_METRICS_SESSION_ID_KEY),
+          configuration.get(DFSConfigKeysLegacy.DFS_METRICS_SESSION_ID_KEY),
           DefaultMetricsSystem.instance());
       CpuMetrics.create();
     } catch (MetricsException e) {
@@ -626,12 +624,10 @@ public final class HddsServerUtil {
     ArchiveEntry archiveEntry =
         archiveOutputStream.createArchiveEntry(file, entryName);
     archiveOutputStream.putArchiveEntry(archiveEntry);
-    try (InputStream fis = Files.newInputStream(file.toPath())) {
+    try (FileInputStream fis = new FileInputStream(file)) {
       IOUtils.copy(fis, archiveOutputStream);
-      archiveOutputStream.flush();
-    } finally {
-      archiveOutputStream.closeArchiveEntry();
     }
+    archiveOutputStream.closeArchiveEntry();
   }
 
   // Mark tarball completed.
@@ -678,66 +674,4 @@ public final class HddsServerUtil {
   public static void addSuppressedLoggingExceptions(RPC.Server server) {
     server.addSuppressedLoggingExceptions(ServerNotLeaderException.class);
   }
-
-  public static void startupShutdownMessage(VersionInfo versionInfo,
-      Class<?> clazz, String[] args, Logger log, OzoneConfiguration conf) {
-    final String hostname = NetUtils.getHostname();
-    final String className = clazz.getSimpleName();
-
-    if (log.isInfoEnabled()) {
-      log.info(createStartupShutdownMessage(versionInfo, className, hostname,
-          args, HddsUtils.processForLogging(conf)));
-    }
-
-    if (SystemUtils.IS_OS_UNIX) {
-      try {
-        SignalLogger.INSTANCE.register(log);
-      } catch (Throwable t) {
-        log.warn("failed to register any UNIX signal loggers: ", t);
-      }
-    }
-    ShutdownHookManager.get().addShutdownHook(
-        () -> log.info(toStartupShutdownString("SHUTDOWN_MSG: ",
-            "Shutting down " + className + " at " + hostname)),
-        SHUTDOWN_HOOK_PRIORITY);
-  }
-
-  /**
-   * Return a message for logging.
-   * @param prefix prefix keyword for the message
-   * @param msg content of the message
-   * @return a message for logging
-   */
-  public static String toStartupShutdownString(String prefix, String... msg) {
-    StringBuilder b = new StringBuilder(prefix);
-    b.append("\n/************************************************************");
-    for (String s : msg) {
-      b.append("\n").append(prefix).append(s);
-    }
-    b.append("\n************************************************************/");
-    return b.toString();
-  }
-
-  /**
-   * Generate the text for the startup/shutdown message of processes.
-   * @param className short name of the class
-   * @param hostname hostname
-   * @param args Command arguments
-   * @return a string to log.
-   */
-  public static String createStartupShutdownMessage(VersionInfo versionInfo,
-      String className, String hostname, String[] args,
-      Map<String, String> conf) {
-    return toStartupShutdownString("STARTUP_MSG: ",
-        "Starting " + className,
-        "  host = " + hostname,
-        "  args = " + (args != null ? Arrays.asList(args) : new ArrayList<>()),
-        "  version = " + versionInfo.getVersion(),
-        "  classpath = " + System.getProperty("java.class.path"),
-        "  build = " + versionInfo.getUrl() + "/"
-            + versionInfo.getRevision(),
-        "  java = " + System.getProperty("java.version"),
-        "  conf = " + conf);
-  }
-
 }

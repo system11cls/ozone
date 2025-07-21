@@ -1,26 +1,46 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p/>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.shell;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
-import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_DELETION_MAX_RETRY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State;
+import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.block.DeletedBlockLog;
+import org.apache.hadoop.hdds.scm.cli.ContainerOperationClient;
+import org.apache.hadoop.hdds.scm.container.ContainerID;
+import org.apache.hadoop.hdds.scm.container.ContainerInfo;
+import org.apache.hadoop.hdds.scm.container.ContainerReplica;
+import org.apache.hadoop.hdds.scm.container.ContainerStateManager;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
+import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
+import org.apache.hadoop.ozone.MiniOzoneCluster;
+import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
+import org.apache.hadoop.ozone.admin.scm.GetFailedDeletedBlocksTxnSubcommand;
+import org.apache.hadoop.ozone.admin.scm.ResetDeletedBlockRetryCountSubcommand;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -32,33 +52,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.RandomUtils;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto.State;
-import org.apache.hadoop.hdds.scm.block.DeletedBlockLog;
-import org.apache.hadoop.hdds.scm.cli.ContainerOperationClient;
-import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.container.ContainerReplica;
-import org.apache.hadoop.hdds.scm.container.ContainerStateManager;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
-import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
-import org.apache.hadoop.ozone.MiniOzoneCluster;
-import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
-import org.apache.hadoop.ozone.admin.scm.GetFailedDeletedBlocksTxnSubcommand;
-import org.apache.hadoop.ozone.admin.scm.ResetDeletedBlockRetryCountSubcommand;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import picocli.CommandLine;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_BLOCK_DELETION_MAX_RETRY;
 
 /**
  * Test for DeletedBlocksTxnSubcommand Cli.
@@ -72,6 +74,8 @@ public class TestDeletedBlocksTxnShell {
   private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
   private MiniOzoneHAClusterImpl cluster = null;
   private OzoneConfiguration conf;
+  private String clusterId;
+  private String scmId;
   private String scmServiceId;
   private File txnFile;
   private int numOfSCMs = 3;
@@ -89,11 +93,16 @@ public class TestDeletedBlocksTxnShell {
   @BeforeEach
   public void init() throws Exception {
     conf = new OzoneConfiguration();
+    clusterId = UUID.randomUUID().toString();
+    scmId = UUID.randomUUID().toString();
     scmServiceId = "scm-service-test1";
 
+    conf.setBoolean(ScmConfigKeys.OZONE_SCM_HA_ENABLE_KEY, true);
     conf.setInt(OZONE_SCM_BLOCK_DELETION_MAX_RETRY, 20);
 
-    cluster = MiniOzoneCluster.newHABuilder(conf)
+    cluster = (MiniOzoneHAClusterImpl) MiniOzoneCluster.newOMHABuilder(conf)
+        .setClusterId(clusterId)
+        .setScmId(scmId)
         .setSCMServiceId(scmServiceId)
         .setNumOfStorageContainerManagers(numOfSCMs)
         .setNumOfActiveSCMs(numOfSCMs)
@@ -120,8 +129,9 @@ public class TestDeletedBlocksTxnShell {
   //<containerID,  List<blockID>>
   private Map<Long, List<Long>> generateData(int dataSize) throws Exception {
     Map<Long, List<Long>> blockMap = new HashMap<>();
-    int continerIDBase = RandomUtils.nextInt(0, 100);
-    int localIDBase = RandomUtils.nextInt(0, 1000);
+    Random random = new Random(1);
+    int continerIDBase = random.nextInt(100);
+    int localIDBase = random.nextInt(1000);
     for (int i = 0; i < dataSize; i++) {
       long containerID = continerIDBase + i;
       updateContainerMetadata(containerID);
@@ -157,7 +167,8 @@ public class TestDeletedBlocksTxnShell {
         getContainerManager().getContainerStateManager();
     containerStateManager.addContainer(container.getProtobuf());
     for (ContainerReplica replica: replicaSet) {
-      containerStateManager.updateContainerReplica(replica);
+      containerStateManager.updateContainerReplica(
+          ContainerID.valueOf(cid), replica);
     }
   }
 
@@ -183,7 +194,7 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(30, currentValidTxnNum);
+    Assertions.assertEquals(30, currentValidTxnNum);
 
     // let the first 20 txns be failed
     List<Long> txIds = new ArrayList<>();
@@ -197,7 +208,7 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(10, currentValidTxnNum);
+    Assertions.assertEquals(10, currentValidTxnNum);
 
     ContainerOperationClient scmClient = new ContainerOperationClient(conf);
     CommandLine cmd;
@@ -213,12 +224,12 @@ public class TestDeletedBlocksTxnShell {
     while (m.find()) {
       matchCount += 1;
     }
-    assertEquals(20, matchCount);
+    Assertions.assertEquals(20, matchCount);
 
     // print the first 10 failed txns info into file
     cmd.parseArgs("-o", txnFile.getAbsolutePath(), "-c", "10");
     getCommand.execute(scmClient);
-    assertThat(txnFile).exists();
+    Assertions.assertTrue(txnFile.exists());
 
     ResetDeletedBlockRetryCountSubcommand resetCommand =
         new ResetDeletedBlockRetryCountSubcommand();
@@ -230,7 +241,7 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(20, currentValidTxnNum);
+    Assertions.assertEquals(20, currentValidTxnNum);
 
     // reset the given txIds list
     cmd.parseArgs("-l", "11,12,13,14,15");
@@ -238,7 +249,7 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(25, currentValidTxnNum);
+    Assertions.assertEquals(25, currentValidTxnNum);
 
     // reset the non-existing txns and valid txns, should do nothing
     cmd.parseArgs("-l", "1,2,3,4,5,100,101,102,103,104,105");
@@ -246,7 +257,7 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(25, currentValidTxnNum);
+    Assertions.assertEquals(25, currentValidTxnNum);
 
     // reset all the result expired txIds, all transactions should be available
     cmd.parseArgs("-a");
@@ -254,28 +265,6 @@ public class TestDeletedBlocksTxnShell {
     flush();
     currentValidTxnNum = deletedBlockLog.getNumOfValidTransactions();
     LOG.info("Valid num of txns: {}", currentValidTxnNum);
-    assertEquals(30, currentValidTxnNum);
-
-    // Fail first 20 txns be failed
-    // increment retry count than threshold, count will be set to -1
-    for (int i = 0; i < maxRetry + 1; i++) {
-      deletedBlockLog.incrementCount(txIds);
-    }
-    flush();
-
-    GetFailedDeletedBlocksTxnSubcommand getFailedBlockCommand =
-        new GetFailedDeletedBlocksTxnSubcommand();
-    outContent.reset();
-    cmd = new CommandLine(getFailedBlockCommand);
-    // set start transaction as 15
-    cmd.parseArgs("-c", "5", "-s", "15");
-    getFailedBlockCommand.execute(scmClient);
-    matchCount = 0;
-    p = Pattern.compile("\"txID\" : \\d+", Pattern.MULTILINE);
-    m = p.matcher(outContent.toString(DEFAULT_ENCODING));
-    while (m.find()) {
-      matchCount += 1;
-    }
-    assertEquals(5, matchCount);
+    Assertions.assertEquals(30, currentValidTxnNum);
   }
 }

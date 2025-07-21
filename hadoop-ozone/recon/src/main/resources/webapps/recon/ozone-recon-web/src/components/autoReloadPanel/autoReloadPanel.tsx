@@ -19,11 +19,11 @@
 import React from 'react';
 import moment from 'moment';
 import { Tooltip, Button, Switch } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { withRouter } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
 
 import './autoReloadPanel.less';
+import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 
 interface IAutoReloadPanelProps extends RouteComponentProps<object> {
   onReload: () => void;
@@ -76,33 +76,19 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
       );
 
     const lastUpdatedDeltaFullText = lastUpdatedOMDBDelta === 0 || lastUpdatedOMDBDelta === undefined || lastUpdatedOMDBFull === 0 || lastUpdatedOMDBFull === undefined ? '' :
-      //omSyncLoad should be clickable at all times. If the response from the dbsync is false it will show DB update is already running else show triggered sync
       (
         <>
           &nbsp; | DB Synced at {lastUpdatedDeltaFullToolTip}
-          &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} />
+          &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} disabled={omStatus === '' ? false : true} />
         </>
       );
 
     return (
-      <div className='auto-reload-panel' data-testid='autoreload-panel'>
+      <div className='auto-reload-panel'>
         Auto Refresh
-        &nbsp;
-        <Switch
-          defaultChecked={autoReloadEnabled}
-          size='small'
-          className='toggle-switch'
-          onChange={this.autoReloadToggleHandler}
-          data-testid='autoreload-panel-switch' />
+        &nbsp;<Switch defaultChecked={autoReloadEnabled} size='small' className='toggle-switch' onChange={this.autoReloadToggleHandler} />
         &nbsp; | Refreshed at {lastRefreshedText}
-        &nbsp;
-        <Button
-          shape='circle'
-          icon={<ReloadOutlined />}
-          size='small'
-          loading={isLoading}
-          onClick={onReload}
-          data-testid='autoreload-panel-refresh' />
+        &nbsp;<Button shape='circle' icon={<ReloadOutlined />} size='small' loading={isLoading} onClick={onReload} />
         {lastUpdatedDeltaFullText}
       </div>
     );

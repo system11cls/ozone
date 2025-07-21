@@ -1,23 +1,25 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.common;
 
 import com.google.common.base.Preconditions;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
@@ -28,9 +30,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import org.apache.hadoop.hdds.utils.db.CodecBuffer;
-import org.apache.hadoop.ozone.common.utils.BufferUtils;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 /**
  * Use a list of {@link ByteBuffer} to implement a single {@link ChunkBuffer}
@@ -48,8 +47,6 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
   private final int limitIndex;
   /** Buffer list to be allocated incrementally. */
   private final List<ByteBuffer> buffers;
-  /** The underlying buffers. */
-  private final List<CodecBuffer> underlying;
   /** Is this a duplicated buffer? (for debug only) */
   private final boolean isDuplicated;
   /** The index of the first non-full buffer. */
@@ -61,16 +58,9 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
     this.limit = limit;
     this.increment = increment;
     this.limitIndex = limit / increment;
-    int size = limitIndex + (limit % increment == 0 ? 0 : 1);
-    this.buffers = new ArrayList<>(size);
-    this.underlying = isDuplicated ? Collections.emptyList() : new ArrayList<>(size);
+    this.buffers = new ArrayList<>(
+        limitIndex + (limit % increment == 0 ? 0 : 1));
     this.isDuplicated = isDuplicated;
-  }
-
-  @Override
-  public void close() {
-    underlying.forEach(CodecBuffer::release);
-    underlying.clear();
   }
 
   /** @return the capacity for the buffer at the given index. */
@@ -81,7 +71,7 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
   }
 
   private void assertInt(int expected, int computed, String name, int i) {
-    ChunkBufferToByteString.assertInt(expected, computed,
+    ChunkBuffer.assertInt(expected, computed,
         () -> this + ": Unexpected " + name + " at index " + i);
   }
 
@@ -109,7 +99,6 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
 
   /** @return the i-th buffer. It may allocate buffers. */
   private ByteBuffer getAndAllocateAtIndex(int index) {
-    Preconditions.checkState(!isDuplicated, "Duplicated buffer is readonly.");
     Preconditions.checkArgument(index >= 0);
     // never allocate over limit
     if (limit % increment == 0) {
@@ -126,9 +115,7 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
     // allocate upto the given index
     ByteBuffer b = null;
     for (; i <= index; i++) {
-      final CodecBuffer c = CodecBuffer.allocateDirect(getBufferCapacityAtIndex(i));
-      underlying.add(c);
-      b = c.asWritableByteBuffer();
+      b = ByteBuffer.allocate(getBufferCapacityAtIndex(i));
       buffers.add(b);
     }
     return b;
@@ -181,7 +168,7 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
       }
     }
     final int j = i;
-    ChunkBufferToByteString.assertInt(buffers.size(), i,
+    ChunkBuffer.assertInt(buffers.size(), i,
         () -> "i = " + j + " != buffers.size() = " + buffers.size());
     return true;
   }
@@ -279,7 +266,7 @@ final class IncrementalChunkBuffer implements ChunkBuffer {
 
   @Override
   public long writeTo(GatheringByteChannel channel) throws IOException {
-    return BufferUtils.writeFully(channel, buffers);
+    return channel.write(buffers.toArray(new ByteBuffer[0]));
   }
 
   @Override

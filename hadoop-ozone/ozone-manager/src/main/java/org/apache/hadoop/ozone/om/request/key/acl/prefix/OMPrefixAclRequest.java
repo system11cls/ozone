@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,13 +18,10 @@
 
 package org.apache.hadoop.ozone.om.request.key.acl.prefix;
 
-import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.PREFIX_LOCK;
-
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.util.Map;
-import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
-import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
@@ -31,15 +29,19 @@ import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.PrefixManagerImpl;
 import org.apache.hadoop.ozone.om.PrefixManagerImpl.OMPrefixAclOpResult;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
 import org.apache.hadoop.ozone.om.helpers.OmPrefixInfo;
-import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
+import org.apache.hadoop.ozone.om.request.util.ObjectParser;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.Resource.PREFIX_LOCK;
 
 /**
  * Base class for Prefix acl request.
@@ -51,8 +53,8 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
   }
 
   @Override
-  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager, ExecutionContext context) {
-    final long trxnLogIndex = context.getIndex();
+  public OMClientResponse validateAndUpdateCache(OzoneManager ozoneManager,
+      long trxnLogIndex) {
 
     OmPrefixInfo omPrefixInfo = null;
 
@@ -62,8 +64,9 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
 
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
     boolean lockAcquired = false;
-    String prefixPath = null;
-    OzoneObj resolvedPrefixObj = null;
+    String volume = null;
+    String bucket = null;
+    String key = null;
     OMPrefixAclOpResult operationResult = null;
     boolean opResult = false;
     Result result = null;
@@ -71,17 +74,18 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
     PrefixManagerImpl prefixManager =
         (PrefixManagerImpl) ozoneManager.getPrefixManager();
     try {
-      resolvedPrefixObj = prefixManager.getResolvedPrefixObj(getOzoneObj());
-      prefixManager.validateOzoneObj(getOzoneObj());
-      validatePrefixPath(resolvedPrefixObj.getPath());
-      prefixPath = resolvedPrefixObj.getPath();
+      String prefixPath = getOzoneObj().getPath();
+      ObjectParser objectParser = new ObjectParser(prefixPath,
+          OzoneManagerProtocolProtos.OzoneObj.ObjectType.PREFIX);
+      volume = objectParser.getVolume();
+      bucket = objectParser.getBucket();
+      key = objectParser.getKey();
 
       // check Acl
       if (ozoneManager.getAclsEnabled()) {
         checkAcls(ozoneManager, OzoneObj.ResourceType.PREFIX,
             OzoneObj.StoreType.OZONE, IAccessAuthorizer.ACLType.WRITE_ACL,
-            resolvedPrefixObj.getVolumeName(), resolvedPrefixObj.getBucketName(),
-            resolvedPrefixObj.getPrefixName());
+            volume, bucket, key);
       }
 
       mergeOmLockDetails(omMetadataManager.getLock()
@@ -89,12 +93,9 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
       lockAcquired = getOmLockDetails().isLockAcquired();
 
       omPrefixInfo = omMetadataManager.getPrefixTable().get(prefixPath);
-      if (omPrefixInfo != null) {
-        omPrefixInfo.setUpdateID(trxnLogIndex);
-      }
 
       try {
-        operationResult = apply(resolvedPrefixObj, prefixManager, omPrefixInfo, trxnLogIndex);
+        operationResult = apply(prefixManager, omPrefixInfo, trxnLogIndex);
       } catch (IOException ex) {
         // In HA case this will never happen.
         // As in add/remove/setAcl method we have logic to update database,
@@ -110,12 +111,13 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
             "No prefix info for the prefix path: " + prefixPath,
             OMException.ResultCodes.PREFIX_NOT_FOUND);
       }
+      omPrefixInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
 
       // As for remove acl list, for a prefix if after removing acl from
       // the existing acl list, if list size becomes zero, delete the
       // prefix from prefix table.
       if (getOmRequest().hasRemoveAclRequest() &&
-          omPrefixInfo.getAcls().isEmpty()) {
+          omPrefixInfo.getAcls().size() == 0) {
         omMetadataManager.getPrefixTable().addCacheEntry(
             new CacheKey<>(prefixPath),
             CacheValue.get(trxnLogIndex));
@@ -137,54 +139,40 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
     } finally {
       if (lockAcquired) {
         mergeOmLockDetails(omMetadataManager.getLock()
-            .releaseWriteLock(PREFIX_LOCK, prefixPath));
+            .releaseWriteLock(PREFIX_LOCK, getOzoneObj().getPath()));
       }
       if (omClientResponse != null) {
         omClientResponse.setOmLockDetails(getOmLockDetails());
       }
     }
 
-    OzoneObj obj = resolvedPrefixObj;
-    if (obj == null) {
-      // Fall back to the prefix under link bucket
-      obj = getOzoneObj();
-    }
-
+    OzoneObj obj = getOzoneObj();
     Map<String, String> auditMap = obj.toAuditMap();
-    onComplete(obj, opResult, exception, ozoneManager.getMetrics(), result,
+    onComplete(opResult, exception, ozoneManager.getMetrics(), result,
         trxnLogIndex, ozoneManager.getAuditLogger(), auditMap);
 
     return omClientResponse;
   }
 
-  private void validatePrefixPath(String prefixPath) throws OMException {
-    if (!OzoneFSUtils.isValidName(prefixPath)) {
-      throw new OMException("Invalid prefix path name: " + prefixPath,
-          OMException.ResultCodes.INVALID_PATH_IN_ACL_REQUEST);
-    }
-  }
-
   /**
-   * Get the prefix ozone object passed in the request.
-   * Note: The ozone object might still refer to a prefix under a link bucket which
-   *       might require to be resolved.
-   * @return Prefix ozone object.
+   * Get the path name from the request.
+   * @return path name
    */
   abstract OzoneObj getOzoneObj();
 
   // TODO: Finer grain metrics can be moved to these callbacks. They can also
   // be abstracted into separate interfaces in future.
   /**
-   * Get the initial OM response builder with lock.
-   * @return OM response builder.
+   * Get the initial om response builder with lock.
+   * @return om response builder.
    */
   abstract OMResponse.Builder onInit();
 
   /**
-   * Get the OM client response on success case with lock.
-   * @param omResponse OM response builder.
-   * @param omPrefixInfo The updated prefix info.
-   * @param operationResult The operation result. See {@link OMPrefixAclOpResult}.
+   * Get the om client response on success case with lock.
+   * @param omResponse
+   * @param omPrefixInfo
+   * @param operationResult
    * @return OMClientResponse
    */
   abstract OMClientResponse onSuccess(
@@ -193,8 +181,8 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
 
   /**
    * Get the om client response on failure case with lock.
-   * @param omResponse OM response builder.
-   * @param exception Exception thrown while processing the request.
+   * @param omResponse
+   * @param exception
    * @return OMClientResponse
    */
   abstract OMClientResponse onFailure(OMResponse.Builder omResponse,
@@ -203,28 +191,23 @@ public abstract class OMPrefixAclRequest extends OMClientRequest {
   /**
    * Completion hook for final processing before return without lock.
    * Usually used for logging without lock and metric update.
-   * @param resolvedOzoneObj Resolved prefix object in case the prefix is under a link bucket.
-   *                         The original ozone object if the prefix is not under a link bucket.
-   * @param operationResult The operation result. See {@link OMPrefixAclOpResult}.
-   * @param exception Exception thrown while processing the request.
-   * @param omMetrics OM metrics used to update the relevant metrics.
+   * @param operationResult
+   * @param exception
+   * @param omMetrics
    */
-  @SuppressWarnings("checkstyle:ParameterNumber")
-  abstract void onComplete(OzoneObj resolvedOzoneObj, boolean operationResult,
-                           Exception exception, OMMetrics omMetrics, Result result, long trxnLogIndex,
-                           AuditLogger auditLogger, Map<String, String> auditMap);
+  abstract void onComplete(boolean operationResult, Exception exception,
+      OMMetrics omMetrics, Result result, long trxnLogIndex,
+      AuditLogger auditLogger, Map<String, String> auditMap);
 
   /**
-   * Apply the acl operation to underlying storage (prefix tree and table cache).
-   * @param resolvedOzoneObj Resolved prefix object in case the prefix is under a link bucket.
-   *                         The original ozone object if the prefix is not under a link bucket.
-   * @param prefixManager Prefix manager used to update the underlying prefix storage.
-   * @param omPrefixInfo Previous prefix info, null if there is no existing prefix info.
-   * @param trxnLogIndex Transaction log index.
-   * @return result of the prefix operation, see {@link OMPrefixAclOpResult}.
-   * @throws IOException Exception thrown when updating the underlying prefix storage.
+   * Apply the acl operation, if successfully completed returns true,
+   * else false.
+   * @param prefixManager
+   * @param omPrefixInfo
+   * @param trxnLogIndex
+   * @throws IOException
    */
-  abstract OMPrefixAclOpResult apply(OzoneObj resolvedOzoneObj, PrefixManagerImpl prefixManager,
+  abstract OMPrefixAclOpResult apply(PrefixManagerImpl prefixManager,
       OmPrefixInfo omPrefixInfo, long trxnLogIndex) throws IOException;
 }
 

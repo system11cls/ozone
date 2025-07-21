@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +22,6 @@ import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
-import org.apache.hadoop.metrics2.lib.MutableGaugeLong;
 
 /**
  * This class is used for maintaining SafeMode metric information, which can
@@ -33,20 +33,16 @@ public class SafeModeMetrics {
 
 
   // These all values will be set to some values when safemode is enabled.
-  private @Metric MutableGaugeLong
+  private @Metric MutableCounterLong
       numContainerWithOneReplicaReportedThreshold;
-  private @Metric MutableGaugeLong
-      numContainerWithECDataReplicaReportedThreshold;
   private @Metric MutableCounterLong
       currentContainersWithOneReplicaReportedCount;
-  private @Metric MutableCounterLong
-      currentContainersWithECDataReplicaReportedCount;
 
   // When hdds.scm.safemode.pipeline-availability.check is set then only
   // below metrics will have some values, otherwise they will be zero.
-  private @Metric MutableGaugeLong numHealthyPipelinesThreshold;
+  private @Metric MutableCounterLong numHealthyPipelinesThreshold;
   private @Metric MutableCounterLong currentHealthyPipelinesCount;
-  private @Metric MutableGaugeLong
+  private @Metric MutableCounterLong
       numPipelinesWithAtleastOneReplicaReportedThreshold;
   private @Metric MutableCounterLong
       currentPipelinesWithAtleastOneReplicaReportedCount;
@@ -59,7 +55,7 @@ public class SafeModeMetrics {
   }
 
   public void setNumHealthyPipelinesThreshold(long val) {
-    this.numHealthyPipelinesThreshold.set(val);
+    this.numHealthyPipelinesThreshold.incr(val);
   }
 
   public void incCurrentHealthyPipelinesCount() {
@@ -67,7 +63,7 @@ public class SafeModeMetrics {
   }
 
   public void setNumPipelinesWithAtleastOneReplicaReportedThreshold(long val) {
-    this.numPipelinesWithAtleastOneReplicaReportedThreshold.set(val);
+    this.numPipelinesWithAtleastOneReplicaReportedThreshold.incr(val);
   }
 
   public void incCurrentHealthyPipelinesWithAtleastOneReplicaReportedCount() {
@@ -75,47 +71,35 @@ public class SafeModeMetrics {
   }
 
   public void setNumContainerWithOneReplicaReportedThreshold(long val) {
-    this.numContainerWithOneReplicaReportedThreshold.set(val);
-  }
-
-  public void setNumContainerWithECDataReplicaReportedThreshold(long val) {
-    this.numContainerWithECDataReplicaReportedThreshold.set(val);
+    this.numContainerWithOneReplicaReportedThreshold.incr(val);
   }
 
   public void incCurrentContainersWithOneReplicaReportedCount() {
     this.currentContainersWithOneReplicaReportedCount.incr();
   }
 
-  public void incCurrentContainersWithECDataReplicaReportedCount() {
-    this.currentContainersWithECDataReplicaReportedCount.incr();
-  }
-
-  MutableGaugeLong getNumHealthyPipelinesThreshold() {
+  public MutableCounterLong getNumHealthyPipelinesThreshold() {
     return numHealthyPipelinesThreshold;
   }
 
-  MutableCounterLong getCurrentHealthyPipelinesCount() {
+  public MutableCounterLong getCurrentHealthyPipelinesCount() {
     return currentHealthyPipelinesCount;
   }
 
-  MutableGaugeLong
+  public MutableCounterLong
       getNumPipelinesWithAtleastOneReplicaReportedThreshold() {
     return numPipelinesWithAtleastOneReplicaReportedThreshold;
   }
 
-  MutableCounterLong getCurrentPipelinesWithAtleastOneReplicaCount() {
+  public MutableCounterLong getCurrentPipelinesWithAtleastOneReplicaCount() {
     return currentPipelinesWithAtleastOneReplicaReportedCount;
   }
 
-  MutableGaugeLong getNumContainerWithOneReplicaReportedThreshold() {
+  public MutableCounterLong getNumContainerWithOneReplicaReportedThreshold() {
     return numContainerWithOneReplicaReportedThreshold;
   }
 
-  MutableGaugeLong getNumContainerWithECDataReplicaReportedThreshold() {
-    return numContainerWithECDataReplicaReportedThreshold;
-  }
-
-  MutableCounterLong getCurrentContainersWithOneReplicaReportedCount() {
+  public MutableCounterLong getCurrentContainersWithOneReplicaReportedCount() {
     return currentContainersWithOneReplicaReportedCount;
   }
 

@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,17 +18,7 @@
 
 package org.apache.hadoop.ozone.om.request.key;
 
-import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -36,7 +27,12 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeysArgs;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeysMap;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeysRequest;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Tests RenameKey request.
@@ -57,8 +53,8 @@ public class TestOMKeysRenameRequest extends TestOMKeyRequest {
     OMClientResponse omKeysRenameResponse =
         omKeysRenameRequest.validateAndUpdateCache(ozoneManager, 100L);
 
-    assertTrue(omKeysRenameResponse.getOMResponse().getSuccess());
-    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+    Assertions.assertTrue(omKeysRenameResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.OK,
         omKeysRenameResponse.getOMResponse().getStatus());
 
     for (int i = 0; i < count; i++) {
@@ -66,12 +62,12 @@ public class TestOMKeysRenameRequest extends TestOMKeyRequest {
       OmKeyInfo omKeyInfo = omMetadataManager.getKeyTable(getBucketLayout())
           .get(omMetadataManager.getOzoneKey(volumeName, bucketName,
               parentDir.concat("/key" + i)));
-      assertNull(omKeyInfo);
+      Assertions.assertNull(omKeyInfo);
 
       omKeyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(
           omMetadataManager.getOzoneKey(volumeName, bucketName,
               parentDir.concat("/newKey" + i)));
-      assertNotNull(omKeyInfo);
+      Assertions.assertNotNull(omKeyInfo);
     }
 
   }
@@ -86,8 +82,8 @@ public class TestOMKeysRenameRequest extends TestOMKeyRequest {
     OMClientResponse omKeysRenameResponse =
         omKeysRenameRequest.validateAndUpdateCache(ozoneManager, 100L);
 
-    assertFalse(omKeysRenameResponse.getOMResponse().getSuccess());
-    assertEquals(OzoneManagerProtocolProtos.Status.PARTIAL_RENAME,
+    Assertions.assertFalse(omKeysRenameResponse.getOMResponse().getSuccess());
+    Assertions.assertEquals(OzoneManagerProtocolProtos.Status.PARTIAL_RENAME,
         omKeysRenameResponse.getOMResponse().getStatus());
 
     // The keys（key0 to key9）can be renamed success.
@@ -96,18 +92,18 @@ public class TestOMKeysRenameRequest extends TestOMKeyRequest {
       OmKeyInfo omKeyInfo = omMetadataManager.getKeyTable(getBucketLayout())
           .get(omMetadataManager.getOzoneKey(volumeName, bucketName,
               parentDir.concat("/key" + i)));
-      assertNull(omKeyInfo);
+      Assertions.assertNull(omKeyInfo);
 
       omKeyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(
           omMetadataManager.getOzoneKey(volumeName, bucketName,
               parentDir.concat("/newKey" + i)));
-      assertNotNull(omKeyInfo);
+      Assertions.assertNotNull(omKeyInfo);
     }
 
     // The key not rename should be in unRenamedKeys.
     RenameKeysMap unRenamedKeys = omKeysRenameResponse.getOMResponse()
         .getRenameKeysResponse().getUnRenamedKeys(0);
-    assertEquals("testKey", unRenamedKeys.getFromKeyName());
+    Assertions.assertEquals("testKey", unRenamedKeys.getFromKeyName());
   }
 
   /**
@@ -127,7 +123,8 @@ public class TestOMKeysRenameRequest extends TestOMKeyRequest {
       String key = parentDir.concat("/key" + i);
       String toKey = parentDir.concat("/newKey" + i);
       OMRequestTestUtils.addKeyToTableCache(volumeName, bucketName,
-          parentDir.concat("/key" + i), RatisReplicationConfig.getInstance(THREE), omMetadataManager);
+          parentDir.concat("/key" + i), HddsProtos.ReplicationType.RATIS,
+          HddsProtos.ReplicationFactor.THREE, omMetadataManager);
 
       RenameKeysMap.Builder renameKey = RenameKeysMap.newBuilder()
           .setFromKeyName(key)

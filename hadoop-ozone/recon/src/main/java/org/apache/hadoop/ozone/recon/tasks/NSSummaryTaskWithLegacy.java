@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,32 +17,30 @@
  */
 
 package org.apache.hadoop.ozone.recon.tasks;
-
-import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
-import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.KEY_TABLE;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
-import org.apache.hadoop.ozone.om.OmConfig;
-import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.WithParentObjectId;
 import org.apache.hadoop.ozone.recon.api.types.NSSummary;
 import org.apache.hadoop.ozone.recon.recovery.ReconOMMetadataManager;
 import org.apache.hadoop.ozone.recon.spi.ReconNamespaceSummaryManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.KEY_TABLE;
 
 /**
  * Class for handling Legacy specific tasks.
@@ -53,35 +52,24 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
   private static final Logger LOG =
       LoggerFactory.getLogger(NSSummaryTaskWithLegacy.class);
 
-  private final boolean enableFileSystemPaths;
-  private final long nsSummaryFlushToDBMaxThreshold;
+  private boolean enableFileSystemPaths;
 
   public NSSummaryTaskWithLegacy(ReconNamespaceSummaryManager
                                  reconNamespaceSummaryManager,
                                  ReconOMMetadataManager
                                  reconOMMetadataManager,
                                  OzoneConfiguration
-                                 ozoneConfiguration,
-                                 long nsSummaryFlushToDBMaxThreshold) {
+                                 ozoneConfiguration) {
     super(reconNamespaceSummaryManager,
-        reconOMMetadataManager);
+        reconOMMetadataManager, ozoneConfiguration);
     // true if FileSystemPaths enabled
     enableFileSystemPaths = ozoneConfiguration
-        .getBoolean(OmConfig.Keys.ENABLE_FILESYSTEM_PATHS,
-            OmConfig.Defaults.ENABLE_FILESYSTEM_PATHS);
-    this.nsSummaryFlushToDBMaxThreshold = nsSummaryFlushToDBMaxThreshold;
+        .getBoolean(OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS,
+            OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS_DEFAULT);
   }
 
-  public Pair<Integer, Boolean> processWithLegacy(OMUpdateEventBatch events,
-                                                  int seekPos) {
+  public boolean processWithLegacy(OMUpdateEventBatch events) {
     Iterator<OMDBUpdateEvent> eventIterator = events.getIterator();
-    int itrPos = 0;
-    while (eventIterator.hasNext() && itrPos < seekPos) {
-      eventIterator.next();
-      itrPos++;
-    }
-
-    int eventCounter = 0;
     Map<Long, NSSummary> nsSummaryMap = new HashMap<>();
     ReconOMMetadataManager metadataManager = getReconOMMetadataManager();
 
@@ -89,7 +77,6 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
       OMDBUpdateEvent<String, ? extends WithParentObjectId> omdbUpdateEvent =
           eventIterator.next();
       OMDBUpdateEvent.OMDBUpdateAction action = omdbUpdateEvent.getAction();
-      eventCounter++;
 
       // we only process updates on OM's KeyTable
       String table = omdbUpdateEvent.getTable();
@@ -128,24 +115,20 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
       } catch (IOException ioEx) {
         LOG.error("Unable to process Namespace Summary data in Recon DB. ",
             ioEx);
-        nsSummaryMap.clear();
-        return new ImmutablePair<>(seekPos, false);
+        return false;
       }
-      if (nsSummaryMap.size() >= nsSummaryFlushToDBMaxThreshold) {
-        if (!flushAndCommitNSToDB(nsSummaryMap)) {
-          return new ImmutablePair<>(seekPos, false);
-        }
-        seekPos = eventCounter + 1;
+      if (!checkAndCallFlushToDB(nsSummaryMap)) {
+        return false;
       }
     }
 
     // flush and commit left out entries at end
     if (!flushAndCommitNSToDB(nsSummaryMap)) {
-      return new ImmutablePair<>(seekPos, false);
+      return false;
     }
 
-    LOG.debug("Completed a process run of NSSummaryTaskWithLegacy");
-    return new ImmutablePair<>(seekPos, true);
+    LOG.info("Completed a process run of NSSummaryTaskWithLegacy");
+    return true;
   }
 
   private void processWithFileSystemLayout(OmKeyInfo updatedKeyInfo,
@@ -296,17 +279,14 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
             setParentBucketId(keyInfo);
             handlePutKeyEvent(keyInfo, nsSummaryMap);
           }
-          if (nsSummaryMap.size() >= nsSummaryFlushToDBMaxThreshold) {
-            if (!flushAndCommitNSToDB(nsSummaryMap)) {
-              return false;
-            }
+          if (!checkAndCallFlushToDB(nsSummaryMap)) {
+            return false;
           }
         }
       }
     } catch (IOException ioEx) {
       LOG.error("Unable to reprocess Namespace Summary data in Recon DB. ",
           ioEx);
-      nsSummaryMap.clear();
       return false;
     }
 
@@ -314,7 +294,7 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
     if (!flushAndCommitNSToDB(nsSummaryMap)) {
       return false;
     }
-    LOG.debug("Completed a reprocess run of NSSummaryTaskWithLegacy");
+    LOG.info("Completed a reprocess run of NSSummaryTaskWithLegacy");
     return true;
   }
 
@@ -346,10 +326,8 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
       if (parentKeyInfo != null) {
         keyInfo.setParentObjectID(parentKeyInfo.getObjectID());
       } else {
-        LOG.warn("ParentKeyInfo is null for key: {} in volume: {}, bucket: {}. Full Parent Key: {}",
-            keyInfo.getKeyName(), keyInfo.getVolumeName(), keyInfo.getBucketName(), fullParentKeyName);
-        throw new IOException("ParentKeyInfo for NSSummaryTaskWithLegacy is null for key: " +
-                keyInfo.getKeyName());
+        throw new IOException("ParentKeyInfo for " +
+            "NSSummaryTaskWithLegacy is null");
       }
     } else {
       setParentBucketId(keyInfo);
@@ -371,10 +349,8 @@ public class NSSummaryTaskWithLegacy extends NSSummaryTaskDbEventHandler {
     if (parentBucketInfo != null) {
       keyInfo.setParentObjectID(parentBucketInfo.getObjectID());
     } else {
-      LOG.warn("ParentBucketInfo is null for key: {} in volume: {}, bucket: {}",
-          keyInfo.getKeyName(), keyInfo.getVolumeName(), keyInfo.getBucketName());
-      throw new IOException("ParentBucketInfo for NSSummaryTaskWithLegacy is null for key: " +
-              keyInfo.getKeyName());
+      throw new IOException("ParentKeyInfo for " +
+          "NSSummaryTaskWithLegacy is null");
     }
   }
 

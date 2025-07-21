@@ -1,27 +1,24 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.hdds.scm.protocol;
 
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
-import java.io.IOException;
-import java.util.UUID;
 import org.apache.hadoop.hdds.protocol.SecretKeyProtocolScm;
 import org.apache.hadoop.hdds.protocol.proto.SCMSecretKeyProtocolProtos.SCMGetCheckAndRotateResponse;
 import org.apache.hadoop.hdds.protocol.proto.SCMSecretKeyProtocolProtos.SCMGetCurrentSecretKeyResponse;
@@ -39,9 +36,12 @@ import org.apache.hadoop.hdds.security.exception.SCMSecretKeyException;
 import org.apache.hadoop.hdds.security.symmetric.ManagedSecretKey;
 import org.apache.hadoop.hdds.server.OzoneProtocolMessageDispatcher;
 import org.apache.hadoop.hdds.utils.ProtocolMessageMetrics;
-import org.apache.hadoop.ozone.util.ProtobufUtils;
+import org.apache.hadoop.util.ProtobufUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.UUID;
 
 /**
  * This class is the server-side translator that forwards requests received on
@@ -55,7 +55,6 @@ public class SecretKeyProtocolServerSideTranslatorPB
 
   private final SecretKeyProtocolScm impl;
   private final StorageContainerManager scm;
-  private static final String ROLE_TYPE = "SCM";
 
   private OzoneProtocolMessageDispatcher<SCMSecretKeyRequest,
       SCMSecretKeyResponse, ProtocolMessageEnum> dispatcher;
@@ -76,7 +75,7 @@ public class SecretKeyProtocolServerSideTranslatorPB
     if (!scm.checkLeader()) {
       RatisUtil.checkRatisException(
           scm.getScmHAManager().getRatisServer().triggerNotLeaderException(),
-          scm.getSecurityProtocolRpcPort(), scm.getScmId(), scm.getHostname(), ROLE_TYPE);
+          scm.getSecurityProtocolRpcPort(), scm.getScmId());
     }
     return dispatcher.processRequest(request, this::processRequest,
         request.getCmdType(), request.getTraceID());
@@ -116,7 +115,7 @@ public class SecretKeyProtocolServerSideTranslatorPB
       }
     } catch (IOException e) {
       RatisUtil.checkRatisException(e, scm.getSecurityProtocolRpcPort(),
-          scm.getScmId(), scm.getHostname(), ROLE_TYPE);
+          scm.getScmId());
       scmSecurityResponse.setSuccess(false);
       scmSecurityResponse.setStatus(exceptionToResponseStatus(e));
       // If actual cause is set in SCMSecurityException, set message with

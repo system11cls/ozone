@@ -1,12 +1,13 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +19,7 @@
 package org.apache.hadoop.hdds.scm.node;
 
 import java.util.Map;
+
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.metrics2.MetricsCollector;
 import org.apache.hadoop.metrics2.MetricsInfo;
@@ -31,6 +33,7 @@ import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.ozone.OzoneConsts;
+
 import org.apache.hadoop.util.StringUtils;
 
 /**
@@ -132,7 +135,6 @@ public final class SCMNodeMetrics implements MetricsSource {
   public void getMetrics(MetricsCollector collector, boolean all) {
     Map<String, Map<String, Integer>> nodeCount = managerMXBean.getNodeCount();
     Map<String, Long> nodeInfo = managerMXBean.getNodeInfo();
-    int totalNodeCount = 0;
     /**
      * Loop over the Node map and create a metric for the cross product of all
      * Operational and health states, ie:
@@ -150,11 +152,8 @@ public final class SCMNodeMetrics implements MetricsSource {
                 StringUtils.camelize(e.getKey() + "_" + h.getKey() + "_nodes"),
                 "Number of " + e.getKey() + " " + h.getKey() + " datanodes"),
             h.getValue());
-        totalNodeCount += h.getValue();
       }
     }
-    metrics.addGauge(
-        Interns.info("AllNodes", "Number of datanodes"), totalNodeCount);
 
     for (Map.Entry<String, Long> e : nodeInfo.entrySet()) {
       metrics.addGauge(

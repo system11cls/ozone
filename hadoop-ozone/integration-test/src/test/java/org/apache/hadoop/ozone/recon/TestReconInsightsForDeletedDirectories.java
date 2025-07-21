@@ -1,44 +1,26 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * contributor license agreements.  See the NOTICE file distributed with this
+ * work for additional information regarding copyright ownership.  The ASF
+ * licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 package org.apache.hadoop.ozone.recon;
 
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_FS_ITERATE_BATCH_SIZE;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DIR_DELETING_SERVICE_INTERVAL;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.ws.rs.core.Response;
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
 import org.apache.hadoop.hdds.utils.IOUtils;
@@ -51,22 +33,40 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.recon.api.OMDBInsightEndpoint;
 import org.apache.hadoop.ozone.recon.api.types.KeyInsightInfoResponse;
 import org.apache.hadoop.ozone.recon.api.types.NSSummary;
 import org.apache.hadoop.ozone.recon.recovery.ReconOMMetadataManager;
 import org.apache.hadoop.ozone.recon.spi.impl.OzoneManagerServiceProviderImpl;
 import org.apache.hadoop.ozone.recon.spi.impl.ReconNamespaceSummaryManagerImpl;
-import org.apache.ozone.recon.schema.generated.tables.daos.GlobalStatsDao;
 import org.apache.ozone.test.GenericTestUtils;
+import org.hadoop.ozone.recon.schema.tables.daos.GlobalStatsDao;
+import org.junit.Assert;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.ws.rs.core.Response;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_ACL_ENABLED;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_FS_ITERATE_BATCH_SIZE;
+
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DIR_DELETING_SERVICE_INTERVAL;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_PATH_DELETING_LIMIT_PER_TASK;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_ENABLE_KEY;
+
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 /**
  * Test class to verify the correctness of the insights generated by Recon
@@ -76,6 +76,8 @@ public class TestReconInsightsForDeletedDirectories {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(TestReconInsightsForDeletedDirectories.class);
+
+  private static boolean omRatisEnabled = true;
 
   private static MiniOzoneCluster cluster;
   private static FileSystem fs;
@@ -87,8 +89,10 @@ public class TestReconInsightsForDeletedDirectories {
   public static void init() throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration();
     conf.setInt(OZONE_DIR_DELETING_SERVICE_INTERVAL, 1000000);
+    conf.setInt(OZONE_PATH_DELETING_LIMIT_PER_TASK, 0);
     conf.setTimeDuration(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, 10000000,
         TimeUnit.MILLISECONDS);
+    conf.setBoolean(OZONE_OM_RATIS_ENABLE_KEY, omRatisEnabled);
     conf.setBoolean(OZONE_ACL_ENABLED, true);
     cluster = MiniOzoneCluster.newBuilder(conf)
         .setNumDatanodes(3)
@@ -124,14 +128,16 @@ public class TestReconInsightsForDeletedDirectories {
   }
 
   @AfterEach
-  public void cleanup() throws IOException {
-    assertDoesNotThrow(() -> {
+  public void cleanup() {
+    try {
       Path root = new Path("/");
       FileStatus[] fileStatuses = fs.listStatus(root);
       for (FileStatus fileStatus : fileStatuses) {
         fs.delete(fileStatus.getPath(), true);
       }
-    });
+    } catch (IOException ex) {
+      fail("Failed to cleanup files.");
+    }
   }
 
   /**
@@ -200,17 +206,17 @@ public class TestReconInsightsForDeletedDirectories {
 
     if (directoryObjectId == null) {
       fail("directoryObjectId is null. Test case cannot proceed.");
-    } else {
-      // Retrieve Namespace Summary for dir1 from Recon.
-      ReconNamespaceSummaryManagerImpl namespaceSummaryManager =
-          (ReconNamespaceSummaryManagerImpl) cluster.getReconServer()
-              .getReconNamespaceSummaryManager();
-      NSSummary summary =
-          namespaceSummaryManager.getNSSummary(directoryObjectId);
-      // Assert that the directory dir1 has 10 sub-files and size of 1000 bytes.
-      assertEquals(10, summary.getNumOfFiles());
-      assertEquals(10, summary.getSizeOfFiles());
     }
+
+    // Retrieve Namespace Summary for dir1 from Recon.
+    ReconNamespaceSummaryManagerImpl namespaceSummaryManager =
+        (ReconNamespaceSummaryManagerImpl) cluster.getReconServer()
+            .getReconNamespaceSummaryManager();
+    NSSummary summary =
+        namespaceSummaryManager.getNSSummary(directoryObjectId);
+    // Assert that the directory dir1 has 10 sub-files and size of 1000 bytes.
+    Assert.assertEquals(10, summary.getNumOfFiles());
+    Assert.assertEquals(10, summary.getSizeOfFiles());
 
     // Delete the entire directory dir1.
     fs.delete(dir1, true);
@@ -236,7 +242,7 @@ public class TestReconInsightsForDeletedDirectories {
     KeyInsightInfoResponse entity =
         (KeyInsightInfoResponse) deletedDirInfo.getEntity();
     // Assert the size of deleted directory is 10.
-    assertEquals(10, entity.getUnreplicatedDataSize());
+    Assert.assertEquals(10, entity.getUnreplicatedDataSize());
 
     // Cleanup the tables.
     cleanupTables();
@@ -325,7 +331,7 @@ public class TestReconInsightsForDeletedDirectories {
     KeyInsightInfoResponse entity =
         (KeyInsightInfoResponse) deletedDirInfo.getEntity();
     // Assert the size of deleted directory is 3.
-    assertEquals(3, entity.getUnreplicatedDataSize());
+    Assert.assertEquals(3, entity.getUnreplicatedDataSize());
 
     // Cleanup the tables.
     cleanupTables();
@@ -366,7 +372,7 @@ public class TestReconInsightsForDeletedDirectories {
     fs.delete(rootDir, true);
 
     // Verify that the directory is deleted
-    assertFalse(fs.exists(rootDir), "Directory was not deleted");
+    Assertions.assertFalse(fs.exists(rootDir), "Directory was not deleted");
 
     // Sync data from Ozone Manager to Recon.
     syncDataFromOM();
@@ -387,7 +393,7 @@ public class TestReconInsightsForDeletedDirectories {
     KeyInsightInfoResponse entity =
         (KeyInsightInfoResponse) deletedDirInfo.getEntity();
     // Assert the size of deleted directory is 100.
-    assertEquals(100, entity.getUnreplicatedDataSize());
+    Assert.assertEquals(100, entity.getUnreplicatedDataSize());
 
     // Cleanup the tables.
     cleanupTables();
@@ -417,31 +423,24 @@ public class TestReconInsightsForDeletedDirectories {
     OMMetadataManager metadataManager =
         cluster.getOzoneManager().getMetadataManager();
 
-    Table<String, OmKeyInfo> deletedDirTable =
-        metadataManager.getDeletedDirTable();
-    try (TableIterator<String, ? extends Table.KeyValue<String, ?>> it = deletedDirTable.iterator()) {
-      removeAllFromDB(it, deletedDirTable);
+    try (TableIterator<?, ?> it = metadataManager.getDeletedDirTable()
+        .iterator()) {
+      removeAllFromDB(it);
     }
-    Table<String, OmKeyInfo> fileTable = metadataManager.getFileTable();
-    try (TableIterator<String, ? extends Table.KeyValue<String, ?>> it = fileTable.iterator()) {
-      removeAllFromDB(it, fileTable);
+    try (TableIterator<?, ?> it = metadataManager.getFileTable().iterator()) {
+      removeAllFromDB(it);
     }
-    Table<String, OmDirectoryInfo> directoryTable =
-        metadataManager.getDirectoryTable();
-    try (TableIterator<String, ? extends Table.KeyValue<String, ?>> it = directoryTable.iterator()) {
-      removeAllFromDB(it, directoryTable);
+    try (TableIterator<?, ?> it = metadataManager.getDirectoryTable()
+        .iterator()) {
+      removeAllFromDB(it);
     }
   }
 
-  private static void removeAllFromDB(
-      TableIterator<String, ? extends Table.KeyValue<String, ?>> iterator,
-      Table<String, ?> table) throws IOException {
-    List<String> keysToDelete = new ArrayList<>();
+  private static void removeAllFromDB(TableIterator<?, ?> iterator)
+      throws IOException {
     while (iterator.hasNext()) {
-      keysToDelete.add(iterator.next().getKey());
-    }
-    for (String keyToDelete : keysToDelete) {
-      table.delete(keyToDelete);
+      iterator.next();
+      iterator.removeFromDB();
     }
   }
 
@@ -464,22 +463,24 @@ public class TestReconInsightsForDeletedDirectories {
 
   private boolean assertTableRowCount(int expectedCount,
                                       Table<String, ?> table, boolean isRecon) {
-    AtomicLong count = new AtomicLong(0L);
-    assertDoesNotThrow(() -> {
+    long count = 0L;
+    try {
       if (isRecon) {
-        count.set(cluster.getReconServer().getOzoneManagerServiceProvider()
-            .getOMMetadataManagerInstance().countRowsInTable(table));
+        count = cluster.getReconServer().getOzoneManagerServiceProvider()
+            .getOMMetadataManagerInstance().countRowsInTable(table);
       } else {
-        count.set(cluster.getOzoneManager().getMetadataManager()
-            .countRowsInTable(table));
+        count = cluster.getOzoneManager().getMetadataManager()
+            .countRowsInTable(table);
       }
       LOG.info("{} actual row count={}, expectedCount={}", table.getName(),
-          count.get(), expectedCount);
-    });
-    return count.get() == expectedCount;
+          count, expectedCount);
+    } catch (IOException ex) {
+      fail("Test failed with: " + ex);
+    }
+    return count == expectedCount;
   }
 
-  private void syncDataFromOM() throws IOException {
+  private void syncDataFromOM() {
     // Sync data from Ozone Manager to Recon.
     OzoneManagerServiceProviderImpl impl = (OzoneManagerServiceProviderImpl)
         cluster.getReconServer().getOzoneManagerServiceProvider();

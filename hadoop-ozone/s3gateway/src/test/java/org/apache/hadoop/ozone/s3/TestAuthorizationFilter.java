@@ -1,40 +1,27 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 package org.apache.hadoop.ozone.s3;
 
-import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
-import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
-import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.MALFORMED_HEADER;
-import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.S3_AUTHINFO_CREATION_ERROR;
-import static org.apache.hadoop.ozone.s3.signature.AWSSignatureProcessor.DATE_FORMATTER;
-import static org.apache.hadoop.ozone.s3.signature.SignatureParser.AUTHORIZATION_HEADER;
-import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.CONTENT_MD5;
-import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.CONTENT_TYPE;
-import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.HOST_HEADER;
-import static org.apache.hadoop.ozone.s3.signature.StringToSignProducer.X_AMAZ_DATE;
-import static org.apache.hadoop.ozone.s3.util.S3Consts.X_AMZ_CONTENT_SHA256;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -42,18 +29,33 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.stream.Stream;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.UriInfo;
+
 import org.apache.hadoop.ozone.s3.signature.AWSSignatureProcessor;
 import org.apache.hadoop.ozone.s3.signature.SignatureInfo;
 import org.apache.hadoop.ozone.s3.signature.StringToSignProducer;
 import org.apache.kerby.util.Hex;
+
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+
+import static org.apache.hadoop.ozone.s3.signature.AWSSignatureProcessor.DATE_FORMATTER;
+import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.MALFORMED_HEADER;
+import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.S3_AUTHINFO_CREATION_ERROR;
+import static org.apache.hadoop.ozone.s3.signature.SignatureParser.AUTHORIZATION_HEADER;
+import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.CONTENT_MD5;
+import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.CONTENT_TYPE;
+import static org.apache.hadoop.ozone.s3.signature.SignatureProcessor.HOST_HEADER;
+import static org.apache.hadoop.ozone.s3.signature.StringToSignProducer.X_AMAZ_DATE;
+import static org.apache.hadoop.ozone.s3.signature.StringToSignProducer.X_AMZ_CONTENT_SHA256;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * This class test string to sign generation.
@@ -128,11 +130,11 @@ public class TestAuthorizationFilter {
   @SuppressWarnings("checkstyle:ParameterNumber")
   @ParameterizedTest
   @MethodSource("testAuthFilterFailuresInput")
-  void testAuthFilterFailures(
+  public void testAuthFilterFailures(
       String method, String authHeader, String contentMd5,
       String host, String amzContentSha256, String date, String contentType,
       String path, String expectedErrorMsg
-  ) throws Exception {
+  ) {
     try {
       ContainerRequestContext context = setupContext(method, authHeader,
           contentMd5, host, amzContentSha256, date, contentType, path);
@@ -166,6 +168,8 @@ public class TestAuthorizationFilter {
 
       }
 
+    } catch (Exception ex) {
+      fail("Unexpected exception: " + ex);
     }
   }
 
@@ -204,6 +208,28 @@ public class TestAuthorizationFilter {
             DATETIME,
             "",
             "/key1"
+        ),
+        // S3 secret generation endpoint
+        arguments(
+            "POST",
+            null,
+            null,
+            "s3g:9878",
+            null,
+            null,
+            "",
+            "/secret/generate"
+        ),
+        // S3 secret generation endpoint
+        arguments(
+            "POST",
+            null,
+            null,
+            "s3g:9878",
+            null,
+            null,
+            "",
+            "/secret/revoke"
         )
     );
   }
@@ -211,54 +237,58 @@ public class TestAuthorizationFilter {
   @SuppressWarnings("checkstyle:ParameterNumber")
   @ParameterizedTest
   @MethodSource("testAuthFilterInput")
-  void testAuthFilter(
+  public void testAuthFilter(
       String method, String authHeader, String contentMd5,
       String host, String amzContentSha256, String date, String contentType,
       String path
-  ) throws Exception {
-    ContainerRequestContext context = setupContext(method, authHeader,
-        contentMd5, host, amzContentSha256, date, contentType, path);
+  ) {
+    try {
+      ContainerRequestContext context = setupContext(method, authHeader,
+          contentMd5, host, amzContentSha256, date, contentType, path);
 
-    AWSSignatureProcessor awsSignatureProcessor = new AWSSignatureProcessor();
-    awsSignatureProcessor.setContext(context);
+      AWSSignatureProcessor awsSignatureProcessor = new AWSSignatureProcessor();
+      awsSignatureProcessor.setContext(context);
 
-    SignatureInfo signatureInfo = new SignatureInfo();
+      SignatureInfo signatureInfo = new SignatureInfo();
 
-    authorizationFilter.setSignatureParser(awsSignatureProcessor);
-    authorizationFilter.setSignatureInfo(signatureInfo);
+      authorizationFilter.setSignatureParser(awsSignatureProcessor);
+      authorizationFilter.setSignatureInfo(signatureInfo);
 
-    authorizationFilter.filter(context);
+      authorizationFilter.filter(context);
 
-    if (path.startsWith("/secret")) {
-      assertNull(authorizationFilter.getSignatureInfo().getUnfilteredURI());
+      if (path.startsWith("/secret")) {
+        assertNull(authorizationFilter.getSignatureInfo().getUnfilteredURI());
 
-      assertNull(authorizationFilter.getSignatureInfo().getStringToSign());
-    } else {
-      String canonicalRequest = method + "\n"
-          + path + "\n"
-          + "\n"
-          + "host:" + host + "\nx-amz-content-sha256:" + amzContentSha256 +
-          "\n"
-          + "x-amz-date:" + DATETIME + "\n"
-          + "\n"
-          + "host;x-amz-content-sha256;x-amz-date\n"
-          + amzContentSha256;
+        assertNull(authorizationFilter.getSignatureInfo().getStringToSign());
+      } else {
+        String canonicalRequest = method + "\n"
+            + path + "\n"
+            + "\n"
+            + "host:" + host + "\nx-amz-content-sha256:" + amzContentSha256 +
+            "\n"
+            + "x-amz-date:" + DATETIME + "\n"
+            + "\n"
+            + "host;x-amz-content-sha256;x-amz-date\n"
+            + amzContentSha256;
 
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      md.update(canonicalRequest.getBytes(StandardCharsets.UTF_8));
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(canonicalRequest.getBytes(StandardCharsets.UTF_8));
 
-      String expectedStrToSign = "AWS4-HMAC-SHA256\n"
-          + DATETIME + "\n"
-          + CURDATE + "/us-east-1/s3/aws4_request\n"
-          + Hex.encode(md.digest()).toLowerCase();
+        String expectedStrToSign = "AWS4-HMAC-SHA256\n"
+            + DATETIME + "\n"
+            + CURDATE + "/us-east-1/s3/aws4_request\n"
+            + Hex.encode(md.digest()).toLowerCase();
 
-      assertEquals(path,
-          authorizationFilter.getSignatureInfo().getUnfilteredURI(),
-          "Unfiltered URI is not preserved");
+        assertEquals(path,
+            authorizationFilter.getSignatureInfo().getUnfilteredURI(),
+            "Unfiltered URI is not preserved");
 
-      assertEquals(expectedStrToSign,
-          authorizationFilter.getSignatureInfo().getStringToSign(),
-          "String to sign is invalid");
+        assertEquals(expectedStrToSign,
+            authorizationFilter.getSignatureInfo().getStringToSign(),
+            "String to sign is invalid");
+      }
+    } catch (Exception ex) {
+      fail("Unexpected exception: " + ex);
     }
   }
 
@@ -279,21 +309,21 @@ public class TestAuthorizationFilter {
     headerMap.putSingle(X_AMAZ_DATE, date);
     headerMap.putSingle(CONTENT_TYPE, contentType);
 
-    UriInfo uriInfo = mock(UriInfo.class);
-    ContainerRequestContext context = mock(
+    UriInfo uriInfo = Mockito.mock(UriInfo.class);
+    ContainerRequestContext context = Mockito.mock(
         ContainerRequestContext.class);
-    when(uriInfo.getQueryParameters()).thenReturn(queryMap);
-    when(uriInfo.getRequestUri()).thenReturn(
+    Mockito.when(uriInfo.getQueryParameters()).thenReturn(queryMap);
+    Mockito.when(uriInfo.getRequestUri()).thenReturn(
         new URI("http://" + host + path));
 
-    when(context.getMethod()).thenReturn(method);
-    when(context.getUriInfo()).thenReturn(uriInfo);
-    when(context.getHeaders()).thenReturn(headerMap);
-    when(context.getHeaderString(AUTHORIZATION_HEADER))
+    Mockito.when(context.getMethod()).thenReturn(method);
+    Mockito.when(context.getUriInfo()).thenReturn(uriInfo);
+    Mockito.when(context.getHeaders()).thenReturn(headerMap);
+    Mockito.when(context.getHeaderString(AUTHORIZATION_HEADER))
         .thenReturn(authHeader);
-    when(context.getUriInfo().getQueryParameters())
+    Mockito.when(context.getUriInfo().getQueryParameters())
         .thenReturn(queryMap);
-    when(context.getUriInfo().getPathParameters())
+    Mockito.when(context.getUriInfo().getPathParameters())
         .thenReturn(pathParamsMap);
 
     return context;

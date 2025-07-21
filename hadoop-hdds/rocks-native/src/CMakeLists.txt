@@ -20,7 +20,7 @@
 # CMake configuration.
 #
 
-cmake_minimum_required(VERSION 2.8...3.31)
+cmake_minimum_required(VERSION 2.8)
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
@@ -30,14 +30,7 @@ find_package(JNI REQUIRED)
 include_directories(${JNI_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD ${CMAKE_STANDARDS})
 
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
-
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-
-set(CMAKE_INSTALL_RPATH "")
-
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
-
+set(linked_libraries "")
 if(NOT GENERATED_JAVAH)
     message(FATAL_ERROR "You must set the CMake variable GENERATED_JAVAH")
 endif()
@@ -45,18 +38,17 @@ include_directories(${GENERATED_JAVAH})
 if(${SST_DUMP_INCLUDE})
     include_directories(${ROCKSDB_HEADERS})
     set(SOURCE_FILES ${NATIVE_DIR}/ManagedRawSSTFileReader.cpp ${NATIVE_DIR}/ManagedRawSSTFileIterator.cpp ${NATIVE_DIR}/cplusplus_to_java_convert.h)
+    ADD_LIBRARY(rocksdb SHARED IMPORTED)
+    set_target_properties(
+            rocksdb
+            PROPERTIES
+            IMPORTED_LOCATION ${ROCKSDB_LIB})
     ADD_LIBRARY(rocks_tools STATIC IMPORTED)
     set_target_properties(
             rocks_tools
             PROPERTIES
             IMPORTED_LOCATION ${ROCKSDB_TOOLS_LIB}/librocksdb_tools.a)
+    set(linked_libraries ${linked_libraries} rocks_tools rocksdb)
 endif()
-
 add_library(ozone_rocksdb_tools SHARED ${SOURCE_FILES})
-
-
-target_link_libraries(ozone_rocksdb_tools PRIVATE ${ROCKSDB_LIB})
-target_link_libraries(ozone_rocksdb_tools PRIVATE rocks_tools)
-set_target_properties(ozone_rocksdb_tools PROPERTIES
-        BUILD_WITH_INSTALL_RPATH FALSE
-        LINK_FLAGS "-Wl,-rpath -Wl,'$ORIGIN'")
+target_link_libraries(ozone_rocksdb_tools ${linked_libraries})

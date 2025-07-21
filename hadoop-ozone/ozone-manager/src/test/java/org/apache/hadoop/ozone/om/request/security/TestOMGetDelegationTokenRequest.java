@@ -1,13 +1,14 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,34 +18,32 @@
 
 package org.apache.hadoop.ozone.om.request.security;
 
-import static org.apache.hadoop.ozone.security.OzoneTokenIdentifier.KIND_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import com.google.common.base.Optional;
 import java.util.UUID;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.hadoop.io.Text;
+
 import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.AuditLoggerType;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.upgrade.OMLayoutVersionManager;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
-import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.security.OzoneDelegationTokenSecretManager;
 import org.apache.hadoop.ozone.security.OzoneTokenIdentifier;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos
+    .OMRequest;
+import static org.apache.hadoop.ozone.security.OzoneTokenIdentifier.KIND_NAME;
+
 import org.apache.hadoop.ozone.security.proto.SecurityProtos.GetDelegationTokenRequestProto;
 import org.apache.hadoop.security.token.Token;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.io.Text;
+import org.mockito.Mockito;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +64,7 @@ public class TestOMGetDelegationTokenRequest extends
 
   @BeforeEach
   public void setupGetDelegationToken() throws IOException {
-    secretManager = mock(OzoneDelegationTokenSecretManager.class);
+    secretManager = Mockito.mock(OzoneDelegationTokenSecretManager.class);
     when(ozoneManager.getDelegationTokenMgr()).thenReturn(secretManager);
     when(ozoneManager.getAuditLogger()).thenReturn(new AuditLogger(
         AuditLoggerType.OMLOGGER));
@@ -95,8 +94,12 @@ public class TestOMGetDelegationTokenRequest extends
   }
 
   private void verifyUnchangedRequest() {
-    assertEquals(originalRequest.getCmdType(), modifiedRequest.getCmdType());
-    assertEquals(originalRequest.getClientId(), modifiedRequest.getClientId());
+    Assertions.assertEquals(
+        originalRequest.getCmdType(),
+        modifiedRequest.getCmdType());
+    Assertions.assertEquals(
+        originalRequest.getClientId(),
+        modifiedRequest.getClientId());
   }
 
   private void setupToken() {
@@ -138,16 +141,16 @@ public class TestOMGetDelegationTokenRequest extends
         .getTokenRenewInterval();
     long renewInterval = modifiedRequest.getUpdateGetDelegationTokenRequest()
         .getTokenRenewInterval();
-    assertNotEquals(originalInterval, renewInterval);
-    assertEquals(tokenRenewInterval, renewInterval);
+    Assertions.assertNotEquals(originalInterval, renewInterval);
+    Assertions.assertEquals(tokenRenewInterval, renewInterval);
 
     /* In preExecute(), if the token is nonNull
      we set GetDelegationTokenResponse with response. */
-    assertNotEquals(CHECK_RESPONSE,
+    Assertions.assertNotEquals(CHECK_RESPONSE,
         modifiedRequest.getUpdateGetDelegationTokenRequest()
             .getGetDelegationTokenResponse()
             .toString());
-    assertNotNull(modifiedRequest
+    Assertions.assertNotNull(modifiedRequest
         .getUpdateGetDelegationTokenRequest()
         .getGetDelegationTokenResponse());
   }
@@ -162,7 +165,7 @@ public class TestOMGetDelegationTokenRequest extends
 
     /* In preExecute(), if the token is null
      we do not set GetDelegationTokenResponse with response. */
-    assertEquals(CHECK_RESPONSE,
+    Assertions.assertEquals(CHECK_RESPONSE,
         modifiedRequest.getUpdateGetDelegationTokenRequest()
             .getGetDelegationTokenResponse()
             .toString());
@@ -183,8 +186,12 @@ public class TestOMGetDelegationTokenRequest extends
 
     OMClientResponse clientResponse = setValidateAndUpdateCache();
 
-    assertEquals(renewTime, omMetadataManager.getDelegationTokenTable().get(identifier));
-    assertEquals(Status.OK, clientResponse.getOMResponse().getStatus());
+    Optional<Long> responseRenewTime = Optional.fromNullable(
+        omMetadataManager.getDelegationTokenTable().get(identifier));
+    Assertions.assertEquals(Optional.of(renewTime), responseRenewTime);
+
+    Assertions.assertEquals(Status.OK, clientResponse.getOMResponse()
+        .getStatus());
   }
 
   @Test
@@ -196,10 +203,14 @@ public class TestOMGetDelegationTokenRequest extends
 
     boolean hasResponse = modifiedRequest.getUpdateGetDelegationTokenRequest()
         .getGetDelegationTokenResponse().hasResponse();
-    assertFalse(hasResponse);
+    Assertions.assertFalse(hasResponse);
 
-    assertNull(omMetadataManager.getDelegationTokenTable().get(identifier));
-    assertEquals(Status.OK, clientResponse.getOMResponse().getStatus());
+    Optional<Long> responseRenewTime = Optional.fromNullable(
+        omMetadataManager.getDelegationTokenTable().get(identifier));
+    Assertions.assertEquals(Optional.absent(), responseRenewTime);
+
+    Assertions.assertEquals(Status.OK, clientResponse.getOMResponse()
+        .getStatus());
   }
 
   @Test
@@ -213,8 +224,9 @@ public class TestOMGetDelegationTokenRequest extends
 
     boolean hasResponse = modifiedRequest.getUpdateGetDelegationTokenRequest()
         .getGetDelegationTokenResponse().hasResponse();
-    assertTrue(hasResponse);
+    Assertions.assertTrue(hasResponse);
 
-    assertNotEquals(Status.OK, clientResponse.getOMResponse().getStatus());
+    Assertions.assertNotEquals(Status.OK,
+        clientResponse.getOMResponse().getStatus());
   }
 }

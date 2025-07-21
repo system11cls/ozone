@@ -1,13 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,40 +18,15 @@
 
 package org.apache.hadoop.ozone.client.rpc;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
-import static org.apache.hadoop.ozone.OzoneConsts.FORCE_LEASE_RECOVERY_ENV;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_OFS_URI_SCHEME;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_ROOT;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
-import static org.apache.hadoop.ozone.TestDataUtil.cleanupDeletedTable;
-import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ADDRESS_KEY;
-import static org.apache.hadoop.ozone.om.helpers.BucketLayout.FILE_SYSTEM_OPTIMIZED;
-import static org.apache.ozone.test.GenericTestUtils.getTestStartTime;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.io.File;
-import java.io.IOException;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.ozone.RootedOzoneFileSystem;
 import org.apache.hadoop.hdds.HddsConfigKeys;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.container.ContainerInfo;
+import org.apache.hadoop.hdds.scm.protocolPB.StorageContainerLocationProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.security.x509.certificate.client.CertificateClientTestImpl;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
@@ -59,22 +35,25 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
-import org.apache.hadoop.ozone.client.BucketArgs;
+import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.SecretKeyTestClient;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
-import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.S3SecretManager;
-import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
-import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
+import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
+import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateVolumeRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.InfoVolumeRequest;
@@ -88,24 +67,52 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.File;
+import java.io.IOException;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.UUID;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test Ozone Client with block tokens enabled.
+ * This class is to test all the public facing APIs of Ozone Client.
  */
-class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
+public class TestSecureOzoneRpcClient extends TestOzoneRpcClient {
 
-  @TempDir
+  private static MiniOzoneCluster cluster = null;
+  private static OzoneClient ozClient = null;
+  private static ObjectStore store = null;
+  private static OzoneManager ozoneManager;
+  private static StorageContainerLocationProtocolClientSideTranslatorPB
+      storageContainerLocationClient;
+
+  private static final String SCM_ID = UUID.randomUUID().toString();
+  private static final String CLUSTER_ID = UUID.randomUUID().toString();
   private static File testDir;
-  private static String keyProviderUri = "kms://http@localhost:9600/kms";
+  private static OzoneConfiguration conf;
 
+  /**
+   * Create a MiniOzoneCluster for testing.
+   * <p>
+   * Ozone is made active by setting OZONE_ENABLED = true
+   *
+   * @throws IOException
+   */
   @BeforeAll
   public static void init() throws Exception {
+    testDir = GenericTestUtils.getTestDir(
+        TestSecureOzoneRpcClient.class.getSimpleName());
     OzoneManager.setTestSecureOmFlag(true);
-    OzoneConfiguration conf = new OzoneConfiguration();
-    conf.set(OZONE_METADATA_DIRS, testDir.getAbsolutePath());
+    conf = new OzoneConfiguration();
+    conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, testDir.getAbsolutePath());
     conf.setInt(ScmConfigKeys.OZONE_SCM_PIPELINE_OWNER_CONTAINER_COUNT, 1);
     conf.setBoolean(HddsConfigKeys.HDDS_BLOCK_TOKEN_ENABLED, true);
     conf.set(OZONE_METADATA_DIRS, testDir.getAbsolutePath());
@@ -114,16 +121,32 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
         OzoneConfigKeys.OZONE_ACL_AUTHORIZER_CLASS_NATIVE);
     CertificateClientTestImpl certificateClientTest =
         new CertificateClientTestImpl(conf);
-    conf.setBoolean(OzoneConfigKeys.OZONE_HBASE_ENHANCEMENTS_ALLOWED, true);
-    conf.setBoolean("ozone.client.hbase.enhancements.allowed", true);
-    conf.setBoolean(OzoneConfigKeys.OZONE_FS_HSYNC_ENABLED, true);
-    conf.set(CommonConfigurationKeysPublic.HADOOP_SECURITY_KEY_PROVIDER_PATH,
-        keyProviderUri);
-    MiniOzoneCluster.Builder builder = MiniOzoneCluster.newBuilder(conf)
+    // These tests manually insert keys into RocksDB. This is easier to do
+    // with object store layout so keys with path IDs do not need to be
+    // constructed.
+    conf.set(OMConfigKeys.OZONE_DEFAULT_BUCKET_LAYOUT,
+        OMConfigKeys.OZONE_BUCKET_LAYOUT_OBJECT_STORE);
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(14)
+        .setScmId(SCM_ID)
+        .setClusterId(CLUSTER_ID)
         .setCertificateClient(certificateClientTest)
-        .setSecretKeyClient(new SecretKeyTestClient());
-    startCluster(conf, builder);
-    getCluster().getOzoneManager().startSecretManager();
+        .setSecretKeyClient(new SecretKeyTestClient())
+        .build();
+    cluster.getOzoneManager().startSecretManager();
+    cluster.waitForClusterToBeReady();
+    ozClient = OzoneClientFactory.getRpcClient(conf);
+    store = ozClient.getObjectStore();
+    storageContainerLocationClient =
+        cluster.getStorageContainerLocationClient();
+    ozoneManager = cluster.getOzoneManager();
+    TestOzoneRpcClient.setCluster(cluster);
+    TestOzoneRpcClient.setOzClient(ozClient);
+    TestOzoneRpcClient.setOzoneManager(ozoneManager);
+    TestOzoneRpcClient.setStorageContainerLocationClient(
+        storageContainerLocationClient);
+    TestOzoneRpcClient.setStore(store);
+    TestOzoneRpcClient.setClusterId(CLUSTER_ID);
   }
 
   /**
@@ -136,31 +159,30 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
   public void testPutKeySuccessWithBlockToken() throws Exception {
     testPutKeySuccessWithBlockTokenWithBucketLayout(BucketLayout.OBJECT_STORE);
     testPutKeySuccessWithBlockTokenWithBucketLayout(
-        FILE_SYSTEM_OPTIMIZED);
+        BucketLayout.FILE_SYSTEM_OPTIMIZED);
   }
 
   private void testPutKeySuccessWithBlockTokenWithBucketLayout(
       BucketLayout bucketLayout) throws Exception {
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
-    Instant testStartTime = getTestStartTime();
-    OzoneManager ozoneManager = getCluster().getOzoneManager();
+    Instant testStartTime = Instant.now();
     OMMetadataManager omMetadataManager = ozoneManager.getMetadataManager();
 
     String value = "sample value";
-    getStore().createVolume(volumeName);
-    OzoneVolume volume = getStore().getVolume(volumeName);
+    store.createVolume(volumeName);
+    OzoneVolume volume = store.getVolume(volumeName);
     volume.createBucket(bucketName,
         new BucketArgs.Builder().setBucketLayout(bucketLayout).build());
     OzoneBucket bucket = volume.getBucket(bucketName);
 
-    RatisReplicationConfig replication = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE);
     for (int i = 0; i < 10; i++) {
       String keyName = UUID.randomUUID().toString();
 
       long committedBytes = ozoneManager.getMetrics().getDataCommittedBytes();
       try (OzoneOutputStream out = bucket.createKey(keyName,
-          value.getBytes(UTF_8).length, replication, new HashMap<>())) {
+          value.getBytes(UTF_8).length, ReplicationType.RATIS,
+          ReplicationFactor.ONE, new HashMap<>())) {
         out.write(value.getBytes(UTF_8));
       }
 
@@ -198,138 +220,13 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
         }
       }
 
-      verifyReplication(volumeName, bucketName, keyName, replication);
+
+      assertTrue(verifyRatisReplication(volumeName, bucketName,
+          keyName, ReplicationType.RATIS,
+          ReplicationFactor.ONE));
       assertEquals(value, new String(fileContent, UTF_8));
       assertFalse(key.getCreationTime().isBefore(testStartTime));
       assertFalse(key.getModificationTime().isBefore(testStartTime));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testFileRecovery(boolean forceRecovery) throws Exception {
-    OzoneConfiguration conf = getCluster().getConf();
-    String volumeName = UUID.randomUUID().toString();
-    String bucketName = UUID.randomUUID().toString();
-
-    String value = "sample value";
-    getStore().createVolume(volumeName);
-    OzoneVolume volume = getStore().getVolume(volumeName);
-    volume.createBucket(bucketName,
-        new BucketArgs.Builder().setBucketLayout(FILE_SYSTEM_OPTIMIZED).build());
-    OzoneBucket bucket = volume.getBucket(bucketName);
-
-    String keyName = UUID.randomUUID().toString();
-    final String dir = OZONE_ROOT + bucket.getVolumeName() + OZONE_URI_DELIMITER + bucket.getName();
-    final Path file = new Path(dir, keyName);
-
-    // Set the fs.defaultFS
-    final String rootPath = String.format("%s://%s/",
-        OZONE_OFS_URI_SCHEME, conf.get(OZONE_OM_ADDRESS_KEY));
-    conf.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, rootPath);
-    // force recovery file
-    System.setProperty(FORCE_LEASE_RECOVERY_ENV, String.valueOf(forceRecovery));
-    conf.setBoolean(String.format("fs.%s.impl.disable.cache", OZONE_OFS_URI_SCHEME), true);
-    try (RootedOzoneFileSystem fs = (RootedOzoneFileSystem) FileSystem.get(conf)) {
-      OzoneOutputStream out = null;
-      try {
-        out = bucket.createKey(keyName, value.getBytes(UTF_8).length, ReplicationType.RATIS,
-            ReplicationFactor.THREE, new HashMap<>());
-        out.write(value.getBytes(UTF_8));
-        out.hsync();
-
-        if (forceRecovery) {
-          fs.recoverLease(file);
-        } else {
-          assertThrows(OMException.class, () -> fs.recoverLease(file));
-        }
-      } finally {
-        if (out != null) {
-          if (forceRecovery) {
-            // close failure because the key is already committed
-            assertThrows(OMException.class, out::close);
-          } else {
-            out.close();
-          }
-        }
-      }
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1 << 24, (1 << 24) + 1, (1 << 24) - 1})
-  public void testPreallocateFileRecovery(long dataSize) throws Exception {
-    OzoneConfiguration conf = getCluster().getConf();
-    cleanupDeletedTable(getCluster().getOzoneManager());
-    String volumeName = UUID.randomUUID().toString();
-    String bucketName = UUID.randomUUID().toString();
-
-    final byte[] data = new byte[(int) dataSize];
-    ThreadLocalRandom.current().nextBytes(data);
-
-    getStore().createVolume(volumeName);
-    OzoneVolume volume = getStore().getVolume(volumeName);
-    long nsQuota = 100;
-    long spaceQuota = 1 * 1024 * 1024 * 1024;
-    volume.createBucket(bucketName, new BucketArgs.Builder().setBucketLayout(FILE_SYSTEM_OPTIMIZED)
-        .setQuotaInNamespace(nsQuota).setQuotaInBytes(spaceQuota).build());
-    OzoneBucket bucket = volume.getBucket(bucketName);
-
-    String keyName = UUID.randomUUID().toString();
-    final String dir = OZONE_ROOT + bucket.getVolumeName() + OZONE_URI_DELIMITER + bucket.getName();
-    final Path file = new Path(dir, keyName);
-
-    // Set the fs.defaultFS
-    final String rootPath = String.format("%s://%s/",
-        OZONE_OFS_URI_SCHEME, conf.get(OZONE_OM_ADDRESS_KEY));
-    conf.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, rootPath);
-    try (RootedOzoneFileSystem fs = (RootedOzoneFileSystem) FileSystem.get(conf)) {
-      OzoneOutputStream out = null;
-      long totalBlock = 10;
-      long usedBlock = (dataSize - 1) / fs.getDefaultBlockSize() + 1;
-      long fileSize = fs.getDefaultBlockSize() * totalBlock;
-      OMMetrics metrics = getCluster().getOzoneManager().getMetrics();
-      long committedBytes = metrics.getDataCommittedBytes();
-      try {
-        out = bucket.createKey(keyName, fileSize, ReplicationType.RATIS,
-            ReplicationFactor.THREE, new HashMap<>());
-        // init used quota check
-        bucket = volume.getBucket(bucketName);
-        assertEquals(0, bucket.getUsedNamespace());
-        assertEquals(0, bucket.getUsedBytes());
-
-        out.write(data);
-        out.hsync();
-        fs.recoverLease(file);
-
-        // check file length
-        FileStatus fileStatus = fs.getFileStatus(file);
-        assertEquals(dataSize, fileStatus.getLen());
-        // check committed bytes
-        assertEquals(committedBytes + dataSize,
-            getCluster().getOzoneManager().getMetrics().getDataCommittedBytes());
-        // check used quota
-        bucket = volume.getBucket(bucketName);
-        assertEquals(1, bucket.getUsedNamespace());
-        assertEquals(dataSize * ReplicationFactor.THREE.getValue(), bucket.getUsedBytes());
-
-        // check unused pre-allocated blocks are reclaimed
-        Table<String, RepeatedOmKeyInfo> deletedTable =
-            getCluster().getOzoneManager().getMetadataManager().getDeletedTable();
-        try (TableIterator<String, ? extends Table.KeyValue<String, RepeatedOmKeyInfo>>
-                 keyIter = deletedTable.iterator()) {
-          while (keyIter.hasNext()) {
-            Table.KeyValue<String, RepeatedOmKeyInfo> kv = keyIter.next();
-            OmKeyInfo key = kv.getValue().getOmKeyInfoList().get(0);
-            assertEquals(totalBlock - usedBlock, key.getKeyLocationVersions().get(0).getLocationListCount());
-          }
-        }
-      } finally {
-        if (out != null) {
-          // close failure because the key is already committed
-          assertThrows(OMException.class, out::close);
-        }
-      }
     }
   }
 
@@ -361,7 +258,7 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
 
     String accessKey = UserGroupInformation.getCurrentUser().getUserName();
 
-    S3SecretManager s3SecretManager = getCluster().getOzoneManager()
+    S3SecretManager s3SecretManager = cluster.getOzoneManager()
         .getS3SecretManager();
 
     // Add secret to S3Secret table.
@@ -381,9 +278,9 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
             .setSignature(signature).setStringToSign(strToSign))
         .build();
 
-    GenericTestUtils.waitFor(() -> getCluster().getOzoneManager().isLeaderReady(),
+    GenericTestUtils.waitFor(() -> cluster.getOzoneManager().isLeaderReady(),
         100, 120000);
-    OMResponse omResponse = getCluster().getOzoneManager().getOmServerProtocol()
+    OMResponse omResponse = cluster.getOzoneManager().getOmServerProtocol()
         .submitRequest(null, writeRequest);
 
     // Verify response.
@@ -401,7 +298,7 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
             .setSignature(signature).setStringToSign(strToSign))
         .build();
 
-    omResponse = getCluster().getOzoneManager().getOmServerProtocol()
+    omResponse = cluster.getOzoneManager().getOmServerProtocol()
         .submitRequest(null, readRequest);
 
     // Verify response.
@@ -418,14 +315,40 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
         .storeSecret(accessKey, S3SecretValue.of(accessKey, "dummy"));
 
     // Write request with invalid credentials.
-    omResponse = getCluster().getOzoneManager().getOmServerProtocol()
+    omResponse = cluster.getOzoneManager().getOmServerProtocol()
         .submitRequest(null, writeRequest);
     assertEquals(Status.INVALID_TOKEN, omResponse.getStatus());
 
     // Read request with invalid credentials.
-    omResponse = getCluster().getOzoneManager().getOmServerProtocol()
+    omResponse = cluster.getOzoneManager().getOmServerProtocol()
         .submitRequest(null, readRequest);
     assertEquals(Status.INVALID_TOKEN, omResponse.getStatus());
+  }
+
+  private boolean verifyRatisReplication(String volumeName, String bucketName,
+      String keyName, ReplicationType type, ReplicationFactor factor)
+      throws IOException {
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setKeyName(keyName)
+        .build();
+    HddsProtos.ReplicationType replicationType =
+        HddsProtos.ReplicationType.valueOf(type.toString());
+    HddsProtos.ReplicationFactor replicationFactor =
+        HddsProtos.ReplicationFactor.valueOf(factor.getValue());
+    OmKeyInfo keyInfo = ozoneManager.lookupKey(keyArgs);
+    for (OmKeyLocationInfo info:
+        keyInfo.getLatestVersionLocations().getLocationList()) {
+      ContainerInfo container =
+          storageContainerLocationClient.getContainer(info.getContainerID());
+      if (!ReplicationConfig.getLegacyFactor(container.getReplicationConfig())
+          .equals(replicationFactor) || (
+          container.getReplicationType() != replicationType)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Test
@@ -434,16 +357,21 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
   public void testZReadKeyWithUnhealthyContainerReplica() {
   }
 
-  @Override
-  @Test
-  public void testGetServerDefaults() throws IOException {
-    assertNotNull(getClient().getProxy().getServerDefaults());
-    assertEquals(keyProviderUri,
-        getClient().getProxy().getServerDefaults().getKeyProviderUri());
-  }
-
+  /**
+   * Close OzoneClient and shutdown MiniOzoneCluster.
+   */
   @AfterAll
   public static void shutdown() throws IOException {
-    shutdownCluster();
+    if (ozClient != null) {
+      ozClient.close();
+    }
+
+    if (storageContainerLocationClient != null) {
+      storageContainerLocationClient.close();
+    }
+
+    if (cluster != null) {
+      cluster.shutdown();
+    }
   }
 }

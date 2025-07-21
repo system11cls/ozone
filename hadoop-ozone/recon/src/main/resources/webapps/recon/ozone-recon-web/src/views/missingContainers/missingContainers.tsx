@@ -23,12 +23,11 @@ import { Table, Tooltip, Tabs } from 'antd';
 import { TablePaginationConfig } from 'antd/es/table';
 import { InfoCircleOutlined } from '@ant-design/icons';
 
-import { ColumnSearch } from '@/utils/columnSearch';
 import { showDataFetchError, timeFormat } from '@/utils/common';
+import { ColumnSearch } from '@/utils/columnSearch';
 import { AxiosGetHelper, cancelRequests } from '@/utils/axiosRequestHelper';
 
 import './missingContainers.less';
-
 
 const size = filesize.partial({ standard: 'iec' });
 
@@ -287,12 +286,7 @@ export class MissingContainers extends React.Component<Record<string, object>, I
       this.setState(({ expandedRowData }) => {
         const expandedRowState: IExpandedRowState = expandedRowData[record.containerID]
           ? Object.assign({}, expandedRowData[record.containerID], { loading: true })
-          : {
-            containerId: record.containerID,
-            loading: true,
-            dataSource: [],
-            totalCount: 0
-          };
+          : { containerId: record.containerID, loading: true, dataSource: [], totalCount: 0 };
         return {
           expandedRowData: Object.assign({}, expandedRowData, { [record.containerID]: expandedRowState })
         };
@@ -386,7 +380,7 @@ export class MissingContainers extends React.Component<Record<string, object>, I
         columns={this.searchColumn()}
         loading={loading}
         pagination={paginationConfig} rowKey='containerID'
-        locale={{ filterTitle: "" }} />
+        locale={{ filterTitle: '' }} />
     }
 
     return (
@@ -396,24 +390,16 @@ export class MissingContainers extends React.Component<Record<string, object>, I
         </div>
         <div className='content-div'>
           <Tabs defaultActiveKey='1'>
-            <Tabs.TabPane
-              key='1'
-              tab={`Missing (${missingDataSource?.length ?? 0})`}>
+            <Tabs.TabPane key='1' tab={`Missing${(missingDataSource && missingDataSource.length > 0) ? ` (${missingDataSource.length})` : ''}`}>
               {generateTable(missingDataSource)}
             </Tabs.TabPane>
-            <Tabs.TabPane
-              key='2'
-              tab={`Under-Replicated (${underReplicatedDataSource?.length ?? 0})`}>
+            <Tabs.TabPane key='2' tab={`Under-Replicated${(underReplicatedDataSource && underReplicatedDataSource.length > 0) ? ` (${underReplicatedDataSource.length})` : ''}`}>
               {generateTable(underReplicatedDataSource)}
             </Tabs.TabPane>
-            <Tabs.TabPane
-              key='3'
-              tab={`Over-Replicated (${overReplicatedDataSource?.length ?? 0})`}>
+            <Tabs.TabPane key='3' tab={`Over-Replicated${(overReplicatedDataSource && overReplicatedDataSource.length > 0) ? ` (${overReplicatedDataSource.length})` : ''}`}>
               {generateTable(overReplicatedDataSource)}
             </Tabs.TabPane>
-            <Tabs.TabPane
-              key='4'
-              tab={`Mis-Replicated (${misReplicatedDataSource?.length ?? 0})`}>
+            <Tabs.TabPane key='4' tab={`Mis-Replicated${(misReplicatedDataSource && misReplicatedDataSource.length > 0) ? ` (${misReplicatedDataSource.length})` : ''}`}>
               {generateTable(misReplicatedDataSource)}
             </Tabs.TabPane>
           </Tabs>

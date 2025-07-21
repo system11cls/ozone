@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,22 +18,6 @@
 
 package org.apache.hadoop.hdds.scm.upgrade;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.matches;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.Arrays;
-import java.util.UUID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ha.SCMContext;
 import org.apache.hadoop.hdds.scm.ha.SCMHAManager;
@@ -51,15 +36,24 @@ import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
 import org.apache.hadoop.hdds.upgrade.HDDSLayoutVersionManager;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneConsts;
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization;
-import org.apache.hadoop.ozone.upgrade.UpgradeFinalization.StatusAndMessages;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer;
+import org.apache.hadoop.ozone.upgrade.UpgradeFinalizer.StatusAndMessages;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InOrder;
+import org.mockito.Mockito;
 import org.mockito.verification.VerificationMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests SCM finalization operations on mocked upgrade state.
@@ -107,9 +101,9 @@ public class TestScmFinalization {
     // test.
     FinalizationStateManager stateManager =
         new FinalizationStateManagerTestImpl.Builder()
-            .setFinalizationStore(mock(Table.class))
-            .setRatisServer(mock(SCMRatisServer.class))
-            .setTransactionBuffer(mock(DBTransactionBuffer.class))
+            .setFinalizationStore(Mockito.mock(Table.class))
+            .setRatisServer(Mockito.mock(SCMRatisServer.class))
+            .setTransactionBuffer(Mockito.mock(DBTransactionBuffer.class))
             .setUpgradeFinalizer(new SCMUpgradeFinalizer(versionManager))
             .build();
 
@@ -121,11 +115,11 @@ public class TestScmFinalization {
         new SCMUpgradeFinalizationContext.Builder()
         .setConfiguration(new OzoneConfiguration())
         .setFinalizationStateManager(stateManager)
-        .setStorage(mock(SCMStorageConfig.class))
+        .setStorage(Mockito.mock(SCMStorageConfig.class))
         .setLayoutVersionManager(versionManager)
         .setSCMContext(scmContext)
         .setPipelineManager(pipelineManager)
-        .setNodeManager(mock(NodeManager.class))
+        .setNodeManager(Mockito.mock(NodeManager.class))
         .build();
     stateManager.setUpgradeContext(context);
 
@@ -200,11 +194,11 @@ public class TestScmFinalization {
         getMockTableFromCheckpoint(initialCheckpoint);
     HDDSLayoutVersionManager versionManager =
         getMockVersionManagerFromCheckpoint(initialCheckpoint);
-    SCMHAManager haManager = mock(SCMHAManager.class);
-    DBTransactionBuffer buffer = mock(DBTransactionBuffer.class);
-    when(haManager.getDBTransactionBuffer()).thenReturn(buffer);
-    NodeManager nodeManager = mock(NodeManager.class);
-    SCMStorageConfig storage = mock(SCMStorageConfig.class);
+    SCMHAManager haManager = Mockito.mock(SCMHAManager.class);
+    DBTransactionBuffer buffer = Mockito.mock(DBTransactionBuffer.class);
+    Mockito.when(haManager.getDBTransactionBuffer()).thenReturn(buffer);
+    NodeManager nodeManager = Mockito.mock(NodeManager.class);
+    SCMStorageConfig storage = Mockito.mock(SCMStorageConfig.class);
     SCMContext scmContext = SCMContext.emptyContext();
     scmContext.setFinalizationCheckpoint(initialCheckpoint);
     PipelineManager pipelineManager =
@@ -213,7 +207,7 @@ public class TestScmFinalization {
     FinalizationStateManager stateManager =
         new FinalizationStateManagerTestImpl.Builder()
             .setFinalizationStore(finalizationStore)
-            .setRatisServer(mock(SCMRatisServer.class))
+            .setRatisServer(Mockito.mock(SCMRatisServer.class))
             .setTransactionBuffer(buffer)
             .setUpgradeFinalizer(new SCMUpgradeFinalizer(versionManager))
             .build();
@@ -236,28 +230,28 @@ public class TestScmFinalization {
     assertEquals(getStatusFromCheckpoint(initialCheckpoint).status(),
         status.status());
 
-    InOrder inOrder = inOrder(buffer, pipelineManager, nodeManager,
+    InOrder inOrder = Mockito.inOrder(buffer, pipelineManager, nodeManager,
         storage);
 
     // Once the initial checkpoint's operations are crossed, this count will
     // be increased to 1 to indicate where finalization should have resumed
     // from.
-    VerificationMode count = never();
+    VerificationMode count = Mockito.never();
     if (initialCheckpoint == FinalizationCheckpoint.FINALIZATION_REQUIRED) {
-      count = times(1);
+      count = Mockito.times(1);
     }
 
     // First, SCM should mark that it is beginning finalization.
     inOrder.verify(buffer, count).addToBuffer(
-        eq(finalizationStore),
-        matches(OzoneConsts.FINALIZING_KEY),
-        matches(""));
+        ArgumentMatchers.eq(finalizationStore),
+        ArgumentMatchers.matches(OzoneConsts.FINALIZING_KEY),
+        ArgumentMatchers.matches(""));
 
     // Next, all pipeline creation should be stopped.
     inOrder.verify(pipelineManager, count).freezePipelineCreation();
 
     if (initialCheckpoint == FinalizationCheckpoint.FINALIZATION_STARTED) {
-      count = times(1);
+      count = Mockito.times(1);
     }
 
     // Next, each layout feature should be finalized.
@@ -273,24 +267,24 @@ public class TestScmFinalization {
           inOrder.verify(nodeManager, count).forceNodesToHealthyReadOnly();
         }
         inOrder.verify(buffer, count).addToBuffer(
-            eq(finalizationStore),
-            matches(OzoneConsts.LAYOUT_VERSION_KEY),
-            eq(String.valueOf(feature.layoutVersion())));
+            ArgumentMatchers.eq(finalizationStore),
+            ArgumentMatchers.matches(OzoneConsts.LAYOUT_VERSION_KEY),
+            ArgumentMatchers.eq(String.valueOf(feature.layoutVersion())));
       }
     }
     // If this was not called in the loop, there was an error. To detect this
     // mistake, verify again here.
-    verify(nodeManager, count).forceNodesToHealthyReadOnly();
+    Mockito.verify(nodeManager, count).forceNodesToHealthyReadOnly();
 
     if (initialCheckpoint == FinalizationCheckpoint.MLV_EQUALS_SLV) {
-      count = times(1);
+      count = Mockito.times(1);
     }
 
     // Last, the finalizing mark is removed to indicate finalization is
     // complete.
     inOrder.verify(buffer, count).removeFromBuffer(
-        eq(finalizationStore),
-        matches(OzoneConsts.FINALIZING_KEY));
+        ArgumentMatchers.eq(finalizationStore),
+        ArgumentMatchers.matches(OzoneConsts.FINALIZING_KEY));
 
     // If the initial checkpoint was FINALIZATION_COMPLETE, no mocks should
     // have been invoked.
@@ -308,9 +302,9 @@ public class TestScmFinalization {
    */
   private Table<String, String> getMockTableFromCheckpoint(
       FinalizationCheckpoint initialCheckpoint) throws Exception {
-    Table<String, String> finalizationStore = mock(Table.class);
-    when(finalizationStore
-            .isExist(eq(OzoneConsts.FINALIZING_KEY)))
+    Table<String, String> finalizationStore = Mockito.mock(Table.class);
+    Mockito.when(finalizationStore
+            .isExist(ArgumentMatchers.eq(OzoneConsts.FINALIZING_KEY)))
         .thenReturn(initialCheckpoint.needsFinalizingMark());
     return finalizationStore;
   }
@@ -336,32 +330,32 @@ public class TestScmFinalization {
   private StatusAndMessages getStatusFromCheckpoint(
       FinalizationCheckpoint initialCheckpoint) {
     if (initialCheckpoint == FinalizationCheckpoint.FINALIZATION_COMPLETE) {
-      return UpgradeFinalization.FINALIZED_MSG;
+      return UpgradeFinalizer.FINALIZED_MSG;
     } else {
-      return UpgradeFinalization.STARTING_MSG;
+      return UpgradeFinalizer.STARTING_MSG;
     }
   }
 
   private PipelineManager getMockPipelineManager(
       FinalizationCheckpoint inititalCheckpoint) {
-    PipelineManager pipelineManager = mock(PipelineManager.class);
+    PipelineManager pipelineManager = Mockito.mock(PipelineManager.class);
     // After finalization, SCM will wait for at least one pipeline to be
     // created. It does not care about the contents of the pipeline list, so
     // just return something with length >= 1.
-    when(pipelineManager.getPipelines(any(),
-        any())).thenReturn(Arrays.asList(null, null, null));
+    Mockito.when(pipelineManager.getPipelines(Mockito.any(),
+        Mockito.any())).thenReturn(Arrays.asList(null, null, null));
 
     // Set the initial value for pipeline creation based on the checkpoint.
     // In a real cluster, this would be set on startup of the
     // PipelineManagerImpl.
     pipelineCreationFrozen =
         !FinalizationManager.shouldCreateNewPipelines(inititalCheckpoint);
-    doAnswer(args -> pipelineCreationFrozen = true)
+    Mockito.doAnswer(args -> pipelineCreationFrozen = true)
         .when(pipelineManager).freezePipelineCreation();
-    doAnswer(args -> pipelineCreationFrozen = false)
+    Mockito.doAnswer(args -> pipelineCreationFrozen = false)
         .when(pipelineManager).resumePipelineCreation();
 
-    doAnswer(args -> pipelineCreationFrozen)
+    Mockito.doAnswer(args -> pipelineCreationFrozen)
         .when(pipelineManager).isPipelineCreationFrozen();
 
     return pipelineManager;

@@ -1,10 +1,11 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -13,38 +14,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hadoop.ozone.om.snapshot;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
-import static org.apache.hadoop.ozone.OzoneConsts.OZONE_OFS_URI_SCHEME;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.fs.ozone.OzoneFsShell;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.HddsWhiteboxTestUtils;
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.MiniOzoneHAClusterImpl;
-import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.om.KeyManagerImpl;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OMStorage;
@@ -55,12 +43,28 @@ import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
+import static org.apache.hadoop.ozone.OzoneConsts.OZONE_OFS_URI_SCHEME;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
  * Tests Snapshot Restore function.
@@ -69,7 +73,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @Timeout(value = 300)
 public class TestOzoneSnapshotRestore {
   private static final String OM_SERVICE_ID = "om-service-test-1";
-  private MiniOzoneHAClusterImpl cluster;
+  private MiniOzoneCluster cluster;
   private ObjectStore store;
   private OzoneManager leaderOzoneManager;
   private OzoneConfiguration clientConf;
@@ -100,19 +104,24 @@ public class TestOzoneSnapshotRestore {
     // Enable filesystem snapshot feature for the test regardless of the default
     conf.setBoolean(OMConfigKeys.OZONE_FILESYSTEM_SNAPSHOT_ENABLED_KEY, true);
 
+    String clusterId = UUID.randomUUID().toString();
+    String scmId = UUID.randomUUID().toString();
     String serviceID = OM_SERVICE_ID + RandomStringUtils.randomNumeric(5);
 
-    cluster = MiniOzoneCluster.newHABuilder(conf)
+    cluster = MiniOzoneCluster.newOMHABuilder(conf)
+            .setClusterId(clusterId)
+            .setScmId(scmId)
             .setOMServiceId(serviceID)
             .setNumOfOzoneManagers(3)
             .build();
     cluster.waitForClusterToBeReady();
 
-    leaderOzoneManager = cluster.getOMLeader();
+    leaderOzoneManager = ((MiniOzoneHAClusterImpl) cluster).getOMLeader();
     OzoneConfiguration leaderConfig = leaderOzoneManager.getConfiguration();
+    cluster.setConf(leaderConfig);
 
     String hostPrefix = OZONE_OFS_URI_SCHEME + "://" + serviceID;
-    clientConf = new OzoneConfiguration(leaderConfig);
+    clientConf = new OzoneConfiguration(cluster.getConf());
     clientConf.set(FS_DEFAULT_NAME_KEY, hostPrefix);
 
     client = cluster.newClient();
@@ -187,7 +196,7 @@ public class TestOzoneSnapshotRestore {
       // Copy key from source to destination path
       int res = ToolRunner.run(shell,
               new String[]{"-cp", sourcePath, destPath});
-      assertEquals(0, res);
+      Assertions.assertEquals(0, res);
     } finally {
       shell.close();
     }
